@@ -129,7 +129,9 @@ private:
         Switch switch_right : 2;
         Switch switch_left  : 2;
     };
-    std::atomic<Dr16DataPart1> data_part1_;
+    std::atomic<Dr16DataPart1> data_part1_{
+        Dr16DataPart1{1024, 1024, 1024, 1024, Switch::DOWN, Switch::DOWN}
+    };
     static_assert(decltype(data_part1_)::is_always_lock_free);
 
     struct __attribute__((packed, aligned(8))) Dr16DataPart2 {
@@ -140,14 +142,18 @@ private:
         bool mouse_left;
         bool mouse_right;
     };
-    std::atomic<Dr16DataPart2> data_part2_;
+    std::atomic<Dr16DataPart2> data_part2_{
+        Dr16DataPart2{0, 0, 0, false, false}
+    };
     static_assert(decltype(data_part2_)::is_always_lock_free);
 
     struct __attribute__((packed, aligned(4))) Dr16DataPart3 {
         Keyboard keyboard;
         uint16_t unused;
     };
-    std::atomic<Dr16DataPart3> data_part3_;
+    std::atomic<Dr16DataPart3> data_part3_ = {
+        Dr16DataPart3{Keyboard::zero(), 0}
+    };
     static_assert(decltype(data_part3_)::is_always_lock_free);
 
     Vector joystick_right_ = Vector::zero();
@@ -162,4 +168,4 @@ private:
     Keyboard keyboard_ = Keyboard::zero();
 };
 
-} // namespace rmcs_core::hardware::device
+} // namespace rmcs::device
