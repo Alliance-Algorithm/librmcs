@@ -7,11 +7,15 @@
 
 namespace rmcs::device {
 
-template <double sample_freq, double kp, double ki>
 class Imu {
 public:
-    explicit Imu(double q0 = 1, double q1 = 0, double q2 = 0, double q3 = 0)
-        : q0_(q0)
+    explicit Imu(
+        double sample_freq, double kp, double ki, double q0 = 1, double q1 = 0, double q2 = 0,
+        double q3 = 0)
+        : inv_sample_freq_(1.0 / sample_freq)
+        , double_kp_(2.0 * kp)
+        , double_ki_(2.0 * ki)
+        , q0_(q0)
         , q1_(q1)
         , q2_(q2)
         , q3_(q3){};
@@ -39,13 +43,18 @@ public:
         mahony_ahrs_update_imu();
     }
 
-    double ax() { return ax_; }
-    double ay() { return ay_; }
-    double az() { return az_; }
+    double ax() const { return ax_; }
+    double ay() const { return ay_; }
+    double az() const { return az_; }
 
-    double gx() { return gx_; }
-    double gy() { return gy_; }
-    double gz() { return gz_; }
+    double gx() const { return gx_; }
+    double gy() const { return gy_; }
+    double gz() const { return gz_; }
+
+    double q0() const { return q0_; }
+    double q1() const { return q1_; }
+    double q2() const { return q2_; }
+    double q3() const { return q3_; }
 
 private:
     void mahony_ahrs_update_imu() {
@@ -78,11 +87,11 @@ private:
             halfez = ax_ * halfvy - ay_ * halfvx;
 
             // Compute and apply integral feedback if enabled
-            if (ki > 0.0) {
+            if (double_ki_ > 0.0) {
                 // integral error scaled by Ki
-                integral_fbx_ += 2.0 * ki * halfex * (1.0 / sample_freq);
-                integral_fby_ += 2.0 * ki * halfey * (1.0 / sample_freq);
-                integral_fbz_ += 2.0 * ki * halfez * (1.0 / sample_freq);
+                integral_fbx_ += double_ki_ * halfex * (inv_sample_freq_);
+                integral_fby_ += double_ki_ * halfey * (inv_sample_freq_);
+                integral_fbz_ += double_ki_ * halfez * (inv_sample_freq_);
                 // apply integral feedback
                 gx_ += integral_fbx_;
                 gy_ += integral_fby_;
@@ -95,15 +104,15 @@ private:
             }
 
             // Apply proportional feedback
-            gx_ += 2.0 * kp * halfex;
-            gy_ += 2.0 * kp * halfey;
-            gz_ += 2.0 * kp * halfez;
+            gx_ += double_kp_ * halfex;
+            gy_ += double_kp_ * halfey;
+            gz_ += double_kp_ * halfez;
         }
 
         // Integrate rate of change of quaternion
-        gx_ *= (0.5 * (1.0 / sample_freq)); // pre-multiply common factors
-        gy_ *= (0.5 * (1.0 / sample_freq));
-        gz_ *= (0.5 * (1.0 / sample_freq));
+        gx_ *= (0.5 * (inv_sample_freq_)); // pre-multiply common factors
+        gy_ *= (0.5 * (inv_sample_freq_));
+        gz_ *= (0.5 * (inv_sample_freq_));
         qa = q0_;
         qb = q1_;
         qc = q2_;
@@ -120,6 +129,10 @@ private:
         q3_ *= recip_norm;
     }
 
+    double inv_sample_freq_; // The reciprocal of sampling frequency
+    double double_kp_;       // 2 * proportional gain (Kp)
+    double double_ki_;       // 2 * integral gain (Ki)
+
     struct alignas(8) ImuData {
         int16_t x, y, z;
     };
@@ -135,4 +148,4 @@ private:
     double integral_fbx_ = 0.0, integral_fby_ = 0.0, integral_fbz_ = 0.0;
 };
 
-} // namespace rmcs_core::hardware::device
+} // namespace rmcs::device
