@@ -16,7 +16,7 @@ public:
             size = 2;
         else
             size = round_up_to_next_power_of_2(size);
-        mask     = size - 1;
+        mask = size - 1;
         storage_ = new Storage[size];
     };
 
@@ -32,7 +32,7 @@ public:
      * \return Number of elements that can be read
      */
     size_t readable() const {
-        return in_.load(std::memory_order_acquire) - out_.load(std::memory_order_relaxed);
+        return in_.load(std::memory_order::acquire) - out_.load(std::memory_order::relaxed);
     }
 
     /*!
@@ -41,7 +41,7 @@ public:
      */
     size_t writeable() const {
         return max_size()
-             - (in_.load(std::memory_order_relaxed) - out_.load(std::memory_order_acquire));
+             - (in_.load(std::memory_order::relaxed) - out_.load(std::memory_order::acquire));
     }
 
     /*!
@@ -52,9 +52,9 @@ public:
      * \return Pointer to first element, nullptr if buffer was empty
      */
     T* front() {
-        auto out = out_.load(std::memory_order_relaxed);
+        auto out = out_.load(std::memory_order::relaxed);
 
-        if (out == in_.load(std::memory_order_acquire))
+        if (out == in_.load(std::memory_order::acquire))
             return nullptr;
         else
             return std::launder(reinterpret_cast<T*>(storage_[out & mask].data));
@@ -68,21 +68,19 @@ public:
      * \return Pointer to last element, nullptr if buffer was empty
      */
     T* back() {
-        auto in = in_.load(std::memory_order_acquire);
+        auto in = in_.load(std::memory_order::acquire);
 
-        if (in == out_.load(std::memory_order_relaxed))
+        if (in == out_.load(std::memory_order::relaxed))
             return nullptr;
         else
             return std::launder(reinterpret_cast<T*>(storage_[in & mask].data));
     }
 
     template <typename F>
-    // requires requires(F f, std::byte* storage) {
-    //     f(storage);
-    // }
+    requires requires(F f, std::byte* storage) { f(storage); }
     size_t emplace_back_multi(F construct_functor, size_t count = -1) {
-        auto in  = in_.load(std::memory_order_relaxed);
-        auto out = out_.load(std::memory_order_acquire);
+        auto in = in_.load(std::memory_order::relaxed);
+        auto out = out_.load(std::memory_order::acquire);
 
         auto writeable = max_size() - (in - out);
 
@@ -92,15 +90,15 @@ public:
             return 0;
 
         auto offset = in & mask;
-        auto slice  = std::min(count, max_size() - offset);
+        auto slice = std::min(count, max_size() - offset);
 
         for (size_t i = 0; i < slice; i++)
             construct_functor(storage_[offset + i].data);
         for (size_t i = 0; i < count - slice; i++)
             construct_functor(storage_[i].data);
 
-        std::atomic_signal_fence(std::memory_order_release);
-        in_.store(in + count, std::memory_order_release);
+        std::atomic_signal_fence(std::memory_order::release);
+        in_.store(in + count, std::memory_order::release);
 
         return count;
     }
@@ -112,10 +110,7 @@ public:
     }
 
     template <typename F>
-    // requires requires(F f) {
-    //     T{f()};
-    // }
-    size_t push_back_multi(F generator, size_t count = -1) {
+    requires requires(F f) { T{f()}; } size_t push_back_multi(F generator, size_t count = -1) {
         return emplace_back_multi([&](std::byte* storage) { new (storage) T{generator()}; }, count);
     }
 
@@ -128,12 +123,10 @@ public:
     }
 
     template <typename F>
-    // requires requires(F f, T t) {
-    //     f(std::move(t));
-    // }
+    requires requires(F f, T t) { f(std::move(t)); }
     size_t pop_front_multi(F callback_functor, size_t count = -1) {
-        auto in  = in_.load(std::memory_order_acquire);
-        auto out = out_.load(std::memory_order_relaxed);
+        auto in = in_.load(std::memory_order::acquire);
+        auto out = out_.load(std::memory_order::relaxed);
 
         auto readable = in - out;
         if (count > readable)
@@ -142,7 +135,7 @@ public:
             return 0;
 
         auto offset = out & mask;
-        auto slice  = std::min(count, max_size() - offset);
+        auto slice = std::min(count, max_size() - offset);
 
         auto process = [&callback_functor](std::byte* storage) {
             auto& element = *std::launder(reinterpret_cast<T*>(storage));
@@ -154,17 +147,14 @@ public:
         for (size_t i = 0; i < count - slice; i++)
             process(storage_[i].data);
 
-        std::atomic_signal_fence(std::memory_order_release);
-        out_.store(out + count, std::memory_order_release);
+        std::atomic_signal_fence(std::memory_order::release);
+        out_.store(out + count, std::memory_order::release);
 
         return count;
     }
 
     template <typename F>
-    // requires requires(F f, T t) {
-    //     f(std::move(t));
-    // }
-    bool pop_front(F&& callback_functor) {
+    requires requires(F f, T t) { f(std::move(t)); } bool pop_front(F&& callback_functor) {
         return pop_front_multi(std::forward<F>(callback_functor), 1);
     }
 
@@ -197,4 +187,4 @@ private:
     }* storage_;
 };
 
-}; // namespace rmcs_core::hardware
+}; // namespace rmcs::utility
