@@ -42,7 +42,7 @@ private:
                 0x200, std::bit_cast<uint64_t>(control_commands));
             transmit_buffer_.trigger_transmission();
         } else {
-            LOG_INFO("Unhandled CAN1 device: 0x%x", can_id);
+            LOG_INFO("unhandled CAN1 device: 0x%x", can_id);
         }
     }
 

@@ -61,7 +61,7 @@ private:
         if (can_id == 0x201) {
             motor_.store_status(can_data);
         } else {
-            LOG_INFO("Unhandled CAN1 device: 0x%x", can_id);
+            LOG_INFO("unhandled CAN1 device: 0x%x", can_id);
         }
     }
 
