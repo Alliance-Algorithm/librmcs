@@ -11,7 +11,7 @@
 #include "../utility/logging.hpp"
 #include "../utility/ring_buffer.hpp"
 
-namespace rmcs::forwarder {
+namespace librmcs::forwarder {
 
 class CBoard {
 public:
@@ -627,4 +627,4 @@ private:
     bool transfers_all_busy_ = false;
 };
 
-} // namespace rmcs::forwarder
+} // namespace librmcs::forwarder

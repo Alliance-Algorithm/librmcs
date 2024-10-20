@@ -5,7 +5,7 @@
 #include <iostream>
 #include <type_traits>
 
-namespace rmcs::utility {
+namespace librmcs::utility {
 
 template <typename T>
 requires(std::is_integral_v<T> || std::is_floating_point_v<T>)
@@ -179,4 +179,4 @@ using be_uint64_t = big_endian_t<uint64_t>;
 using be_float32_t = big_endian_t<float>;
 using be_float64_t = big_endian_t<double>;
 
-} // namespace rmcs::utility
+} // namespace librmcs::utility

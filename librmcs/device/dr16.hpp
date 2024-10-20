@@ -5,7 +5,7 @@
 #include <atomic>
 #include <bit>
 
-namespace rmcs::device {
+namespace librmcs::device {
 
 class Dr16 {
 public:
@@ -168,4 +168,4 @@ private:
     Keyboard keyboard_ = Keyboard::zero();
 };
 
-} // namespace rmcs::device
+} // namespace librmcs::device

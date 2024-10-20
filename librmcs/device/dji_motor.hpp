@@ -9,7 +9,7 @@
 
 #include "../utility/endian_promise.hpp"
 
-namespace rmcs::device {
+namespace librmcs::device {
 
 class DjiMotor {
 public:
@@ -182,4 +182,4 @@ private:
     double torque_;
 };
 
-} // namespace rmcs::device
+} // namespace librmcs::device

@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace rmcs::utility {
+namespace librmcs::utility {
 
 class PidCalculator {
 public:
@@ -49,4 +49,4 @@ protected:
     double last_err_, err_integral_;
 };
 
-} // namespace rmcs::utility
+} // namespace librmcs::utility

@@ -3,15 +3,15 @@
 #include <atomic>
 #include <thread>
 
-#include "device/dji_motor.hpp"
-#include "forwarder/cboard.hpp"
-#include "utility/pid_calculator.hpp"
+#include <librmcs/device/dji_motor.hpp>
+#include <librmcs/forwarder/cboard.hpp>
+#include <librmcs/utility/pid_calculator.hpp>
 
-class MyRobot : public rmcs::forwarder::CBoard {
+class MyRobot : public librmcs::forwarder::CBoard {
 public:
     explicit MyRobot(uint16_t usb_pid)
         : CBoard(usb_pid)
-        , motor_(rmcs::device::DjiMotor::Config{rmcs::device::DjiMotor::Type::M3508})
+        , motor_(librmcs::device::DjiMotor::Config{librmcs::device::DjiMotor::Type::M3508})
         , pid_calculator_(0.1, 0.0003, 0.0)
         , transmit_buffer_(*this, 16) {
         pid_calculator_.integral_min = -1000.0;
@@ -67,8 +67,8 @@ private:
 
     long update_count = 0;
 
-    rmcs::device::DjiMotor motor_;
-    rmcs::utility::PidCalculator pid_calculator_;
+    librmcs::device::DjiMotor motor_;
+    librmcs::utility::PidCalculator pid_calculator_;
 
     TransmitBuffer transmit_buffer_;
 };

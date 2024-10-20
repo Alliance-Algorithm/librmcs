@@ -2,10 +2,10 @@
 
 #include <bit>
 
-#include "forwarder/cboard.hpp"
-#include "utility/endian_promise.hpp"
+#include <librmcs/forwarder/cboard.hpp>
+#include <librmcs/utility/endian_promise.hpp>
 
-class MyRobot : public rmcs::forwarder::CBoard {
+class MyRobot : public librmcs::forwarder::CBoard {
 public:
     explicit MyRobot(uint16_t usb_pid)
         : CBoard(usb_pid)
@@ -20,7 +20,7 @@ private:
         (void)can_data_length;
 
         if (can_id == 0x201) {
-            using rmcs::utility::be_int16_t;
+            using librmcs::utility::be_int16_t;
             
             struct {
                 be_int16_t angle;

@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <atomic>
 
-namespace rmcs::utility {
+namespace librmcs::utility {
 
 template <typename T>
 class RingBuffer {
@@ -187,4 +187,4 @@ private:
     }* storage_;
 };
 
-}; // namespace rmcs::utility
+}; // namespace librmcs::utility

@@ -5,7 +5,7 @@
 #include <atomic>
 #include <numbers>
 
-namespace rmcs::device {
+namespace librmcs::device {
 
 class Imu {
 public:
@@ -148,4 +148,4 @@ private:
     double integral_fbx_ = 0.0, integral_fby_ = 0.0, integral_fbz_ = 0.0;
 };
 
-} // namespace rmcs::device
+} // namespace librmcs::device

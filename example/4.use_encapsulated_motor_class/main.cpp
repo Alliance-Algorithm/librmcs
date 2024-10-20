@@ -1,11 +1,11 @@
-#include "device/dji_motor.hpp"
-#include "forwarder/cboard.hpp"
+#include <librmcs/device/dji_motor.hpp>
+#include <librmcs/forwarder/cboard.hpp>
 
-class MyRobot : public rmcs::forwarder::CBoard {
+class MyRobot : public librmcs::forwarder::CBoard {
 public:
     explicit MyRobot(uint16_t usb_pid)
         : CBoard(usb_pid)
-        , motor_(rmcs::device::DjiMotor::Config{rmcs::device::DjiMotor::Type::M3508})
+        , motor_(librmcs::device::DjiMotor::Config{librmcs::device::DjiMotor::Type::M3508})
         , transmit_buffer_(*this, 16) {}
 
 private:
@@ -44,7 +44,7 @@ private:
         }
     }
 
-    rmcs::device::DjiMotor motor_;
+    librmcs::device::DjiMotor motor_;
 
     TransmitBuffer transmit_buffer_;
 };
