@@ -1,4 +1,0 @@
-[submodule "librmcspy/pybind11"]
-	path = librmcspy/pybind11
-	url = ../../pybind/pybind11
-	branch = stable
