@@ -1,6 +1,6 @@
-#include <librmcs/forwarder/cboard.hpp>
+#include <librmcs/client/cboard.hpp>
 
-class MyRobot : public librmcs::forwarder::CBoard {
+class MyRobot : public librmcs::client::CBoard {
 public:
     explicit MyRobot(uint16_t usb_pid)
         : CBoard(usb_pid) {}

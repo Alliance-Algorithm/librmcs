@@ -3,11 +3,11 @@
 #include <atomic>
 #include <thread>
 
+#include <librmcs/client/cboard.hpp>
 #include <librmcs/device/dji_motor.hpp>
-#include <librmcs/forwarder/cboard.hpp>
 #include <librmcs/utility/pid_calculator.hpp>
 
-class MyRobot : public librmcs::forwarder::CBoard {
+class MyRobot : public librmcs::client::CBoard {
 public:
     explicit MyRobot(uint16_t usb_pid)
         : CBoard(usb_pid)
@@ -32,7 +32,7 @@ public:
         motor_.update_status();
 
         constexpr double control_velocity = 6.28;
-        
+
         const double err = control_velocity - motor_.velocity();
         const double control_torque = pid_calculator_.update(err);
 

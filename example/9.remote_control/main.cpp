@@ -3,12 +3,12 @@
 #include <atomic>
 #include <thread>
 
+#include <librmcs/client/cboard.hpp>
 #include <librmcs/device/dji_motor.hpp>
 #include <librmcs/device/dr16.hpp>
-#include <librmcs/forwarder/cboard.hpp>
 #include <librmcs/utility/pid_calculator.hpp>
 
-class MyRobot : public librmcs::forwarder::CBoard {
+class MyRobot : public librmcs::client::CBoard {
 public:
     explicit MyRobot(uint16_t usb_pid)
         : CBoard(usb_pid)

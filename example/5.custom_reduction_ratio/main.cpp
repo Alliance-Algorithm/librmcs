@@ -1,7 +1,7 @@
+#include <librmcs/client/cboard.hpp>
 #include <librmcs/device/dji_motor.hpp>
-#include <librmcs/forwarder/cboard.hpp>
 
-class MyRobot : public librmcs::forwarder::CBoard {
+class MyRobot : public librmcs::client::CBoard {
 public:
     explicit MyRobot(uint16_t usb_pid)
         : CBoard(usb_pid)
