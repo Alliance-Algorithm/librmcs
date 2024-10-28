@@ -1,10 +1,7 @@
 #pragma once
 
 #include <atomic>
-#include <condition_variable>
-#include <mutex>
 #include <stdexcept>
-#include <vector>
 
 #include <libusb-1.0/libusb.h>
 
@@ -22,25 +19,32 @@ public:
     }
 
     virtual ~CBoard() {
-        if (libusb_cancel_transfer(libusb_receive_transfer_) != 0) {
-            libusb_free_transfer(libusb_receive_transfer_);
-            --active_transfer_count_;
-        }
-
-        wait_handle_events_finished();
-
+        libusb_free_transfer(libusb_receive_transfer_);
         libusb_release_interface(libusb_device_handle_, target_interface);
         libusb_close(libusb_device_handle_);
         libusb_exit(libusb_context_);
     }
 
-    void handle_events() noexcept {
-        timeval timeout{0, 500'000}; // 0.5s timeout to prevent (very rare) stuck on exit
-        while (active_transfer_count_.load() > 0) {
-            libusb_handle_events_timeout(libusb_context_, &timeout);
+    void handle_events() {
+        auto ret = libusb_submit_transfer(libusb_receive_transfer_);
+        if (ret != 0) {
+            if (ret == LIBUSB_ERROR_NO_DEVICE)
+                LOG_ERROR("Failed to submit receive transfer: Device disconnected. "
+                          "Terminating...");
+            else
+                LOG_ERROR("Failed to submit receive transfer: %d. Terminating...", ret);
+            std::terminate();
+            return;
         }
-        finish_handling_events();
+
+        handling_events_.store(true, std::memory_order::relaxed);
+        receive_transfer_busy_ = true;
+        while (receive_transfer_busy_) {
+            libusb_handle_events(libusb_context_);
+        }
     }
+
+    void stop_handling_events() { handling_events_.store(false, std::memory_order::relaxed); }
 
 protected:
     virtual void can1_receive_callback(
@@ -123,11 +127,9 @@ private:
 
         libusb_receive_transfer_ = libusb_alloc_transfer(0);
         if (!libusb_receive_transfer_) {
-            LOG_ERROR("Failed to alloc receive-transfer");
+            LOG_ERROR("Failed to alloc receive transfer");
             return false;
         }
-        FinalAction free_receive_transfer{
-            [this]() { libusb_free_transfer(libusb_receive_transfer_); }};
 
         libusb_fill_bulk_transfer(
             libusb_receive_transfer_, libusb_device_handle_, in_endpoint,
@@ -137,25 +139,16 @@ private:
             },
             this, 0);
 
-        ret = libusb_submit_transfer(libusb_receive_transfer_);
-        if (ret != 0) {
-            LOG_ERROR("Failed to submit receive-transfer: %d", ret);
-            return false;
-        }
-        active_transfer_count_.store(1, std::memory_order_release);
-
         // Libusb successfully initialized.
-        free_receive_transfer.disable();
         release_interface.disable();
         close_device_handle.disable();
         exit_libusb.disable();
         return true;
     }
 
-    void usb_receive_complete_callback(libusb_transfer* transfer) noexcept {
-        if (transfer->status == LIBUSB_TRANSFER_CANCELLED) [[unlikely]] {
-            --active_transfer_count_;
-            libusb_free_transfer(transfer);
+    void usb_receive_complete_callback(libusb_transfer* transfer) {
+        if (!handling_events_.load(std::memory_order::relaxed)) [[unlikely]] {
+            receive_transfer_busy_ = false;
             return;
         }
         FinalAction resubmit_transfer{[transfer]() {
@@ -384,19 +377,6 @@ private:
         bool enabled_;
     };
 
-    void finish_handling_events() {
-        {
-            std::lock_guard<std::mutex> lock(handle_events_finished_mutex_);
-            handle_events_finished_ = true;
-        }
-        handle_events_finished_cv_.notify_one();
-    }
-
-    void wait_handle_events_finished() {
-        std::unique_lock<std::mutex> lock(handle_events_finished_mutex_);
-        handle_events_finished_cv_.wait(lock, [this] { return handle_events_finished_; });
-    }
-
     static constexpr int target_interface = 0x01;
 
     static constexpr unsigned char out_endpoint = 0x01;
@@ -408,19 +388,16 @@ private:
     libusb_transfer* libusb_receive_transfer_;
     std::byte receive_buffer_[64];
 
-    std::atomic<int> active_transfer_count_ = 0;
-
-    bool handle_events_finished_ = false;
-    std::mutex handle_events_finished_mutex_;
-    std::condition_variable handle_events_finished_cv_;
+    std::atomic<bool> handling_events_ = false;
+    bool receive_transfer_busy_ = false;
 };
 
 class CBoard::TransmitBuffer final {
 public:
-    explicit TransmitBuffer(CBoard& cboard, unsigned int alloc_transfer_count)
+    explicit TransmitBuffer(CBoard& cboard, size_t alloc_transfer_count)
         : cboard_(cboard)
-        , free_transfers_(alloc_transfer_count) {
-        transfers_.reserve(alloc_transfer_count);
+        , free_transfers_(alloc_transfer_count)
+        , alloc_transfer_count_(alloc_transfer_count) {
         free_transfers_.push_back_multi(
             [this, &cboard]() {
                 auto transfer = libusb_alloc_transfer(0);
@@ -435,27 +412,29 @@ public:
                     this, 0);
                 transfer->flags = libusb_transfer_flags::LIBUSB_TRANSFER_FREE_BUFFER;
                 transfer->buffer[0] = 0x81;
-                transfers_.push_back(transfer);
                 return transfer;
             },
             alloc_transfer_count);
-        cboard_.active_transfer_count_ += static_cast<int>(alloc_transfer_count);
     }
 
     ~TransmitBuffer() {
-        int released_transfer_count = 0;
-        for (auto transfer : transfers_) {
-            if (libusb_cancel_transfer(transfer) != 0) {
-                libusb_free_transfer(transfer);
-                ++released_transfer_count;
-            }
+        size_t unreleased_transfer_count = alloc_transfer_count_;
+        while (true) {
+            unreleased_transfer_count -= free_transfers_.pop_front_multi(
+                [&](libusb_transfer* transfer) { libusb_free_transfer(transfer); });
+
+            // Break when all transfer released
+            if (!unreleased_transfer_count)
+                break;
+
+            // Otherwise, handle events to allow other transfers to return to the queue
+            libusb_handle_events(cboard_.libusb_context_);
         }
-        cboard_.active_transfer_count_ -= released_transfer_count;
     }
 
     bool add_can1_transmission(
         uint32_t can_id, uint64_t can_data, bool is_extended_can_id = false,
-        bool is_remote_transmission = false, uint8_t can_data_length = 8) noexcept {
+        bool is_remote_transmission = false, uint8_t can_data_length = 8) {
         return add_can_transmission(
             CommandId::CAN1, can_id, can_data, is_extended_can_id, is_remote_transmission,
             can_data_length);
@@ -463,7 +442,7 @@ public:
 
     bool add_can2_transmission(
         uint32_t can_id, uint64_t can_data, bool is_extended_can_id = false,
-        bool is_remote_transmission = false, uint8_t can_data_length = 8) noexcept {
+        bool is_remote_transmission = false, uint8_t can_data_length = 8) {
         return add_can_transmission(
             CommandId::CAN2, can_id, can_data, is_extended_can_id, is_remote_transmission,
             can_data_length);
@@ -481,7 +460,7 @@ public:
         return add_uart_transmission(CommandId::UART3, uart_data, uart_data_length);
     }
 
-    bool trigger_transmission() noexcept {
+    bool trigger_transmission() {
         auto front = free_transfers_.front();
         if (!front || (*front)->length <= 1)
             return false;
@@ -492,7 +471,7 @@ public:
 private:
     bool add_can_transmission(
         CommandId field_id, uint32_t can_id, uint64_t can_data, bool is_extended_can_id,
-        bool is_remote_transmission, uint8_t can_data_length) noexcept {
+        bool is_remote_transmission, uint8_t can_data_length) {
 
         std::byte* buffer = try_fetch_buffer(
             sizeof(CanFieldHeader)
@@ -600,14 +579,8 @@ private:
 
     void usb_transmit_complete_callback(libusb_transfer* transfer) {
         if (transfer->status != LIBUSB_TRANSFER_COMPLETED) [[unlikely]] {
-            if (transfer->status == LIBUSB_TRANSFER_CANCELLED) {
-                --cboard_.active_transfer_count_;
-                libusb_free_transfer(transfer);
-                return;
-            } else {
-                LOG_ERROR(
-                    "USB transmitting error: Transfer not completed! status=%d", transfer->status);
-            }
+            LOG_ERROR(
+                "USB transmitting error: Transfer not completed! status=%d", transfer->status);
         }
 
         if (transfer->actual_length != transfer->length) [[unlikely]]
@@ -622,7 +595,7 @@ private:
     CBoard& cboard_;
 
     utility::RingBuffer<libusb_transfer*> free_transfers_;
-    std::vector<libusb_transfer*> transfers_;
+    size_t alloc_transfer_count_;
 
     bool transfers_all_busy_ = false;
 };

@@ -9,18 +9,14 @@ public:
     explicit MyRobot(uint16_t usb_pid)
         : CBoard(usb_pid)
         , motor_(librmcs::device::DjiMotor::Config{librmcs::device::DjiMotor::Type::M3508})
-        , pid_calculator_(0.1, 0.0003, 0.0)
-        , transmit_buffer_(*this, 16) {
-        pid_calculator_.integral_min = -1000.0;
-        pid_calculator_.integral_max = 1000.0;
-    }
+        , pid_calculator_(librmcs::utility::PidCalculator{0.1, 0.0003, 0.0}
+                              .set_integral_min(-1000.0)
+                              .set_integral_max(1000.0))
+        , transmit_buffer_(*this, 16) {}
 
     ~MyRobot() {
         transmit_buffer_.add_can1_transmission(0x200, 0);
         transmit_buffer_.trigger_transmission();
-
-        using namespace std::chrono_literals;
-        std::this_thread::sleep_for(1ms);
 
         LOG_INFO("Correctly deconstructed");
     }
@@ -70,8 +66,10 @@ int main() {
     MyRobot my_robot{0x1234};
 
     std::thread thread{[&my_robot]() { my_robot.handle_events(); }};
-    thread.detach(); // Thread will automatically stop when my_robot deconstructed.
 
     using namespace std::chrono_literals;
     std::this_thread::sleep_for(5s);
+
+    my_robot.stop_handling_events();
+    thread.join();
 }
