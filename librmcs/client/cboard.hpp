@@ -419,6 +419,7 @@ public:
 
     ~TransmitBuffer() {
         size_t unreleased_transfer_count = alloc_transfer_count_;
+        timeval timeout{0, 500'000};
         while (true) {
             unreleased_transfer_count -= free_transfers_.pop_front_multi(
                 [&](libusb_transfer* transfer) { libusb_free_transfer(transfer); });
@@ -428,7 +429,25 @@ public:
                 break;
 
             // Otherwise, handle events to allow other transfers to return to the queue
-            libusb_handle_events(cboard_.libusb_context_);
+            // Set a 0.5s timeout to prevent the very low probability of getting stuck here
+            auto ret = libusb_handle_events_timeout(cboard_.libusb_context_, &timeout);
+            if (ret != 0) {
+                if (ret == LIBUSB_ERROR_TIMEOUT) {
+                    LOG_ERROR(
+                        "Fatal error during TransmitBuffer destruction: The usb transmit complete "
+                        "callback was not called for all transfers, which means we cannot release "
+                        "all memory allocated for transfers.");
+                } else {
+                    LOG_ERROR(
+                        "Fatal error during TransmitBuffer destruction: The function "
+                        "libusb_handle_events returned an exception value: %d, which means we "
+                        "cannot release all memory allocated for transfers.",
+                        ret);
+                }
+                LOG_ERROR("The destructor will exit normally, but the unrecoverable memory leak "
+                          "has already occurred. This may be a problem caused by libusb.");
+                break;
+            }
         }
     }
 
