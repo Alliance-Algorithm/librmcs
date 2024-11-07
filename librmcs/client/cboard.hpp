@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <stdexcept>
 
 #include <libusb-1.0/libusb.h>
@@ -419,7 +420,8 @@ public:
 
     ~TransmitBuffer() {
         size_t unreleased_transfer_count = alloc_transfer_count_;
-        timeval timeout{0, 500'000};
+        timeval timeout{0, 1000'000};
+        auto start = std::chrono::steady_clock::now();
         while (true) {
             unreleased_transfer_count -= free_transfers_.pop_front_multi(
                 [&](libusb_transfer* transfer) { libusb_free_transfer(transfer); });
@@ -429,25 +431,26 @@ public:
                 break;
 
             // Otherwise, handle events to allow other transfers to return to the queue
-            // Set a 0.5s timeout to prevent the very low probability of getting stuck here
+            // Set a 1s timeout to avoid stuck here (logically impossible, but just in case)
             auto ret = libusb_handle_events_timeout(cboard_.libusb_context_, &timeout);
             if (ret != 0) {
-                if (ret == LIBUSB_ERROR_TIMEOUT) {
-                    LOG_ERROR(
-                        "Fatal error during TransmitBuffer destruction: The usb transmit complete "
-                        "callback was not called for all transfers, which means we cannot release "
-                        "all memory allocated for transfers.");
-                } else {
-                    LOG_ERROR(
-                        "Fatal error during TransmitBuffer destruction: The function "
-                        "libusb_handle_events returned an exception value: %d, which means we "
-                        "cannot release all memory allocated for transfers.",
-                        ret);
-                }
-                LOG_ERROR("The destructor will exit normally, but the unrecoverable memory leak "
-                          "has already occurred. This may be a problem caused by libusb.");
-                break;
-            }
+                LOG_ERROR(
+                    "Fatal error during TransmitBuffer destruction: The function "
+                    "libusb_handle_events returned an exception value: %d, which means we "
+                    "cannot release all memory allocated for transfers.",
+                    ret);
+            } else if (std::chrono::steady_clock::now() - start > std::chrono::seconds(1)) {
+                LOG_ERROR(
+                    "Fatal error during TransmitBuffer destruction: The usb transmit complete "
+                    "callback was not called for all transfers, which means we cannot release "
+                    "all memory allocated for transfers.");
+            } else
+                continue;
+
+            LOG_ERROR("The destructor will exit normally, but the unrecoverable memory leak "
+                      "has already occurred. This may be a problem caused by libusb.");
+            LOG_ERROR("Number of leaked transfers: %zu", unreleased_transfer_count);
+            break;
         }
     }
 
@@ -513,7 +516,7 @@ private:
             buffer += sizeof(CanExtendedId);
             ext_id.can_id = can_id;
             ext_id.data_length = can_data_length - 1;
-        } else [[likely]] {
+        } else {
             auto& std_id = *new (buffer) CanStandardId{};
             buffer += sizeof(CanStandardId);
             std_id.can_id = can_id;
@@ -583,17 +586,27 @@ private:
     }
 
     bool trigger_transmission_nocheck() {
-        return free_transfers_.pop_front([](libusb_transfer* transfer) {
-            int ret = libusb_submit_transfer(transfer);
-            if (ret != 0) [[unlikely]] {
-                if (ret == LIBUSB_ERROR_NO_DEVICE)
-                    LOG_ERROR(
-                        "Failed to submit transmit transfer: Device disconnected. Terminating...");
-                else
-                    LOG_ERROR("Failed to submit transmit transfer: %d. Terminating...", ret);
-                std::terminate();
-            }
-        });
+        libusb_transfer* transfer = nullptr;
+
+        if (!free_transfers_.pop_front([&transfer](libusb_transfer* t) { transfer = t; }))
+            return false;
+
+        // The transfer must be submitted to libusb only after the pop_front function returns.
+        // Otherwise, there is a very slight chance that the callback might be invoked too quickly,
+        // resulting in a false "ring queue full" condition when recycling transfer, which could
+        // subsequently lead to transfer leaks.
+
+        int ret = libusb_submit_transfer(transfer);
+        if (ret != 0) [[unlikely]] {
+            if (ret == LIBUSB_ERROR_NO_DEVICE)
+                LOG_ERROR(
+                    "Failed to submit transmit transfer: Device disconnected. Terminating...");
+            else
+                LOG_ERROR("Failed to submit transmit transfer: %d. Terminating...", ret);
+            std::terminate();
+        }
+
+        return true;
     }
 
     void usb_transmit_complete_callback(libusb_transfer* transfer) {
@@ -608,7 +621,16 @@ private:
                 transfer->length);
 
         transfer->length = 1;
-        free_transfers_.push_back(transfer);
+
+        if (!free_transfers_.push_back(transfer)) [[unlikely]] {
+            LOG_ERROR("Error while attempting to recycle transmit transfer into the ring queue: "
+                      "The ring queue is full.");
+            LOG_ERROR("This situation should theoretically be impossible. Its occurrence typically "
+                      "indicates an issue with multithreaded synchronization in the code.");
+            LOG_ERROR("Although this problem is not fatal, termination is triggered to ensure the "
+                      "issue is promptly identified.");
+            std::terminate();
+        }
     }
 
     CBoard& cboard_;
