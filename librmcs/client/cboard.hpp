@@ -3,13 +3,14 @@
 #include <cinttypes>
 
 #include <atomic>
+#include <bit>
 #include <chrono>
 #include <stdexcept>
 
 #include <libusb.h>
 
-#include "../utility/logging.hpp"
 #include "../utility/cross_os.hpp"
+#include "../utility/logging.hpp"
 #include "../utility/ring_buffer.hpp"
 
 namespace librmcs::client {

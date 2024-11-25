@@ -135,10 +135,12 @@ private:
 
         uint64_t switch_right : 2;
         uint64_t switch_left  : 2;
+
+        uint64_t padding : 16;
     });
     static_assert(sizeof(Dr16DataPart1) == 8);
     std::atomic<uint64_t> data_part1_{std::bit_cast<uint64_t>(
-        Dr16DataPart1{1024, 1024, 1024, 1024, (uint64_t)Switch::DOWN, (uint64_t)Switch::DOWN})};
+        Dr16DataPart1{1024, 1024, 1024, 1024, (uint64_t)Switch::DOWN, (uint64_t)Switch::DOWN, 0})};
     static_assert(decltype(data_part1_)::is_always_lock_free);
 
     PACKED_STRUCT(Dr16DataPart2 {

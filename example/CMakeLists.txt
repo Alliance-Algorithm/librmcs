@@ -45,7 +45,7 @@ else()
 endif()
 if (NOT LIBUSB_HEADER_PATH STREQUAL "")
     message(STATUS "Using libusb header from: ${LIBUSB_HEADER_PATH}")
-    include_directories(${LIBUSB_HEADER_PATH})
+    include_directories(SYSTEM ${LIBUSB_HEADER_PATH})
 endif()
 
 # Get all subdirectories
