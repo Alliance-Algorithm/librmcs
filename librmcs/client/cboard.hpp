@@ -31,6 +31,14 @@ public:
     }
 
     void handle_events() {
+        // Synchronously send a connect packet to clear upward buffer, reset alarm and configuration
+        const unsigned char connect[] = {0x81, 0x00};
+        int actual_length;
+        libusb_bulk_transfer(
+            libusb_device_handle_, out_endpoint, const_cast<unsigned char*>(connect),
+            sizeof(connect), &actual_length, 500);
+
+        // Asynchronous reception
         auto ret = libusb_submit_transfer(libusb_receive_transfer_);
         if (ret != 0) {
             if (ret == LIBUSB_ERROR_NO_DEVICE)
@@ -170,6 +178,15 @@ private:
             }
         }};
 
+        if (first_reception_) {
+            // The downward Connect packet cannot clear the first upward packet because it was
+            // already in a pending state before the connection was established. Therefore, we
+            // directly discard the first received packet to prevent any old data from being
+            // processed.
+            first_reception_ = false;
+            return;
+        }
+
         auto iterator = receive_buffer_;
         auto sentinel = iterator + transfer->actual_length;
         if (iterator == sentinel) [[unlikely]]
@@ -200,22 +217,22 @@ private:
         }
 
         while (iterator < sentinel) {
-            PACKED_STRUCT(Header { StatusId field_id : 4; });
+            PACKED_STRUCT(Header { UpwardId field_id : 4; });
             static_assert(sizeof(Header) == 1);
 
             auto field_id = std::bit_cast<Header>(*iterator).field_id;
 
-            if (field_id == StatusId::CAN1) {
+            if (field_id == UpwardId::CAN1) {
                 read_can_buffer(iterator, &CBoard::can1_receive_callback);
-            } else if (field_id == StatusId::CAN2) {
+            } else if (field_id == UpwardId::CAN2) {
                 read_can_buffer(iterator, &CBoard::can2_receive_callback);
-            } else if (field_id == StatusId::UART1) {
+            } else if (field_id == UpwardId::UART1) {
                 read_uart_buffer(iterator, &CBoard::uart1_receive_callback);
-            } else if (field_id == StatusId::UART2) {
+            } else if (field_id == UpwardId::UART2) {
                 read_uart_buffer(iterator, &CBoard::uart2_receive_callback);
-            } else if (field_id == StatusId::UART3) {
+            } else if (field_id == UpwardId::UART3) {
                 read_uart_buffer(iterator, &CBoard::dbus_receive_callback);
-            } else if (field_id == StatusId::IMU) {
+            } else if (field_id == UpwardId::IMU) {
                 read_imu_buffer(iterator);
             } else
                 break;
@@ -293,8 +310,8 @@ private:
         }
     }
 
-    enum class StatusId : uint8_t {
-        RESERVED = 0,
+    enum class UpwardId : uint8_t {
+        CONTROL = 0,
 
         GPIO = 1,
 
@@ -312,8 +329,8 @@ private:
         IMU = 11,
     };
 
-    enum class CommandId : uint8_t {
-        RESERVED_ = 0,
+    enum class DownwardId : uint8_t {
+        CONTROL = 0,
 
         GPIO = 1,
 
@@ -401,6 +418,7 @@ private:
 
     libusb_transfer* libusb_receive_transfer_;
     std::byte receive_buffer_[64];
+    bool first_reception_ = true;
 
     std::atomic<bool> handling_events_ = false;
     bool receive_transfer_busy_ = false;
@@ -477,7 +495,7 @@ public:
         uint32_t can_id, uint64_t can_data, bool is_extended_can_id = false,
         bool is_remote_transmission = false, uint8_t can_data_length = 8) {
         return add_can_transmission(
-            CommandId::CAN1, can_id, can_data, is_extended_can_id, is_remote_transmission,
+            DownwardId::CAN1, can_id, can_data, is_extended_can_id, is_remote_transmission,
             can_data_length);
     }
 
@@ -485,20 +503,20 @@ public:
         uint32_t can_id, uint64_t can_data, bool is_extended_can_id = false,
         bool is_remote_transmission = false, uint8_t can_data_length = 8) {
         return add_can_transmission(
-            CommandId::CAN2, can_id, can_data, is_extended_can_id, is_remote_transmission,
+            DownwardId::CAN2, can_id, can_data, is_extended_can_id, is_remote_transmission,
             can_data_length);
     }
 
     bool add_uart1_transmission(const std::byte* uart_data, uint8_t uart_data_length) {
-        return add_uart_transmission(CommandId::UART1, uart_data, uart_data_length);
+        return add_uart_transmission(DownwardId::UART1, uart_data, uart_data_length);
     }
 
     bool add_uart2_transmission(const std::byte* uart_data, uint8_t uart_data_length) {
-        return add_uart_transmission(CommandId::UART2, uart_data, uart_data_length);
+        return add_uart_transmission(DownwardId::UART2, uart_data, uart_data_length);
     }
 
     bool add_dbus_transmission(const std::byte* uart_data, uint8_t uart_data_length) {
-        return add_uart_transmission(CommandId::UART3, uart_data, uart_data_length);
+        return add_uart_transmission(DownwardId::UART3, uart_data, uart_data_length);
     }
 
     bool trigger_transmission() {
@@ -511,7 +529,7 @@ public:
 
 private:
     bool add_can_transmission(
-        CommandId field_id, uint32_t can_id, uint64_t can_data, bool is_extended_can_id,
+        DownwardId field_id, uint32_t can_id, uint64_t can_data, bool is_extended_can_id,
         bool is_remote_transmission, uint8_t can_data_length) {
 
         std::byte* buffer = try_fetch_buffer(
@@ -550,7 +568,7 @@ private:
     }
 
     bool add_uart_transmission(
-        CommandId field_id, const std::byte* uart_data, uint8_t uart_data_length) {
+        DownwardId field_id, const std::byte* uart_data, uint8_t uart_data_length) {
 
         std::byte* buffer =
             try_fetch_buffer(sizeof(UartFieldHeader) + (uart_data_length > 15) + uart_data_length);
