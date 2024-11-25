@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <atomic>
 #include <bit>
+#include <numbers>
 #include <stdexcept>
 
 #include "../utility/endian_promise.hpp"
@@ -58,10 +59,10 @@ public:
 
         double sign = config.reversed ? -1 : 1;
 
-        raw_angle_to_angle_coefficient_ = sign / config.reduction_ratio / raw_angle_max_ * 2 * M_PI;
+        raw_angle_to_angle_coefficient_ = sign / config.reduction_ratio / raw_angle_max_ * 2 * std::numbers::pi;
         angle_to_raw_angle_coefficient_ = 1 / raw_angle_to_angle_coefficient_;
 
-        raw_velocity_to_velocity_coefficient_ = sign / config.reduction_ratio / 60 * 2 * M_PI;
+        raw_velocity_to_velocity_coefficient_ = sign / config.reduction_ratio / 60 * 2 * std::numbers::pi;
         velocity_to_raw_velocity_coefficient_ = 1 / raw_velocity_to_velocity_coefficient_;
 
         double torque_constant, raw_current_max, current_max;

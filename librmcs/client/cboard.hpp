@@ -1,12 +1,15 @@
 #pragma once
 
+#include <cinttypes>
+
 #include <atomic>
 #include <chrono>
 #include <stdexcept>
 
-#include <libusb-1.0/libusb.h>
+#include <libusb.h>
 
 #include "../utility/logging.hpp"
+#include "../utility/cross_os.hpp"
 #include "../utility/ring_buffer.hpp"
 
 namespace librmcs::client {
@@ -112,10 +115,12 @@ private:
         }
         FinalAction close_device_handle{[this]() { libusb_close(libusb_device_handle_); }};
 
-        ret = libusb_set_auto_detach_kernel_driver(libusb_device_handle_, true);
-        if (ret != 0) {
-            LOG_ERROR("Failed to set auto detach kernel driver: %d", ret);
-            return false;
+        if constexpr (utility::is_linux()) {
+            ret = libusb_set_auto_detach_kernel_driver(libusb_device_handle_, true);
+            if (ret != 0) {
+                LOG_ERROR("Failed to set auto detach kernel driver: %d", ret);
+                return false;
+            }
         }
 
         ret = libusb_claim_interface(libusb_device_handle_, target_interface);
@@ -194,10 +199,10 @@ private:
         }
 
         while (iterator < sentinel) {
-            struct __attribute__((packed)) Header {
-                StatusId field_id : 4;
-            };
-            auto field_id = std::launder(reinterpret_cast<Header*>(iterator))->field_id;
+            PACKED_STRUCT(Header { StatusId field_id : 4; });
+            static_assert(sizeof(Header) == 1);
+
+            auto field_id = std::bit_cast<Header>(*iterator).field_id;
 
             if (field_id == StatusId::CAN1) {
                 read_can_buffer(iterator, &CBoard::can1_receive_callback);
@@ -218,11 +223,12 @@ private:
         if (iterator != sentinel) [[unlikely]] {
             if (iterator < sentinel) {
                 LOG_ERROR(
-                    "USB receiving error: Unexpected field-id: [%ld] %d!",
+                    "USB receiving error: Unexpected field-id: [%" PRIdPTR "] %d!",
                     iterator - receive_buffer_, static_cast<uint8_t>(*iterator) & 0xF);
             } else {
                 LOG_ERROR(
-                    "USB receiving error: Field reading out-of-bounds! (iterator = sentinel + %ld)",
+                    "USB receiving error: Field reading out-of-bounds! (iterator = sentinel "
+                    "+ %" PRIdPTR ")",
                     iterator - sentinel);
             }
             return;
@@ -234,7 +240,7 @@ private:
     void read_can_buffer(std::byte*& buffer, decltype(&CBoard::can1_receive_callback) callback) {
         bool is_extended_can_id;
         bool is_remote_transmission;
-        uint8_t can_data_length;
+        uint32_t can_data_length;
         uint32_t can_id;
         uint64_t can_data;
 
@@ -259,7 +265,8 @@ private:
         buffer += can_data_length;
 
         (this->*callback)(
-            can_id, can_data, is_extended_can_id, is_remote_transmission, can_data_length);
+            can_id, can_data, is_extended_can_id, is_remote_transmission,
+            static_cast<uint8_t>(can_data_length));
     }
 
     void read_uart_buffer(std::byte*& buffer, decltype(&CBoard::uart1_receive_callback) callback) {
@@ -324,36 +331,41 @@ private:
         BUZZER = 12,
     };
 
-    struct __attribute__((packed)) CanFieldHeader {
+    PACKED_STRUCT(CanFieldHeader {
         uint8_t field_id            : 4;
         bool is_extended_can_id     : 1;
         bool is_remote_transmission : 1;
         bool has_can_data           : 1;
-    };
+    });
+    static_assert(sizeof(CanFieldHeader) == 1);
 
-    struct __attribute__((packed)) CanStandardId {
-        uint32_t can_id     : 11;
-        uint8_t data_length : 3;
-    };
+    PACKED_STRUCT(CanStandardId {
+        uint16_t can_id      : 11;
+        uint16_t data_length : 3;
+    };)
+    static_assert(sizeof(CanStandardId) == 2);
 
-    struct __attribute__((packed)) CanExtendedId {
-        uint32_t can_id     : 29;
-        uint8_t data_length : 3;
-    };
+    PACKED_STRUCT(CanExtendedId {
+        uint32_t can_id      : 29;
+        uint32_t data_length : 3;
+    });
+    static_assert(sizeof(CanExtendedId) == 4);
 
-    struct __attribute__((packed)) UartFieldHeader {
+    PACKED_STRUCT(UartFieldHeader {
         uint8_t field_id  : 4;
         uint8_t data_size : 4;
-    };
+    });
+    static_assert(sizeof(UartFieldHeader) == 1);
 
-    struct __attribute__((packed)) ImuField {
+    PACKED_STRUCT(ImuField {
         uint8_t field_id : 4;
         enum class DeviceId : uint8_t {
             ACCELEROMETER = 0,
             GYROSCOPE = 1,
         } device_id : 4;
         int16_t x, y, z;
-    };
+    });
+    static_assert(sizeof(ImuField) == 7);
 
     template <typename Functor>
     struct FinalAction {
@@ -430,9 +442,15 @@ public:
             if (!unreleased_transfer_count)
                 break;
 
+            int ret;
             // Otherwise, handle events to allow other transfers to return to the queue
-            // Set a 1s timeout to avoid stuck here (logically impossible, but just in case)
-            auto ret = libusb_handle_events_timeout(cboard_.libusb_context_, &timeout);
+            if constexpr (utility::is_linux()) {
+                // Set a 1s timeout to avoid stuck here (logically impossible, but just in case)
+                ret = libusb_handle_events_timeout(cboard_.libusb_context_, &timeout);
+            } else {
+                // Windows does not support timeout
+                ret = libusb_handle_events(cboard_.libusb_context_);
+            }
             if (ret != 0) {
                 LOG_ERROR(
                     "Fatal error during TransmitBuffer destruction: The function "

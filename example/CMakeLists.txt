@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
 
 project(librmcs_example)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -22,9 +22,30 @@ endif()
 
 # Add compiler options based on compiler
 if(MSVC)
-    add_compile_options(/W4)  # MSVC
+    add_compile_options(/W4 /Zc:preprocessor)
+    add_compile_definitions(NOMINMAX _CRT_SECURE_NO_WARNINGS)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 else()
-    add_compile_options(-Wall -Wextra -Wpedantic)  # GCC/Clang
+    # GCC/Clang
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+# Set libusb binaries directory (if provided)
+set(LIBUSB_BINARY_PATH "" CACHE STRING "Path to libusb binaries directory")
+if (NOT LIBUSB_BINARY_PATH STREQUAL "")
+    message(STATUS "Using libusb binary from: ${LIBUSB_BINARY_PATH}")
+    link_directories(${LIBUSB_BINARY_PATH})
+endif()
+
+# Set libusb header files directory (if provided)
+if (UNIX)
+    set(LIBUSB_HEADER_PATH "/usr/include/libusb-1.0" CACHE STRING "Path to libusb header files directory")
+else()
+    set(LIBUSB_HEADER_PATH "" CACHE STRING "Path to libusb header files directory")
+endif()
+if (NOT LIBUSB_HEADER_PATH STREQUAL "")
+    message(STATUS "Using libusb header from: ${LIBUSB_HEADER_PATH}")
+    include_directories(${LIBUSB_HEADER_PATH})
 endif()
 
 # Get all subdirectories
@@ -37,11 +58,12 @@ foreach(SUBDIR ${SUBDIRECTORIES})
         add_executable(${SUBDIR} ${CMAKE_SOURCE_DIR}/${SUBDIR}/main.cpp)
         
         # Link libusb library
-        target_link_libraries(${SUBDIR} PRIVATE usb-1.0)
+        if(WIN32)
+            target_link_libraries(${SUBDIR} PRIVATE libusb-1.0)
+        elseif(UNIX)
+            target_link_libraries(${SUBDIR} PRIVATE usb-1.0)
+        endif()
     endif()
 endforeach()
 
 include_directories(${PROJECT_SOURCE_DIR}/..)
-
-# Disable the cache of build type and rely on either the default or the provided one
-unset(CMAKE_BUILD_TYPE CACHE)
