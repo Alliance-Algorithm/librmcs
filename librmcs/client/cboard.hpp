@@ -17,7 +17,7 @@ namespace librmcs::client {
 
 class CBoard {
 public:
-    explicit CBoard(uint16_t usb_pid) {
+    explicit CBoard(int32_t usb_pid = -1) {
         if (!init(0xa11c, usb_pid)) {
             throw std::runtime_error{"Failed to init usb transfer for cboard, see log for detail."};
         }
@@ -106,7 +106,7 @@ protected:
     class TransmitBuffer;
 
 private:
-    bool init(uint16_t vendor_id, uint16_t product_id) noexcept {
+    bool init(uint16_t vendor_id, int32_t product_id) noexcept {
         int ret;
 
         ret = libusb_init(&libusb_context_);
@@ -116,10 +116,76 @@ private:
         }
         FinalAction exit_libusb{[this]() { libusb_exit(libusb_context_); }};
 
-        libusb_device_handle_ =
-            libusb_open_device_with_vid_pid(libusb_context_, vendor_id, product_id);
-        if (!libusb_device_handle_) {
-            LOG_ERROR("Failed to open device (vid=0x%x, pid=0x%x)", vendor_id, product_id);
+        libusb_device** device_list;
+        int device_count = static_cast<int>(libusb_get_device_list(libusb_context_, &device_list));
+        FinalAction free_device_list{[&device_list, &device_count]() {
+            libusb_free_device_list(device_list, device_count);
+        }};
+
+        auto device_descriptors = new libusb_device_descriptor[device_count];
+        FinalAction free_device_descriptors{
+            [&device_descriptors]() { delete[] device_descriptors; }};
+
+        libusb_device* selected_device = nullptr;
+        int valid_device_count = 0;
+        for (int i = 0; i < device_count; i++) {
+            ret = libusb_get_device_descriptor(device_list[i], &device_descriptors[i]);
+            if (ret != 0) {
+                device_descriptors[i].bLength = 0;
+                LOG_WARN("A device descriptor failed to get: %d", ret);
+                continue;
+            }
+
+            if (device_descriptors[i].idVendor != vendor_id)
+                continue;
+            if (product_id >= 0 && device_descriptors[i].idProduct != product_id)
+                continue;
+
+            selected_device = device_list[i];
+            valid_device_count++;
+        }
+        if (valid_device_count == 0) {
+            if (product_id >= 0) {
+                LOG_ERROR(
+                    "No devices found with specified vendor id (0x%x) and product id (0x%x)",
+                    vendor_id, product_id);
+                for (int i = 0, j = 0; i < device_count; i++) {
+                    if (device_descriptors[i].idVendor != vendor_id)
+                        continue;
+                    LOG_ERROR(
+                        "  Unmatched device #%d: product id = 0x%x", j++,
+                        device_descriptors[i].idProduct);
+                }
+            } else {
+                LOG_ERROR("No devices found with vendor id: 0x%x", vendor_id);
+            }
+            return false;
+        } else if (valid_device_count != 1) {
+            if (product_id >= 0) {
+                LOG_ERROR(
+                    "%d devices found with specified vendor id (0x%x) and product id (0x%x)",
+                    valid_device_count, vendor_id, product_id);
+                LOG_ERROR("Multiple devices found, which is unusual. Consider using a device with "
+                          "a unique serial number");
+            } else {
+                LOG_ERROR("%d devices found with vendor id: 0x%x", valid_device_count, vendor_id);
+                for (int i = 0, j = 0; i < device_count; i++) {
+                    if (device_descriptors[i].idVendor != vendor_id)
+                        continue;
+                    LOG_ERROR(
+                        "  Device #%d: product id = 0x%x", j++, device_descriptors[i].idProduct);
+                }
+                LOG_ERROR("To ensure correct device selection, please specify the product id");
+            }
+            return false;
+        }
+
+        ret = libusb_open(selected_device, &libusb_device_handle_);
+        if (ret != 0) {
+            LOG_ERROR(
+                "Device with vendor id: 0x%x and product id: 0x%x was successfully detected but "
+                "could not be opened: %d",
+                vendor_id, product_id, ret);
             return false;
         }
         FinalAction close_device_handle{[this]() { libusb_close(libusb_device_handle_); }};

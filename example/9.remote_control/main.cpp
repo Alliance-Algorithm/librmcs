@@ -10,7 +10,7 @@
 
 class MyRobot : public librmcs::client::CBoard {
 public:
-    explicit MyRobot(uint16_t usb_pid)
+    explicit MyRobot(int32_t usb_pid = -1)
         : CBoard(usb_pid)
         , motor_(librmcs::device::DjiMotor::Config{librmcs::device::DjiMotor::Type::M3508})
         , pid_calculator_(librmcs::utility::PidCalculator{0.1, 0.0003, 0.0}
@@ -89,7 +89,7 @@ int main() {
         running = false;
     });
 
-    MyRobot my_robot{0x1234};
+    MyRobot my_robot{};
 
     using namespace std::chrono_literals;
     constexpr double update_rate = 1000.0;

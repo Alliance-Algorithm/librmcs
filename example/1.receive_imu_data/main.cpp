@@ -2,7 +2,7 @@
 
 class MyRobot : public librmcs::client::CBoard {
 public:
-    explicit MyRobot(uint16_t usb_pid)
+    explicit MyRobot(int32_t usb_pid = -1)
         : CBoard(usb_pid) {}
 
 private:
@@ -12,6 +12,6 @@ private:
 };
 
 int main() {
-    MyRobot my_robot{0x1234};
+    MyRobot my_robot{};
     my_robot.handle_events();
 }
