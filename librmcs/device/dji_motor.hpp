@@ -42,13 +42,17 @@ public:
         bool multi_turn_angle_enabled;
     };
 
-    explicit DjiMotor(const Config& config) {
-        angle_ = 0.0;
-        velocity_ = 0.0;
-        torque_ = 0.0;
-
+    DjiMotor()
+        : angle_(0.0)
+        , velocity_(0.0)
+        , torque_(0.0) {}
+    explicit DjiMotor(const Config& config)
+        : angle_(0.0)
+        , velocity_(0.0)
+        , torque_(0.0) {
         configure(config);
     }
+
     DjiMotor(const DjiMotor&) = delete;
     DjiMotor& operator=(const DjiMotor&) = delete;
 
@@ -59,10 +63,12 @@ public:
 
         double sign = config.reversed ? -1 : 1;
 
-        raw_angle_to_angle_coefficient_ = sign / config.reduction_ratio / raw_angle_max_ * 2 * std::numbers::pi;
+        raw_angle_to_angle_coefficient_ =
+            sign / config.reduction_ratio / raw_angle_max_ * 2 * std::numbers::pi;
         angle_to_raw_angle_coefficient_ = 1 / raw_angle_to_angle_coefficient_;
 
-        raw_velocity_to_velocity_coefficient_ = sign / config.reduction_ratio / 60 * 2 * std::numbers::pi;
+        raw_velocity_to_velocity_coefficient_ =
+            sign / config.reduction_ratio / 60 * 2 * std::numbers::pi;
         velocity_to_raw_velocity_coefficient_ = 1 / raw_velocity_to_velocity_coefficient_;
 
         double torque_constant, raw_current_max, current_max;
