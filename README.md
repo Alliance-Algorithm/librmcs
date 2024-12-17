@@ -48,3 +48,47 @@ librmcs 是 [无下位机控制系统 RMCS（RoboMaster Control System）](https
   将 C 板烧入 [RMCS 下位机固件](https://github.com/Alliance-Algorithm/rmcs_slave) 后，用 Micro USB 线连接电脑，即可将其作为转发板使用。librmcs 可以直接使用 C 板上的几乎所有外设，就像直接在 C 板上编程一样。
 
   如果有更多的固件支持需求，可以向我们提 Issue 或 Pull Request。
+
+## 如何安装
+如果在`Linux`平台，就像往常一样，使用`cmake`惯用的方式，由于`header-only`的特性，我们并不需要编译这个库，只需要配置好便可以安装。
+```bash
+mkdir build && cd build
+cmake ..
+sudo make install
+```
+
+随后`librmcs`将会安装到如下目录：
+
+```text
+Install the project...
+-- Install configuration: ""
+-- Up-to-date: /usr/local/include/librmcs
+-- Up-to-date: /usr/local/include/librmcs/device
+-- Installing: /usr/local/include/librmcs/device/dr16.hpp
+-- Installing: /usr/local/include/librmcs/device/bmi088.hpp
+-- Installing: /usr/local/include/librmcs/device/dji_motor.hpp
+-- Up-to-date: /usr/local/include/librmcs/utility
+-- Installing: /usr/local/include/librmcs/utility/endian_promise.hpp
+-- Installing: /usr/local/include/librmcs/utility/cross_os.hpp
+-- Installing: /usr/local/include/librmcs/utility/ring_buffer.hpp
+-- Installing: /usr/local/include/librmcs/utility/pid_calculator.hpp
+-- Installing: /usr/local/include/librmcs/utility/logging.hpp
+-- Up-to-date: /usr/local/include/librmcs/client
+-- Installing: /usr/local/include/librmcs/client/cboard.hpp
+-- Installing: /usr/local/share/librmcs/cmake/librmcsConfig.cmake
+-- Installing: /usr/local/share/librmcs/cmake/librmcsConfigVersion.cmake
+```
+
+而卸载这个库也只需要一句指令：
+```bash
+# 进入build目录
+sudo make uninstall
+```
+
+如果是`Windows`平台，我们需要指定安装目录：
+```powershell
+# 新建build目录并进入
+cmake -DCMAKE_INSTALL_PREFIX=C:/path/to/install/ ..
+make install
+```
+然后将目录暴露在环境变量中即可，当然，也可以直接将头文件放入自己的项目中，这不会有任何问题。
