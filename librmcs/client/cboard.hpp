@@ -634,35 +634,57 @@ private:
     }
 
     bool add_uart_transmission(
-        DownwardId field_id, const std::byte* uart_data, uint8_t uart_data_length) {
+        DownwardId field_id, const std::byte* uart_data, size_t uart_data_length) {
+        while (uart_data_length > 0) {
+            size_t write_size;
+            std::byte* buffer = try_fetch_buffer(
+                std::min(sizeof(UartFieldHeader) + uart_data_length, (size_t)4),
+                [&](size_t free_space) {
+                    if (free_space <= sizeof(UartFieldHeader) + 15 + 1) {
+                        write_size = std::min<size_t>(free_space - sizeof(UartFieldHeader), 15);
+                        write_size = std::min(write_size, uart_data_length);
+                    } else {
+                        write_size =
+                            std::min(free_space - sizeof(UartFieldHeader) - 1, uart_data_length);
+                    };
+                    auto actual_size = sizeof(UartFieldHeader) + (write_size > 15) + write_size;
+                    return actual_size;
+                });
 
-        std::byte* buffer =
-            try_fetch_buffer(sizeof(UartFieldHeader) + (uart_data_length > 15) + uart_data_length);
-        if (!buffer)
-            return false;
+            if (!buffer)
+                return false;
 
-        // Write field header
-        auto& header = *new (buffer) UartFieldHeader{};
-        buffer += sizeof(UartFieldHeader);
-        header.field_id = static_cast<uint8_t>(field_id);
-        if (uart_data_length <= 15) {
-            // Store 4-bit size and field-id together
-            header.data_size = uart_data_length;
-        } else {
-            // Store size to a separate byte
-            header.data_size = 0;
-            *(buffer++) = static_cast<std::byte>(uart_data_length);
+            // Write field header
+            auto& header = *new (buffer) UartFieldHeader{};
+            buffer += sizeof(UartFieldHeader);
+            header.field_id = static_cast<uint8_t>(field_id);
+            if (write_size <= 15) {
+                // Store 4-bit size and field-id together
+                header.data_size = write_size;
+            } else {
+                // Store size to a separate byte
+                header.data_size = 0;
+                *(buffer++) = static_cast<std::byte>(write_size);
+            }
+
+            // Write received data
+            std::memcpy(buffer, uart_data, write_size);
+            uart_data += write_size;
+            uart_data_length -= write_size;
         }
-
-        // Write received data
-        std::memcpy(buffer, uart_data, uart_data_length);
-        buffer += uart_data_length;
 
         return true;
     }
 
     std::byte* try_fetch_buffer(size_t size) {
-        if (1 + size > 64) [[unlikely]]
+        return try_fetch_buffer(size, [&size](size_t) { return size; });
+    }
+
+    template <typename F>
+    requires requires(const F& f, size_t free_space) {
+        { f(free_space) } -> std::convertible_to<size_t>;
+    } std::byte* try_fetch_buffer(size_t min_size, const F& actual_size) {
+        if (1 + min_size > 64) [[unlikely]]
             return nullptr;
 
         while (true) {
@@ -677,9 +699,13 @@ private:
 
             libusb_transfer* transfer = *front;
 
-            if (transfer->length + size > 64)
+            size_t free_size = 64 - transfer->length;
+            if (free_size < min_size)
                 trigger_transmission_nocheck();
             else {
+                size_t size = actual_size(free_size);
+                if (free_size < size) [[unlikely]]
+                    return nullptr;
                 std::byte* buffer =
                     reinterpret_cast<std::byte*>(transfer->buffer) + transfer->length;
                 transfer->length += static_cast<int>(size);
