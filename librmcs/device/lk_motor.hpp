@@ -1,314 +1,339 @@
 #pragma once
 
+#include <cmath>
+#include <cstring>
+
 #include <algorithm>
 #include <atomic>
 #include <bit>
-#include <cmath>
-#include <cstring>
 #include <numbers>
-#include <stdexcept>
+
+#include "../utility/cross_os.hpp"
 
 namespace librmcs::device {
 
 class LkMotor {
 public:
-    enum class Type : uint8_t {
-        UNKNOWN = 0,
-        MG6012E = 1,
-        MG5010E = 2,
-    };
+    enum class Type : uint8_t { MG5010E_I10 };
 
     struct Config {
-        uint16_t raw_encoder_max;
-        int16_t raw_current_max;
-        double real_current_max;
-
-        bool reversed;
-        double torque_constant;
-        double encoder_reduction_ratio;
-        double velocity_reduction_ratio;
-        bool multi_turn_angle_enabled;
-
-        int encoder_zero_point;
-
         explicit Config(Type type) {
             encoder_zero_point = 0;
             reversed = false;
             multi_turn_angle_enabled = false;
-
-            switch (type) {
-            case Type::MG5010E:
-                raw_encoder_max = 65535;
-                raw_current_max = 2048;
-                real_current_max = 33.0;
-                torque_constant = 1;
-                encoder_reduction_ratio = 1.0;
-                velocity_reduction_ratio = 10.0;
-                break;
-            case Type::MG6012E:
-                raw_encoder_max = 65535;
-                raw_current_max = 2048;
-                real_current_max = 33.0;
-                torque_constant = 1.714286;
-                encoder_reduction_ratio = 1.0;
-                velocity_reduction_ratio = 1.0;
-                break;
-            default: throw std::runtime_error{"Unknown motor type"};
-            }
+            motor_type = type;
         }
 
         Config& set_encoder_zero_point(int value) { return encoder_zero_point = value, *this; }
-        Config& set_reduction_ratio(double value) { return encoder_reduction_ratio = value, *this; }
+        Config& set_reversed() { return reversed = true, *this; }
         Config& enable_multi_turn_angle() { return multi_turn_angle_enabled = true, *this; }
-        Config& reverse() { return reversed = true, *this; }
+
+        Type motor_type;
+        int encoder_zero_point;
+        bool reversed;
+        bool multi_turn_angle_enabled;
     };
 
-    explicit LkMotor(const Config& config) {
-        encoder_zero_point_ = 0;
-        last_encoder_count_ = 0;
-        multi_turn_angle_enabled_ = false;
+    LkMotor() = default;
 
-        encoder_to_angle_coefficient_ = 0;
-        angle_to_encoder_coefficient_ = 0;
-        raw_to_velocity_coefficient_ = 0;
-        velocity_to_raw_coefficient_ = 0;
-        raw_current_to_torque_coefficient_ = 0;
-        torque_to_raw_current_coefficient_ = 0;
-
+    explicit LkMotor(const Config& config)
+        : LkMotor() {
         configure(config);
     }
 
     void configure(const Config& config) {
-        encoder_zero_point_ = config.encoder_zero_point;
-        raw_encoder_max_ = config.raw_encoder_max;
-        torque_constant_ = config.torque_constant;
-        raw_current_max_ = config.raw_current_max;
-        real_current_max_ = config.real_current_max;
-        velocity_reduction_ratio_ = config.velocity_reduction_ratio;
+        multi_turn_encoder_count_ = 0;
+        last_raw_angle_ = 0;
+
+        double current_max;
+        double torque_constant;
+        double reduction_ratio;
+
+        switch (config.motor_type) {
+        case Type::MG5010E_I10:
+            raw_angle_max_ = 65535;
+            current_max = 33.0;
+            torque_constant = 0.90909;
+            reduction_ratio = 10.0;
+
+            // Note: max_torque_ should represent the ACTUAL maximum torque of the motor.
+            // This value must be taken directly from the manufacturer's documentation.
+            // It is not used in calculations and serves as a reference only.
+            // Avoid calculating it by simply multiplying the maximum current by the torque
+            // constant, as this approach leads to inaccurate and unreliable results.
+            max_torque_ = 7.0;
+            break;
+        }
+
+        // Make sure raw_angle_max_ is a power of 2
+        encoder_zero_point_ = config.encoder_zero_point & (raw_angle_max_ - 1);
+
         multi_turn_angle_enabled_ = config.multi_turn_angle_enabled;
 
-        multi_turn_encoder_count_ = 0;
-        last_encoder_count_ = 0;
+        const double sign = config.reversed ? -1.0 : 1.0;
 
-        const auto direction = config.reversed ? -1 : 1;
-        const auto encoder_ratio = config.encoder_reduction_ratio;
-        const auto velocity_ratio = config.velocity_reduction_ratio;
+        status_angle_to_angle_coefficient_ = sign / raw_angle_max_ * 2 * std::numbers::pi;
+        angle_to_command_angle_coefficient_ = sign * reduction_ratio * rad_to_deg_ * 100.0;
 
-        encoder_to_angle_coefficient_ =
-            direction / encoder_ratio / raw_encoder_max_ * 2 * std::numbers::pi;
-        angle_to_encoder_coefficient_ = 1 / encoder_to_angle_coefficient_;
+        status_velocity_to_velocity_coefficient_ = sign / reduction_ratio * deg_to_rad_;
+        velocity_to_command_velocity_coefficient_ = sign * reduction_ratio * rad_to_deg_ * 100.0;
 
-        raw_to_velocity_coefficient_ = direction / velocity_ratio / 360 * 2 * std::numbers::pi;
-        velocity_to_raw_coefficient_ = 1 / raw_to_velocity_coefficient_;
-
-        raw_current_to_torque_coefficient_ =
-            direction * torque_constant_ / raw_current_max_ * real_current_max_;
-        torque_to_raw_current_coefficient_ = 1 / raw_current_to_torque_coefficient_;
-
-        torque_max_ = torque_constant_ * real_current_max_;
+        status_current_to_torque_coefficient_ =
+            sign * (current_max / raw_current_max_) * torque_constant * reduction_ratio;
+        torque_to_command_current_coefficient_ = 1 / status_current_to_torque_coefficient_;
     }
 
-    void store_status(uint64_t can_data) { can_buffer_.store(can_data, std::memory_order_relaxed); }
+    void store_status(uint64_t can_data) {
+        const PACKED_STRUCT({
+            uint8_t command;
+            uint8_t placeholder[7];
+        }) feedback alignas(uint64_t) = std::bit_cast<decltype(feedback)>(can_data);
+        // Exclude non-motor status messages
+        if ((feedback.command & 0xF0) != 0x80)
+            can_data_.store(can_data, std::memory_order::relaxed);
+    }
 
     void update_status() {
-        struct alignas(uint64_t) {
+        const PACKED_STRUCT({
             uint8_t command;
             int8_t temperature;
             int16_t current;
             int16_t velocity;
             uint16_t encoder;
-        } feedback = std::bit_cast<decltype(feedback)>(can_buffer_.load(std::memory_order_relaxed));
+        }) feedback alignas(uint64_t) =
+            std::bit_cast<decltype(feedback)>(can_data_.load(std::memory_order::release));
 
-        temperature_ = feedback.temperature;
+        // Temperature unit: celsius
+        temperature_ = static_cast<double>(feedback.temperature);
 
         // Angle unit: rad
-        const auto encoder_count = feedback.encoder;
-        auto absolute_encoder = encoder_count - encoder_zero_point_;
-        if (absolute_encoder < 0)
-            absolute_encoder += raw_encoder_max_;
-
+        const auto raw_angle = feedback.encoder;
+        auto calibrated_raw_angle = feedback.encoder - encoder_zero_point_;
+        if (calibrated_raw_angle < 0)
+            calibrated_raw_angle += raw_angle_max_;
         if (!multi_turn_angle_enabled_)
-            angle_ = encoder_to_angle_coefficient_ * static_cast<double>(absolute_encoder);
+            angle_ = status_angle_to_angle_coefficient_ * static_cast<double>(calibrated_raw_angle);
         else {
-            auto diff = (absolute_encoder - multi_turn_encoder_count_) % raw_encoder_max_;
-            if (diff <= -raw_encoder_max_ / 2)
-                diff += raw_encoder_max_;
-            else if (diff > raw_encoder_max_ / 2)
-                diff -= raw_encoder_max_;
+            // Calculates the minimal difference between two angles and normalizes it to the range
+            // (-raw_angle_max_/2, raw_angle_max_/2].
+            // This implementation leverages bitwise operations for efficiency, which is valid only
+            // when raw_angle_max_ is a power of 2.
+            auto diff = (calibrated_raw_angle - multi_turn_encoder_count_) & (raw_angle_max_ - 1);
+            if (diff > (raw_angle_max_ >> 1))
+                diff -= raw_angle_max_;
+
             multi_turn_encoder_count_ += diff;
-            angle_ = encoder_to_angle_coefficient_ * static_cast<double>(multi_turn_encoder_count_);
+            angle_ =
+                status_angle_to_angle_coefficient_ * static_cast<double>(multi_turn_encoder_count_);
         }
+        last_raw_angle_ = raw_angle;
 
         // Velocity unit: rad/s
-        const double raw_velocity = feedback.velocity;
-        velocity_ = raw_to_velocity_coefficient_ * raw_velocity;
+        velocity_ =
+            status_velocity_to_velocity_coefficient_ * static_cast<double>(feedback.velocity);
 
         // Torque unit: N*m
-        torque_ = raw_current_to_torque_coefficient_ * static_cast<double>(feedback.current);
-
-        last_encoder_count_ = encoder_count;
+        torque_ = status_current_to_torque_coefficient_ * static_cast<double>(feedback.current);
     }
 
     int64_t calibrate_zero_point() {
         multi_turn_encoder_count_ = 0;
-        encoder_zero_point_ = last_encoder_count_;
+        encoder_zero_point_ = last_raw_angle_;
         return encoder_zero_point_;
     }
 
     double angle() const { return angle_; }
     double velocity() const { return velocity_; }
     double torque() const { return torque_; }
-    double max_torque() const { return torque_max_; }
-    int8_t temperature() const { return temperature_; }
+    double max_torque() const { return max_torque_; }
+    double temperature() const { return temperature_; }
 
-    /// @brief 将电机从开启状态（上电后默认状态）切换到关闭状态，清除电机转动圈数及之
-    /// 前接收的控制指令，LED由常亮转为慢闪。此时电机仍然可以回复控制命令，但不会执行动作。
-    static inline uint64_t generate_shutdown_command() {
-        struct __attribute__((packed)) {
+    /// @brief Switch the motor from the startup state (default state after power-on) to the
+    /// shutdown state, clearing the motor's rotation count and previously received control
+    /// commands. The LED changes from steady on to slow flashing. At this time, the motor can still
+    /// respond to control commands but will not execute actions.
+    constexpr static uint64_t generate_shutdown_command() {
+        PACKED_STRUCT({
             uint8_t id;
-            uint8_t null[7];
-        } command{.id = 0x80};
+            uint8_t placeholder[7]{};
+        } command alignas(uint64_t){.id = 0x80});
         return std::bit_cast<uint64_t>(command);
     }
 
-    /// @brief 停止电机，但不清除电机运行状态。再次发送控制指令即可控制电机动作。
-    static inline uint64_t generate_pause_command() {
-        struct __attribute__((packed)) {
-            uint8_t id;
-            uint8_t null[7];
-        } command{.id = 0x81};
+    /// @brief Switch the motor from the shutdown state to the startup state. The LED changes from
+    /// slow flashing to steady on. At this point, sending control commands can control motor
+    /// actions.
+    constexpr static uint64_t generate_startup_command() {
+        PACKED_STRUCT({
+            uint8_t id = 0x88;
+            uint8_t placeholder[7]{};
+        } command alignas(uint64_t){});
         return std::bit_cast<uint64_t>(command);
     }
 
-    /// @brief 将电机从关闭状态切换到开启状态，LED
-    /// 由慢闪转为常亮。此时再发送控制指令即可控制电机动作。
-    static inline uint64_t generate_enable_command() {
-        struct __attribute__((packed)) {
-            uint8_t id;
-            uint8_t null[7];
-        } command{.id = 0x88};
+    /// @brief Disable the motor, but do not clear the motor's running state. Sending control
+    /// commands again can control the motor actions.
+    constexpr static uint64_t generate_disable_command() {
+        // Note: instead of sending a real disable message here, a torque control message with
+        // torque set to 0 is sent, because the disable message does not cause the motor to feedback
+        // its status.
+        PACKED_STRUCT({
+            uint8_t id = 0xA1;
+            uint8_t placeholder0[3]{};
+            int16_t current = 0;
+            uint8_t placeholder1[2]{};
+        } command alignas(uint64_t){});
         return std::bit_cast<uint64_t>(command);
     }
 
-    /// @brief 该命令读取当前电机的温度、电机转矩电流（MF、MG）/
-    /// 电机输出功率（MS）、转速、编码器位置。
-    static inline uint64_t generate_status_request() {
-        struct __attribute__((packed)) {
-            uint8_t id;
-            uint8_t null[7];
-        } request{.id = 0x9C};
+    /// @brief This command reads the current motor's temperature, motor torque current (MF, MG) /
+    /// motor output power (MS), speed, and encoder position.
+    constexpr static uint64_t generate_status_request() {
+        PACKED_STRUCT({
+            uint8_t id = 0x9C;
+            uint8_t placeholder[7]{};
+        } request alignas(uint64_t){});
         return std::bit_cast<uint64_t>(request);
     }
 
-    /// @brief 主机发送该命令以控制电机的转矩电流输出
-    /// @note 电机在收到命令后回复主机。电机回复数据和读取电机状态 2 命令相同（仅命令字节
-    /// DATA[0]不同，这里为 0xA1）。
-    uint64_t generate_torque_command(double torque) const {
-        if (std::isnan(torque))
-            return 0;
+    /// @brief The host sends this command to control the motor's torque current output.
+    /// @note After receiving the command, the motor responds to the host. The motor's response data
+    /// is the same as the `generate_status_request` command (only the command byte 0 is different,
+    /// here it is 0xA1).
+    uint64_t generate_torque_command(double control_torque) const {
+        if (std::isnan(control_torque))
+            return generate_disable_command();
 
-        const auto current = std::round(
-            torque_to_raw_current_coefficient_ * std::clamp(torque, -torque_max_, torque_max_));
-        const int16_t current_bit = static_cast<int16_t>(current);
-
-        /// @param current 数值范围-2048~ 2048，对应 MF 电机实际转矩电流范围-16.5A~16.5A，对应 MG
-        /// 电机实际转矩电流范围-33A~33A，母线电流和电机的实际扭矩因不同电机而异。
-        struct __attribute__((packed)) {
-            uint8_t id;
-            uint8_t null0[3];
+        /// @param current The value range is -2048~2048, corresponding to the actual torque current
+        /// range of MF motor -16.5A~16.5A, and the actual torque current range of MG motor
+        /// -33A~33A. The bus current and the motor's actual torque vary depending on the motor
+        /// type.
+        PACKED_STRUCT({
+            uint8_t id = 0xA1;
+            uint8_t placeholder0[3]{};
             int16_t current;
-            uint8_t null1[2];
-        } command{.id = 0xA1, .current = current_bit};
+            uint8_t placeholder1[2]{};
+        } command alignas(uint64_t){.current = to_command_current(control_torque)});
 
         return std::bit_cast<uint64_t>(command);
     }
 
-    /// @brief 主机发送该命令以控制电机的速度，同时带有力矩限制。
-    /// @note 电机在收到命令后回复主机。电机回复数据和读取电机状态 2 命令相同（仅命令字节
-    /// DATA[0]不同，这里为 0xA2/0xAD）。
-    uint64_t generate_velocity_command(double velocity, double torque = 0) const {
-        if (std::isnan(velocity) || std::isnan(torque))
-            return 0;
+    /// @brief The host sends this command to control the motor's speed, along with a torque limit.
+    /// @note After receiving the command, the motor responds to the host. The motor's response data
+    /// is the same as the `generate_status_request` command (only the command byte 0 is
+    /// different, here it is 0xA2/0xAD).
+    uint64_t generate_velocity_command(double control_velocity, double torque_limit = nan_) const {
+        if (std::isnan(control_velocity))
+            return generate_disable_command();
 
-        const auto torque_bit = static_cast<int16_t>(torque * torque_to_raw_current_coefficient_);
-        const auto velocity_bit =
-            static_cast<int32_t>(velocity * 18000 / std::numbers::pi * velocity_reduction_ratio_);
-        const auto id = static_cast<uint8_t>(torque == 0 ? 0xA2 : 0xAD);
-
-        /// @param torque_limit int16_t类型，，数值范围2048~2048，
-        /// 对应MF电机实际转矩电流范围-16.5A~16.5A，
-        /// 对应MG电机实际转矩电流范围-33.0A~33.0A，
-        /// 母线电流和电机的实际扭矩因不同电机而异。
-        /// @param velocity int32_t类型，对应实际转速为0.01dps/LSB；
-        struct __attribute__((packed)) {
-            uint8_t id;
-            uint8_t null;
-            int16_t torque_limit;
+        /// @param torque_limit int16_t type, value range -2048~2048, corresponding to the actual
+        /// torque current range of MF motor -16.5A~16.5A, and MG motor -33.0A~33.0A. The bus
+        /// current and motor's actual torque vary depending on the motor type.
+        /// @param velocity int32_t type, corresponding to the actual speed as 0.01 dps/LSB;
+        PACKED_STRUCT({
+            uint8_t id = 0xA2;
+            uint8_t placeholder{};
+            int16_t current_limit = 0;
             int32_t velocity;
-        } command{.id = id, .torque_limit = torque_bit, .velocity = velocity_bit};
+        } command alignas(uint64_t){.velocity = to_command_velocity(control_velocity)});
+
+        if (!std::isnan(torque_limit)) {
+            command.id = 0xAD;
+            command.current_limit = to_command_current(torque_limit);
+        }
 
         return std::bit_cast<uint64_t>(command);
     }
 
-    /// @brief 主机发送该命令以控制电机的位置（多圈角度）。
-    /// @note 电机在收到命令后回复主机。电机回复数据和读取电机状态 2 命令相同（仅命令字节
-    /// DATA[0]不同，这里为 0xA3/0xA4）。
-    uint64_t generate_angle_command(double angle, double velocity = 0) const {
-        if (std::isnan(angle) || std::isnan(velocity))
-            return 0;
+    /// @brief The host sends this command to control the motor's position (multi-turn angle).
+    /// @note After receiving the command, the motor responds to the host. The motor's response data
+    /// is the same as the `generate_status_request` command (only the command byte 0 is
+    /// different, here it is 0xA3/0xA4).
+    uint64_t generate_angle_command(double control_angle, double velocity_limit = nan_) const {
+        if (std::isnan(control_angle))
+            return generate_disable_command();
 
-        const auto angle_bit = static_cast<int32_t>(
-            angle / std::numbers::pi * 180. * 100. * velocity_reduction_ratio_);
-        const auto velocity_bit =
-            static_cast<uint16_t>(velocity * 18000 / std::numbers::pi * velocity_reduction_ratio_);
-        const auto id = static_cast<uint8_t>(velocity == 0 ? 0xA3 : 0xA4);
+        /// @param angle The actual position corresponds to 0.01 deg/LSB, meaning 36000
+        /// represents 360 degrees, and the motor's rotation direction is determined by the
+        /// difference between the target position and the current position.
+        /// @param velocity The maximum speed limit for motor rotation, corresponding to an actual
+        /// speed of 1 dps/LSB, meaning 360 represents 360 dps.
+        PACKED_STRUCT({
+            uint8_t id = 0xA3;
+            uint8_t placeholder{};
+            uint16_t velocity_limit = 0;
+            int32_t angle;
+        } command alignas(uint64_t){.angle = to_command_angle(control_angle)});
 
-        /// @param angle 对应实际位置为 0.01degree/LSB，即36000代表
-        /// 360°，电机转动方向由目标位置和当前位置的差值决定。
-        /// @param velocity 限制电机转动的最大速度，对应实际转速 1dps/LSB，即 360代表 360dps。
-        struct __attribute__((packed)) {
-            uint8_t id;
-            uint8_t null;
-            uint16_t velocity;
-            int32_t encoder;
-        } command{.id = id, .velocity = velocity_bit, .encoder = angle_bit};
+        if (!std::isnan(velocity_limit)) {
+            command.id = 0xA4;
+
+            velocity_limit =
+                velocity_to_command_velocity_coefficient_ * (1.0 / 100.0) * velocity_limit;
+            velocity_limit = std::round(std::clamp<double>(
+                velocity_limit, std::numeric_limits<uint16_t>::min(),
+                std::numeric_limits<uint16_t>::max()));
+            command.velocity_limit = static_cast<uint16_t>(velocity_limit);
+        }
 
         return std::bit_cast<uint64_t>(command);
     }
 
-protected:
-    // Constant and Limits
-    uint16_t raw_encoder_max_;
-    double raw_current_max_;
-    double real_current_max_;
-    double torque_max_;
+private:
+    int16_t to_command_current(double torque) const {
+        double current = torque_to_command_current_coefficient_ * torque;
+        current = std::round(std::clamp<double>(current, -raw_current_max_, raw_current_max_));
+        return static_cast<int16_t>(current);
+    }
 
-    double velocity_reduction_ratio_;
-    double torque_constant_;
+    int32_t to_command_velocity(double velocity) const {
+        velocity = velocity_to_command_velocity_coefficient_ * velocity;
+        velocity = std::round(std::clamp<double>(
+            velocity, std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max()));
+        return static_cast<int32_t>(velocity);
+    }
+
+    int32_t to_command_angle(double angle) const {
+        angle = angle_to_command_angle_coefficient_ * angle;
+        angle = std::round(std::clamp<double>(
+            angle, std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max()));
+        return static_cast<int32_t>(angle);
+    }
+
+    // Limits
+    static constexpr double nan_ = std::numeric_limits<double>::quiet_NaN();
+
+    static constexpr int raw_current_max_ = 2048;
+    int raw_angle_max_;
+
+    // Constants
+    static constexpr double deg_to_rad_ = std::numbers::pi / 180;
+    static constexpr double rad_to_deg_ = 180 / std::numbers::pi;
+
     bool multi_turn_angle_enabled_;
-    int64_t encoder_zero_point_;
+    int encoder_zero_point_;
 
     // Coefficients
-    double encoder_to_angle_coefficient_;
-    double angle_to_encoder_coefficient_;
+    double status_angle_to_angle_coefficient_;
+    double angle_to_command_angle_coefficient_;
 
-    double raw_to_velocity_coefficient_;
-    double velocity_to_raw_coefficient_;
+    double status_velocity_to_velocity_coefficient_;
+    double velocity_to_command_velocity_coefficient_;
 
-    double raw_current_to_torque_coefficient_;
-    double torque_to_raw_current_coefficient_;
+    double status_current_to_torque_coefficient_;
+    double torque_to_command_current_coefficient_;
 
     // Status
-    int64_t multi_turn_encoder_count_;
-    int64_t last_encoder_count_;
+    std::atomic<uint64_t> can_data_ = 0;
 
-    int8_t temperature_;
+    int64_t multi_turn_encoder_count_ = 0;
+    int last_raw_angle_ = 0;
+
     double angle_;
     double torque_;
     double velocity_;
-
-    uint16_t can_id_ = 0x140;
-    std::atomic<uint64_t> can_buffer_ = 0;
+    double max_torque_;
+    double temperature_;
 };
 
 } // namespace librmcs::device
