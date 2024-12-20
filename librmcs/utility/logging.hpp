@@ -12,7 +12,7 @@
 #  include <rclcpp/logger.hpp>
 #  include <rclcpp/logging.hpp>
 namespace librmcs::utility {
-rclcpp::Logger& get_logger_cached() {
+inline rclcpp::Logger& get_logger_cached() {
     static rclcpp::Logger logger = rclcpp::get_logger("librmcs");
     return logger;
 }
