@@ -517,7 +517,7 @@ public:
 
     ~TransmitBuffer() {
         size_t unreleased_transfer_count = alloc_transfer_count_;
-        timeval timeout{0, 1000'000};
+        timeval timeout{1, 0};
         auto start = std::chrono::steady_clock::now();
         while (true) {
             unreleased_transfer_count -= free_transfers_.pop_front_multi(
