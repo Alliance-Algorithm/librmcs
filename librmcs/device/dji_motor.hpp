@@ -6,7 +6,6 @@
 #include <atomic>
 #include <bit>
 #include <numbers>
-#include <stdexcept>
 
 #include "../utility/endian_promise.hpp"
 
@@ -93,7 +92,6 @@ public:
             raw_current_max = 16384.0;
             current_max = 10.0;
             break;
-        default: throw std::runtime_error{"Unknown motor type"};
         }
 
         raw_current_to_torque_coefficient_ =
@@ -110,17 +108,21 @@ public:
     void store_status(uint64_t can_data) { can_data_.store(can_data, std::memory_order_relaxed); }
 
     void update_status() {
-        auto feedback = std::bit_cast<DjiMotorFeedback>(can_data_.load(std::memory_order::relaxed));
-        int raw_angle = feedback.angle;
+        const auto feedback =
+            std::bit_cast<DjiMotorFeedback>(can_data_.load(std::memory_order::relaxed));
+
+        // Temperature unit: celsius
+        temperature_ = static_cast<double>(feedback.temperature);
 
         // Angle unit: rad
-        int angle = raw_angle - encoder_zero_point_;
-        if (angle < 0)
-            angle += raw_angle_max_;
+        const int raw_angle = feedback.angle;
+        int calibrated_raw_angle = raw_angle - encoder_zero_point_;
+        if (calibrated_raw_angle < 0)
+            calibrated_raw_angle += raw_angle_max_;
         if (!multi_turn_angle_enabled_) {
-            angle_ = raw_angle_to_angle_coefficient_ * static_cast<double>(angle);
+            angle_ = raw_angle_to_angle_coefficient_ * static_cast<double>(calibrated_raw_angle);
         } else {
-            auto diff = (angle - angle_multi_turn_) % raw_angle_max_;
+            auto diff = (calibrated_raw_angle - angle_multi_turn_) % raw_angle_max_;
             if (diff <= -raw_angle_max_ / 2)
                 diff += raw_angle_max_;
             else if (diff > raw_angle_max_ / 2)
@@ -128,14 +130,13 @@ public:
             angle_multi_turn_ += diff;
             angle_ = raw_angle_to_angle_coefficient_ * static_cast<double>(angle_multi_turn_);
         }
+        last_raw_angle_ = raw_angle;
 
         // Velocity unit: rad/s
         velocity_ = raw_velocity_to_velocity_coefficient_ * static_cast<double>(feedback.velocity);
 
         // Torque unit: N*m
         torque_ = raw_current_to_torque_coefficient_ * static_cast<double>(feedback.current);
-
-        last_raw_angle_ = raw_angle;
     }
 
     uint16_t generate_command(double control_torque) const {
@@ -160,6 +161,7 @@ public:
     double velocity() const { return velocity_; }
     double torque() const { return torque_; }
     double max_torque() const { return max_torque_; }
+    double temperature() const { return temperature_; }
 
 private:
     struct alignas(uint64_t) DjiMotorFeedback {
@@ -182,11 +184,11 @@ private:
     double raw_velocity_to_velocity_coefficient_, velocity_to_raw_velocity_coefficient_;
     double raw_current_to_torque_coefficient_, torque_to_raw_current_coefficient_;
 
-    double max_torque_;
-
     double angle_;
     double velocity_;
     double torque_;
+    double max_torque_;
+    double temperature_;
 };
 
 } // namespace librmcs::device
