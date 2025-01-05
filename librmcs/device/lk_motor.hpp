@@ -101,7 +101,7 @@ public:
             int16_t velocity;
             uint16_t encoder;
         }) feedback alignas(uint64_t) =
-            std::bit_cast<decltype(feedback)>(can_data_.load(std::memory_order::release));
+            std::bit_cast<decltype(feedback)>(can_data_.load(std::memory_order::relaxed));
 
         // Temperature unit: celsius
         temperature_ = static_cast<double>(feedback.temperature);
