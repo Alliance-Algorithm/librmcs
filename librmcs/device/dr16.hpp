@@ -46,8 +46,12 @@ public:
         auto part1 alignas(uint64_t) =
             std::bit_cast<Dr16DataPart1>(data_part1_.load(std::memory_order::relaxed));
 
-        auto channel_to_double = [](uint16_t value) {
-            return (static_cast<int32_t>(value) - 1024) / 660.0;
+        auto channel_to_double = [](int32_t value) {
+            value -= 1024;
+            if (-660 <= value && value <= 660)
+                return value / 660.0;
+            else
+                return 0.0;
         };
         joystick_right_.y = -channel_to_double(static_cast<uint16_t>(part1.joystick_channel0));
         joystick_right_.x = channel_to_double(static_cast<uint16_t>(part1.joystick_channel1));
@@ -70,6 +74,7 @@ public:
             std::bit_cast<Dr16DataPart3>(data_part3_.load(std::memory_order::relaxed));
 
         keyboard_ = part3.keyboard;
+        rotary_knob_ = channel_to_double(part3.rotary_knob);
     }
 
     struct Vector {
@@ -115,16 +120,18 @@ public:
     });
     static_assert(sizeof(Keyboard) == 2);
 
-    Vector joystick_right() { return joystick_right_; }
-    Vector joystick_left() { return joystick_left_; }
+    Vector joystick_right() const { return joystick_right_; }
+    Vector joystick_left() const { return joystick_left_; }
 
-    Switch switch_right() { return switch_right_; }
-    Switch switch_left() { return switch_left_; }
+    Switch switch_right() const { return switch_right_; }
+    Switch switch_left() const { return switch_left_; }
 
-    Vector mouse_velocity() { return mouse_velocity_; }
+    Vector mouse_velocity() const { return mouse_velocity_; }
 
-    Mouse mouse() { return mouse_; }
-    Keyboard keyboard() { return keyboard_; }
+    Mouse mouse() const { return mouse_; }
+    Keyboard keyboard() const { return keyboard_; }
+
+    double rotary_knob() const { return rotary_knob_; }
 
 private:
     PACKED_STRUCT(Dr16DataPart1 {
@@ -158,7 +165,7 @@ private:
 
     PACKED_STRUCT(Dr16DataPart3 {
         Keyboard keyboard;
-        uint16_t unused;
+        uint16_t rotary_knob;
     });
     static_assert(sizeof(Dr16DataPart3) == 4);
     std::atomic<uint32_t> data_part3_ = {
@@ -175,6 +182,8 @@ private:
 
     Mouse mouse_ = Mouse::zero();
     Keyboard keyboard_ = Keyboard::zero();
+
+    double rotary_knob_ = 0.0;
 };
 
 } // namespace librmcs::device
