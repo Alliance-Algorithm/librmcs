@@ -18,7 +18,7 @@ public:
         , q0_(q0)
         , q1_(q1)
         , q2_(q2)
-        , q3_(q3){};
+        , q3_(q3) {};
 
     void store_accelerometer_status(int16_t x, int16_t y, int16_t z) {
         accelerometer_data_.store({x, y, z}, std::memory_order::relaxed);
@@ -51,10 +51,10 @@ public:
     double gy() const { return gy_; }
     double gz() const { return gz_; }
 
-    double q0() const { return q0_; }
-    double q1() const { return q1_; }
-    double q2() const { return q2_; }
-    double q3() const { return q3_; }
+    double& q0() { return q0_; }
+    double& q1() { return q1_; }
+    double& q2() { return q2_; }
+    double& q3() { return q3_; }
 
 private:
     void mahony_ahrs_update_imu(double ax, double ay, double az, double gx, double gy, double gz) {
