@@ -14,7 +14,7 @@ namespace librmcs::device {
 
 class LkMotor {
 public:
-    enum class Type : uint8_t { MG5010E_I10 };
+    enum class Type : uint8_t { MG5010E_I10, MG4010E_I10 };
 
     struct Config {
         explicit Config(Type type) {
@@ -62,6 +62,13 @@ public:
             // Avoid calculating it by simply multiplying the maximum current by the torque
             // constant, as this approach leads to inaccurate and unreliable results.
             max_torque_ = 7.0;
+            break;
+        case Type::MG4010E_I10:
+            raw_angle_max_ = 65535;
+            current_max = 33.0;
+            torque_constant = 0.07;
+            reduction_ratio = 10.0;
+            max_torque_ = 4.5;
             break;
         }
 
