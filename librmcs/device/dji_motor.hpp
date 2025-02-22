@@ -121,6 +121,8 @@ public:
             calibrated_raw_angle += raw_angle_max_;
         if (!multi_turn_angle_enabled_) {
             angle_ = raw_angle_to_angle_coefficient_ * static_cast<double>(calibrated_raw_angle);
+            if (angle_ < 0)
+                angle_ += 2 * std::numbers::pi;
         } else {
             auto diff = (calibrated_raw_angle - angle_multi_turn_) % raw_angle_max_;
             if (diff <= -raw_angle_max_ / 2)
