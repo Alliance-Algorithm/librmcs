@@ -118,9 +118,11 @@ public:
         auto calibrated_raw_angle = feedback.encoder - encoder_zero_point_;
         if (calibrated_raw_angle < 0)
             calibrated_raw_angle += raw_angle_max_;
-        if (!multi_turn_angle_enabled_)
+        if (!multi_turn_angle_enabled_) {
             angle_ = status_angle_to_angle_coefficient_ * static_cast<double>(calibrated_raw_angle);
-        else {
+            if (angle_ < 0)
+                angle_ += 2 * std::numbers::pi;
+        } else {
             // Calculates the minimal difference between two angles and normalizes it to the range
             // (-raw_angle_max_/2, raw_angle_max_/2].
             // This implementation leverages bitwise operations for efficiency, which is valid only
@@ -278,8 +280,8 @@ public:
             velocity_limit =
                 velocity_to_command_velocity_coefficient_ * (1.0 / 100.0) * velocity_limit;
             velocity_limit = std::round(std::clamp<double>(
-                velocity_limit, std::numeric_limits<uint16_t>::min(),
-                std::numeric_limits<uint16_t>::max()));
+                    velocity_limit, std::numeric_limits<uint16_t>::min(),
+                    std::numeric_limits<uint16_t>::max()));
             command.velocity_limit = static_cast<uint16_t>(velocity_limit);
         }
 
@@ -303,7 +305,7 @@ private:
     int32_t to_command_angle(double angle) const {
         angle = angle_to_command_angle_coefficient_ * angle;
         angle = std::round(std::clamp<double>(
-            angle, std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max()));
+                angle, std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max()));
         return static_cast<int32_t>(angle);
     }
 
