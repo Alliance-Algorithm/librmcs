@@ -12,7 +12,7 @@ class Ch040 {
 public:
     explicit Ch040() = default;
 
-    void store_status(const std::byte* uart_data, size_t uart_data_length) {
+    void store_status(const uint8_t* uart_data, size_t uart_data_length) {
         if (uart_data_length != sizeof(Package))
             return;
 
@@ -32,7 +32,7 @@ public:
     double y() const { return y_.load(std::memory_order::relaxed); }
     double z() const { return z_.load(std::memory_order::relaxed); }
 
-private:
+protected:
     PACKED_STRUCT(Quaterion {
         uint8_t label;
         float w;
@@ -54,12 +54,12 @@ private:
     std::atomic<double> y_;
     std::atomic<double> z_;
 
-    static void crc16_update(uint16_t* crc_src, const std::byte* bytes, uint32_t len) {
+    static void crc16_update(uint16_t* crc_src, const uint8_t* bytes, uint32_t len) {
         uint32_t crc = *crc_src;
-        for (int byte_index = 0; byte_index < len; ++byte_index) {
+        for (std::size_t byte_index = 0; byte_index < len; ++byte_index) {
             auto byte = static_cast<uint32_t>(bytes[byte_index]);
             crc ^= byte << 8;
-            for (int crc_index = 0; crc_index < 8; ++crc_index) {
+            for (std::size_t crc_index = 0; crc_index < 8; ++crc_index) {
                 uint32_t temp = crc << 1;
                 if (crc & 0x8000)
                     temp ^= 0x1021;
@@ -69,7 +69,7 @@ private:
         *crc_src = crc;
     }
 
-    static bool crc_check(const std::byte* bytes, std::size_t length) {
+    static bool crc_check(const uint8_t* bytes, std::size_t length) {
         auto package = *reinterpret_cast<const Package*>(bytes);
         auto payload_length = package.length;
 
