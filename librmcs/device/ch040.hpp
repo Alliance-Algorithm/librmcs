@@ -18,8 +18,9 @@ public:
 
         auto package = *reinterpret_cast<const Package*>(uart_data);
 
-        if (!crc_check(uart_data, uart_data_length))
-            return;
+        // TODO CRC
+        // if (!crc_check(uart_data, uart_data_length))
+        // return;
 
         w_ = package.q.w;
         x_ = package.q.x;
@@ -41,10 +42,14 @@ protected:
         float z;
     };)
 
-    PACKED_STRUCT(Package {
+    PACKED_STRUCT(Header {
         uint8_t header;
         uint8_t type;
         uint16_t length;
+    };)
+
+    PACKED_STRUCT(Package {
+        Header header;
         uint16_t crc;
         Quaterion q;
     };)
@@ -71,7 +76,7 @@ protected:
 
     static bool crc_check(const uint8_t* bytes, std::size_t length) {
         auto package = *reinterpret_cast<const Package*>(bytes);
-        auto payload_length = package.length;
+        auto payload_length = package.header.length;
 
         uint16_t crc = 0;
         crc16_update(&crc, bytes, 4);
