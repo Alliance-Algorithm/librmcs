@@ -10,30 +10,6 @@ namespace librmcs::device {
 
 class Ch040 {
 public:
-    explicit Ch040() = default;
-
-    void store_status(const uint8_t* uart_data, size_t uart_data_length) {
-        if (uart_data_length != sizeof(Package))
-            return;
-
-        auto package = *reinterpret_cast<const Package*>(uart_data);
-
-        // TODO CRC
-        // if (!crc_check(uart_data, uart_data_length))
-        // return;
-
-        w_ = package.q.w;
-        x_ = package.q.x;
-        y_ = package.q.y;
-        z_ = package.q.z;
-    }
-
-    double w() const { return w_.load(std::memory_order::relaxed); }
-    double x() const { return x_.load(std::memory_order::relaxed); }
-    double y() const { return y_.load(std::memory_order::relaxed); }
-    double z() const { return z_.load(std::memory_order::relaxed); }
-
-protected:
     PACKED_STRUCT(Quaterion {
         uint8_t label;
         float w;
@@ -54,6 +30,35 @@ protected:
         Quaterion q;
     };)
 
+    explicit Ch040() = default;
+
+    bool store_status(const uint8_t* uart_data, size_t uart_data_length) {
+        if (uart_data_length != sizeof(Package))
+            return false;
+
+        const auto& package = *reinterpret_cast<const Package*>(uart_data);
+        const auto& head = package.header;
+
+        if (head.header != 0x5a || head.type != 0xa5 || head.length != 17)
+            return false;
+
+        if (!crc_check(uart_data, head.length, package.crc))
+            return false;
+
+        w_ = package.q.w;
+        x_ = package.q.x;
+        y_ = package.q.y;
+        z_ = package.q.z;
+
+        return true;
+    }
+
+    double w() const { return w_.load(std::memory_order::relaxed); }
+    double x() const { return x_.load(std::memory_order::relaxed); }
+    double y() const { return y_.load(std::memory_order::relaxed); }
+    double z() const { return z_.load(std::memory_order::relaxed); }
+
+protected:
     std::atomic<double> w_;
     std::atomic<double> x_;
     std::atomic<double> y_;
@@ -74,15 +79,12 @@ protected:
         *crc_src = crc;
     }
 
-    static bool crc_check(const uint8_t* bytes, std::size_t length) {
-        auto package = *reinterpret_cast<const Package*>(bytes);
-        auto payload_length = package.header.length;
-
+    static bool crc_check(const uint8_t* bytes, uint32_t data_length, uint16_t data_crc) {
         uint16_t crc = 0;
         crc16_update(&crc, bytes, 4);
-        crc16_update(&crc, bytes + 6, length - payload_length);
+        crc16_update(&crc, bytes + 6, 17);
 
-        return (crc == package.crc);
+        return (crc == data_crc);
     }
 };
 

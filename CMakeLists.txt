@@ -34,7 +34,7 @@ install(FILES "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
 set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
 export(PACKAGE ${PROJECT_NAME})
 
-add_custom_target("uninstall" COMMENT "uninstall creeper-qt library")
+add_custom_target("uninstall" COMMENT "uninstall ${PROJECT_NAME} library")
 add_custom_command(TARGET "uninstall" POST_BUILD
     COMMENT "uninstall ${PROJECT_NAME} library"
     COMMAND xargs rm -vf < install_manifest.txt || echo nothing to be uninstalled
