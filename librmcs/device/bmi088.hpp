@@ -3,7 +3,9 @@
 #include <cmath>
 
 #include <atomic>
+#include <functional>
 #include <numbers>
+#include <utility>
 
 namespace librmcs::device {
 
@@ -19,6 +21,12 @@ public:
         , q1_(q1)
         , q2_(q2)
         , q3_(q3) {};
+
+    void set_coordinate_mapping(
+        std::function<std::tuple<double, double, double>(double, double, double)>
+            mapping_function) {
+        coordinate_mapping_function_ = std::move(mapping_function);
+    }
 
     void store_accelerometer_status(int16_t x, int16_t y, int16_t z) {
         accelerometer_data_.store({x, y, z}, std::memory_order::relaxed);
@@ -39,6 +47,11 @@ public:
 
         gx_ = solve_gyro(gyro.x), gy_ = solve_gyro(gyro.y), gz_ = solve_gyro(gyro.z);
         ax_ = solve_acc(acc.x), ay_ = solve_acc(acc.y), az_ = solve_acc(acc.z);
+
+        if (coordinate_mapping_function_) {
+            std::tie(gx_, gy_, gz_) = coordinate_mapping_function_(gx_, gy_, gz_);
+            std::tie(ax_, ay_, az_) = coordinate_mapping_function_(ax_, ay_, az_);
+        }
 
         mahony_ahrs_update_imu(ax_, ay_, az_, gx_, gy_, gz_);
     }
@@ -140,6 +153,9 @@ private:
     static_assert(std::atomic<ImuData>::is_always_lock_free);
 
     double ax_, ay_, az_, gx_, gy_, gz_;
+
+    std::function<std::tuple<double, double, double>(double, double, double)>
+        coordinate_mapping_function_;
 
     // Quaternion of sensor frame relative to auxiliary frame
     double q0_, q1_, q2_, q3_;
