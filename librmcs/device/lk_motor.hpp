@@ -14,7 +14,7 @@ namespace librmcs::device {
 
 class LkMotor {
 public:
-    enum class Type : uint8_t { MG5010E_I10, MG4010E_I10 };
+    enum class Type : uint8_t { MG5010E_I10, MG4010E_I10, MG6012E_I8, MG4005E_I10 };
 
     struct Config {
         explicit Config(Type type) {
@@ -69,6 +69,20 @@ public:
             torque_constant = 0.07;
             reduction_ratio = 10.0;
             max_torque_ = 4.5;
+            break;
+        case Type::MG6012E_I8:
+            raw_angle_max_ = 65535;
+            current_max = 33.0;
+            torque_constant = 1.09;
+            reduction_ratio = 8.0;
+            max_torque_ = 16.0;
+            break;
+        case Type::MG4005E_I10:
+            raw_angle_max_ = 65535;
+            current_max = 33.0;
+            torque_constant = 0.06;
+            reduction_ratio = 10.0;
+            max_torque_ = 2.5;
             break;
         }
 
@@ -280,8 +294,8 @@ public:
             velocity_limit =
                 velocity_to_command_velocity_coefficient_ * (1.0 / 100.0) * velocity_limit;
             velocity_limit = std::round(std::clamp<double>(
-                    velocity_limit, std::numeric_limits<uint16_t>::min(),
-                    std::numeric_limits<uint16_t>::max()));
+                velocity_limit, std::numeric_limits<uint16_t>::min(),
+                std::numeric_limits<uint16_t>::max()));
             command.velocity_limit = static_cast<uint16_t>(velocity_limit);
         }
 
@@ -305,7 +319,7 @@ private:
     int32_t to_command_angle(double angle) const {
         angle = angle_to_command_angle_coefficient_ * angle;
         angle = std::round(std::clamp<double>(
-                angle, std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max()));
+            angle, std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max()));
         return static_cast<int32_t>(angle);
     }
 
