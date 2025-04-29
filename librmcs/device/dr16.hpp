@@ -67,6 +67,8 @@ public:
         mouse_velocity_.x = -part2.mouse_velocity_y / 32768.0;
         mouse_velocity_.y = -part2.mouse_velocity_x / 32768.0;
 
+        mouse_wheel_ = -part2.mouse_velocity_z / 32768.0;
+
         mouse_.left = part2.mouse_left;
         mouse_.right = part2.mouse_right;
 
@@ -133,6 +135,8 @@ public:
 
     double rotary_knob() const { return rotary_knob_; }
 
+    double mouse_wheel() const { return mouse_wheel_; }
+
 private:
     PACKED_STRUCT(Dr16DataPart1 {
         uint64_t joystick_channel0 : 11;
@@ -184,6 +188,7 @@ private:
     Keyboard keyboard_ = Keyboard::zero();
 
     double rotary_knob_ = 0.0;
+    double mouse_wheel_ = 0.0;
 };
 
 } // namespace librmcs::device
