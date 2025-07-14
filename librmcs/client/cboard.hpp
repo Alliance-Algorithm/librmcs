@@ -103,6 +103,8 @@ protected:
         (void)z;
     }
 
+    virtual void gpio_receive_callback(bool gpio_level_status) { (void)gpio_level_status; }
+
     class TransmitBuffer;
 
 private:
@@ -300,6 +302,8 @@ private:
                 read_uart_buffer(iterator, &CBoard::dbus_receive_callback);
             } else if (field_id == UpwardId::IMU) {
                 read_imu_buffer(iterator);
+            } else if (field_id == UpwardId::GPIO) {
+                read_gpio_buffer(iterator);
             } else
                 break;
         }
@@ -376,6 +380,13 @@ private:
         }
     }
 
+    void read_gpio_buffer(std::byte*& buffer) {
+        auto& header = *std::launder(reinterpret_cast<GPIOHeader*>(buffer));
+        buffer += sizeof(GPIOHeader);
+
+        gpio_receive_callback(header.bullet_checker_level);
+    }
+
     enum class UpwardId : uint8_t {
         CONTROL = 0,
 
@@ -449,6 +460,12 @@ private:
         } device_id : 4;
         int16_t x, y, z;
     });
+
+    PACKED_STRUCT(GPIOHeader {
+        uint8_t field_id : 4;
+        bool bullet_checker_level;
+    });
+
     static_assert(sizeof(ImuField) == 7);
 
     template <typename Functor>
