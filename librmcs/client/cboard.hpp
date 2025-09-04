@@ -103,7 +103,9 @@ protected:
         (void)z;
     }
 
-    virtual void gpio_receive_callback(bool gpio_level_status) { (void)gpio_level_status; }
+    virtual void putter_receive_callback(bool status) { (void)status; }
+
+    virtual void camera_capturer_callback(bool status) { (void)status; }
 
     class TransmitBuffer;
 
@@ -383,8 +385,11 @@ private:
     void read_gpio_buffer(std::byte*& buffer) {
         auto& header = *std::launder(reinterpret_cast<GPIOHeader*>(buffer));
         buffer += sizeof(GPIOHeader);
-
-        gpio_receive_callback(header.bullet_checker_level);
+        // 用第二个八位来表示引脚编号，第三个八位表示状态，1为高电平，0为低电平
+        if (header.gpio_id == 0b01)
+            camera_capturer_callback(header.gpio_data == 0b01);
+        else if (header.gpio_id == 0b10)
+            putter_receive_callback(header.gpio_data == 0b10);
     }
 
     enum class UpwardId : uint8_t {
@@ -460,13 +465,14 @@ private:
         } device_id : 4;
         int16_t x, y, z;
     });
+    static_assert(sizeof(ImuField) == 7);
 
     PACKED_STRUCT(GPIOHeader {
         uint8_t field_id : 4;
-        bool bullet_checker_level;
+        uint8_t gpio_id   : 2;
+        uint8_t gpio_data : 2;
     });
-
-    static_assert(sizeof(ImuField) == 7);
+    static_assert(sizeof(GPIOHeader) == 1);
 
     template <typename Functor>
     struct FinalAction {
