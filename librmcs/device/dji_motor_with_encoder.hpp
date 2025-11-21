@@ -140,7 +140,7 @@ public:
         torque_ = raw_current_to_torque_coefficient_ * static_cast<double>(feedback.current);
 
         // 
-        encoder_angle_ = static_cast<double>(feedback.encoder_angle);
+        encoder_angle_ = static_cast<double>(feedback.encoder_angle) * 360 / 65535 ;
     }
 
     uint16_t generate_command(double control_torque) const {
@@ -172,7 +172,7 @@ private:
         utility::be_int16_t angle;
         utility::be_int16_t velocity;
         utility::be_int16_t current;
-        utility::be_int16_t encoder_angle;
+        utility::le_uint16_t encoder_angle;
     };
 
     std::atomic<uint64_t> can_data_ = 0;

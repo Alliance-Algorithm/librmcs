@@ -174,7 +174,7 @@ using be_int16_t = big_endian_t<int16_t>;
 using be_int32_t = big_endian_t<int32_t>;
 using be_int64_t = big_endian_t<int64_t>;
 
-using be_uint16_t = big_endian_t<uint16_t>;
+using be_uint16_t = big_endian_t<uint16_t>; 
 using be_uint32_t = big_endian_t<uint32_t>;
 using be_uint64_t = big_endian_t<uint64_t>;
 
