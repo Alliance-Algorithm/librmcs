@@ -16,26 +16,22 @@ AlignAfterOpenBracket: AlwaysBreak
 AlignArrayOfStructures: Right
 
 AlignConsecutiveAssignments:
-  Enabled: false
-  AcrossEmptyLines: false
-  AcrossComments: false
-  AlignCompound: false
-  PadOperators: false
+    Enabled: false
 AlignConsecutiveBitFields:
-  Enabled: true
-  AcrossEmptyLines: false
-  AcrossComments: false
+    Enabled: true
+    AcrossEmptyLines: false
+    AcrossComments: false
 AlignConsecutiveDeclarations:
-  Enabled: false
+    Enabled: false
 AlignConsecutiveMacros:
-  Enabled: true
-  AcrossEmptyLines: false
-  AcrossComments: false
+    Enabled: true
+    AcrossEmptyLines: false
+    AcrossComments: false
 AlignEscapedNewlines: Left
 AlignOperands: AlignAfterOperator
 AlignTrailingComments:
-  Kind: Always
-  OverEmptyLines: 64
+    Kind: Always
+    OverEmptyLines: 1
 PointerAlignment: Left
 
 AllowAllArgumentsOnNextLine: true
@@ -57,3 +53,5 @@ IndentWrappedFunctionNames: true
 AlwaysBreakTemplateDeclarations: Yes
 IndentRequiresClause: false
 RequiresClausePosition: SingleLine
+
+InsertNewlineAtEOF: true
