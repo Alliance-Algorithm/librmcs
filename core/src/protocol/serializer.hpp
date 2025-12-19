@@ -1,0 +1,240 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+
+#include <span>
+
+#include "core/include/librmcs/data/datas.hpp"
+#include "core/src/protocol/constant.hpp"
+#include "core/src/protocol/protocol.hpp"
+#include "core/src/utility/assert.hpp"
+#include "core/src/utility/verify.hpp"
+
+namespace librmcs::core::protocol {
+
+class ISerializeBuffer {
+public:
+    virtual ~ISerializeBuffer() noexcept = default;
+
+    virtual std::span<std::byte> allocate(std::size_t size) noexcept = 0;
+};
+
+class Serializer {
+public:
+    enum class SerializeResult { kSuccess = 0, kBadAlloc = 1, kInvalidArgument = 2 };
+
+    explicit Serializer(ISerializeBuffer& buffer) noexcept
+        : buffer_(buffer) {}
+
+    SerializeResult write_can(FieldId field_id, const data::CanDataView& view) noexcept {
+        const std::size_t required = required_can_size(field_id, view);
+        LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
+
+        auto dst = buffer_.allocate(required);
+        LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
+        utility::assert(dst.size() == required);
+        std::byte* cursor = dst.data();
+
+        write_field_header(cursor, field_id);
+
+        const std::size_t can_data_length = view.can_data.size();
+        const bool has_data = can_data_length != 0;
+        const std::uint8_t data_length_code =
+            has_data ? static_cast<std::uint8_t>(can_data_length - 1) : 0;
+
+        if (view.is_extended_can_id) {
+            auto header = CanHeaderExtended::Ref(cursor);
+            cursor += sizeof(CanHeaderExtended);
+            header.set<CanHeaderExtended::IsFdCan>(false);
+            header.set<CanHeaderExtended::IsExtendedCanId>(true);
+            header.set<CanHeaderExtended::IsRemoteTransmission>(view.is_remote_transmission);
+            header.set<CanHeaderExtended::HasCanData>(has_data);
+            header.set<CanHeaderExtended::CanId>(view.can_id);
+            header.set<CanHeaderExtended::DataLengthCode>(data_length_code);
+        } else {
+            auto header = CanHeaderStandard::Ref(cursor);
+            cursor += sizeof(CanHeaderStandard);
+            header.set<CanHeaderStandard::IsFdCan>(false);
+            header.set<CanHeaderStandard::IsExtendedCanId>(false);
+            header.set<CanHeaderStandard::IsRemoteTransmission>(view.is_remote_transmission);
+            header.set<CanHeaderStandard::HasCanData>(has_data);
+            header.set<CanHeaderStandard::CanId>(view.can_id);
+            header.set<CanHeaderStandard::DataLengthCode>(data_length_code);
+        }
+
+        if (has_data) {
+            std::memcpy(cursor, view.can_data.data(), can_data_length);
+            cursor += can_data_length;
+        }
+
+        utility::assert(cursor == dst.data() + dst.size());
+        return SerializeResult::kSuccess;
+    }
+
+    SerializeResult write_uart(FieldId field_id, const data::UartDataView& view) noexcept {
+        const std::size_t required = required_uart_size(field_id, view);
+        LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
+
+        auto dst = buffer_.allocate(required);
+        LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
+        utility::assert(dst.size() == required);
+        std::byte* cursor = dst.data();
+
+        write_field_header(cursor, field_id);
+
+        const std::size_t uart_data_length = view.uart_data.size();
+        const bool use_extended_length = uart_data_length > 4;
+        if (use_extended_length) {
+            auto header = UartHeaderExtended::Ref(cursor);
+            cursor += sizeof(UartHeaderExtended);
+            header.set<UartHeaderExtended::IdleDelimited>(view.idle_delimited);
+            header.set<UartHeaderExtended::IsExtendedLength>(true);
+            header.set<UartHeaderExtended::DataLengthCodeExtended>(
+                static_cast<std::uint16_t>(uart_data_length - 1));
+        } else {
+            auto header = UartHeader::Ref(cursor);
+            cursor += sizeof(UartHeader);
+            header.set<UartHeader::IdleDelimited>(view.idle_delimited);
+            header.set<UartHeader::IsExtendedLength>(false);
+            header.set<UartHeader::DataLengthCode>(static_cast<std::uint8_t>(uart_data_length - 1));
+        }
+
+        std::memcpy(cursor, view.uart_data.data(), uart_data_length);
+        cursor += uart_data_length;
+
+        utility::assert(cursor == dst.data() + dst.size());
+        return SerializeResult::kSuccess;
+    }
+
+    SerializeResult write_imu_accelerometer(const data::AccelerometerDataView& view) noexcept {
+        const std::size_t required = required_imu_size(FieldId::IMU, ImuPayload::kAccelerometer);
+        LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
+
+        auto dst = buffer_.allocate(required);
+        LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
+        utility::assert(dst.size() == required);
+        std::byte* cursor = dst.data();
+
+        write_field_header(cursor, FieldId::IMU);
+
+        auto header = ImuHeader::Ref(cursor);
+        cursor += sizeof(ImuHeader);
+        header.set<ImuHeader::PayloadType>(ImuHeader::PayloadEnum::ACCELEROMETER);
+
+        auto payload = ImuAccelerometerPayload::Ref(cursor);
+        cursor += sizeof(ImuAccelerometerPayload);
+        payload.set<ImuAccelerometerPayload::X>(view.x);
+        payload.set<ImuAccelerometerPayload::Y>(view.y);
+        payload.set<ImuAccelerometerPayload::Z>(view.z);
+
+        utility::assert(cursor == dst.data() + dst.size());
+        return SerializeResult::kSuccess;
+    }
+
+    SerializeResult write_imu_gyroscope(const data::GyroscopeDataView& view) noexcept {
+        const std::size_t required = required_imu_size(FieldId::IMU, ImuPayload::kGyroscope);
+        LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
+
+        auto dst = buffer_.allocate(required);
+        LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
+        utility::assert(dst.size() == required);
+        std::byte* cursor = dst.data();
+
+        write_field_header(cursor, FieldId::IMU);
+
+        auto header = ImuHeader::Ref(cursor);
+        cursor += sizeof(ImuHeader);
+        header.set<ImuHeader::PayloadType>(ImuHeader::PayloadEnum::GYROSCOPE);
+
+        auto payload = ImuGyroscopePayload::Ref(cursor);
+        cursor += sizeof(ImuGyroscopePayload);
+        payload.set<ImuGyroscopePayload::X>(view.x);
+        payload.set<ImuGyroscopePayload::Y>(view.y);
+        payload.set<ImuGyroscopePayload::Z>(view.z);
+
+        utility::assert(cursor == dst.data() + dst.size());
+        return SerializeResult::kSuccess;
+    }
+
+private:
+    static constexpr bool use_extended_field_header(FieldId field_id) {
+        utility::assert(field_id != FieldId::EXTEND);
+        return static_cast<std::uint8_t>(field_id) > 0xF;
+    }
+
+    static constexpr std::size_t required_field_header_size(FieldId field_id) {
+        return use_extended_field_header(field_id) ? sizeof(FieldHeaderExtended)
+                                                   : sizeof(FieldHeader);
+    }
+
+    static void write_field_header(std::byte*& cursor, FieldId field_id) noexcept {
+        if (use_extended_field_header(field_id)) {
+            auto header = FieldHeaderExtended::Ref(cursor);
+            cursor += 1;
+            header.set<FieldHeaderExtended::Id>(FieldId::EXTEND);
+            header.set<FieldHeaderExtended::IdExtended>(field_id);
+        } else {
+            auto header = FieldHeader::Ref(cursor);
+            header.set<FieldHeader::Id>(field_id);
+        }
+    }
+
+    static std::size_t required_can_size(FieldId field_id, const data::CanDataView& view) noexcept {
+        LIBRMCS_VERIFY_LIKELY(!view.is_fdcan, 0); // TODO: Support FDCAN when protocol ready
+        LIBRMCS_VERIFY_LIKELY(!view.is_remote_transmission || view.can_data.empty(), 0);
+        LIBRMCS_VERIFY_LIKELY(view.can_data.size() <= 8, 0);
+        if (view.is_extended_can_id)
+            LIBRMCS_VERIFY_LIKELY(view.can_id <= 0x1FFFFFFF, 0);
+        else
+            LIBRMCS_VERIFY_LIKELY(view.can_id <= 0x7FF, 0);
+
+        const std::size_t field_header_bytes = required_field_header_size(field_id);
+        const std::size_t can_header_bytes =
+            view.is_extended_can_id ? sizeof(CanHeaderExtended) : sizeof(CanHeaderStandard);
+        const std::size_t total =
+            (field_header_bytes + can_header_bytes - 1) + view.can_data.size();
+        utility::assert(total <= kProtocolBufferSize);
+
+        return total;
+    }
+
+    static std::size_t
+        required_uart_size(FieldId field_id, const data::UartDataView& view) noexcept {
+        LIBRMCS_VERIFY_LIKELY(!view.uart_data.empty(), 0);
+
+        const std::size_t field_header_bytes = required_field_header_size(field_id);
+
+        const std::size_t uart_data_length = view.uart_data.size();
+        LIBRMCS_VERIFY_LIKELY(uart_data_length <= kProtocolBufferSize, 0);
+
+        const bool use_extended_length = uart_data_length > 4;
+        const std::size_t uart_header_bytes =
+            use_extended_length ? sizeof(UartHeaderExtended) : sizeof(UartHeader);
+
+        const std::size_t total = (field_header_bytes + uart_header_bytes - 1) + uart_data_length;
+        LIBRMCS_VERIFY_LIKELY(total <= kProtocolBufferSize, 0);
+
+        return total;
+    }
+
+    enum class ImuPayload : std::uint8_t { kAccelerometer = 0, kGyroscope = 1 };
+
+    static std::size_t required_imu_size(FieldId field_id, ImuPayload payload) noexcept {
+        const std::size_t field_header_bytes = required_field_header_size(field_id);
+        const std::size_t imu_header_bytes = sizeof(ImuHeader);
+        const std::size_t payload_bytes = (payload == ImuPayload::kAccelerometer)
+                                            ? sizeof(ImuAccelerometerPayload)
+                                            : sizeof(ImuGyroscopePayload);
+
+        const std::size_t total = (field_header_bytes + imu_header_bytes - 1) + payload_bytes;
+        utility::assert(total <= kProtocolBufferSize);
+
+        return total;
+    }
+
+    ISerializeBuffer& buffer_;
+};
+
+} // namespace librmcs::core::protocol

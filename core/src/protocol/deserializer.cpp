@@ -1,0 +1,193 @@
+#include "deserializer.hpp"
+
+#include <cstddef>
+
+#include <span>
+
+#include "core/include/librmcs/data/datas.hpp"
+#include "core/src/coroutine/lifo.hpp"
+#include "core/src/protocol/protocol.hpp"
+#include "core/src/utility/assert.hpp"
+
+namespace librmcs::core::protocol {
+
+coroutine::LifoTask<void> Deserializer::process_stream() {
+    while (true) {
+        utility::assert(pending_bytes_ == 0 && requested_bytes_ == 0);
+
+        FieldId id;
+        {
+            awaiting_field_first_byte_ = true;
+            auto header_bytes = co_await peek_bytes(sizeof(FieldHeader));
+            utility::assert(header_bytes); // Logically impossible; stack unwinding is invalid here.
+            auto header = FieldHeader::CRef{header_bytes};
+            id = header.get<FieldHeader::Id>();
+            awaiting_field_first_byte_ = false;
+        }
+        if (id == FieldId::EXTEND) {
+            auto header_bytes = co_await peek_bytes(sizeof(FieldHeaderExtended));
+            if (!header_bytes) [[unlikely]] {
+                deserializing_error();
+                continue;
+            }
+            auto header = FieldHeaderExtended::CRef{header_bytes};
+            id = header.get<FieldHeaderExtended::IdExtended>();
+            consume_peeked_partial(sizeof(FieldHeader));
+        }
+
+        bool success = false;
+        switch (id) {
+        case FieldId::CAN0:
+        case FieldId::CAN1:
+        case FieldId::CAN2:
+        case FieldId::CAN3:
+        case FieldId::CAN4:
+        case FieldId::CAN5:
+        case FieldId::CAN6:
+        case FieldId::CAN7: success = co_await process_can_field(id); break;
+        case FieldId::UART_DBUS:
+        case FieldId::UART0:
+        case FieldId::UART1:
+        case FieldId::UART2:
+        case FieldId::UART3: success = co_await process_uart_field(id); break;
+        case FieldId::IMU: success = co_await process_imu_field(id); break;
+        default: break;
+        }
+        if (!success)
+            deserializing_error();
+    }
+}
+
+coroutine::LifoTask<bool> Deserializer::process_can_field(FieldId field_id) {
+    data::CanDataView data_view;
+    uint8_t can_data_length = 0;
+    {
+        auto header_bytes = co_await peek_bytes(sizeof(CanHeader));
+        if (!header_bytes) [[unlikely]]
+            co_return false;
+        auto header = CanHeader::CRef{header_bytes};
+
+        data_view.is_fdcan = header.get<CanHeader::IsFdCan>();
+        if (data_view.is_fdcan) [[unlikely]]
+            co_return false;
+
+        data_view.is_extended_can_id = header.get<CanHeader::IsExtendedCanId>();
+        data_view.is_remote_transmission = header.get<CanHeader::IsRemoteTransmission>();
+        can_data_length = static_cast<uint8_t>(header.get<CanHeader::HasCanData>());
+    }
+
+    if (data_view.is_extended_can_id) {
+        auto header_ext_bytes = co_await peek_bytes(sizeof(CanHeaderExtended));
+        if (!header_ext_bytes) [[unlikely]]
+            co_return false;
+        auto header = CanHeaderExtended::CRef{header_ext_bytes};
+
+        data_view.can_id = header.get<CanHeaderExtended::CanId>();
+        can_data_length = can_data_length ? header.get<CanHeaderExtended::DataLengthCode>() + 1 : 0;
+    } else {
+        auto header_std_bytes = co_await peek_bytes(sizeof(CanHeaderStandard));
+        if (!header_std_bytes) [[unlikely]]
+            co_return false;
+        auto header = CanHeaderStandard::CRef{header_std_bytes};
+
+        data_view.can_id = header.get<CanHeaderStandard::CanId>();
+        can_data_length = can_data_length ? header.get<CanHeaderStandard::DataLengthCode>() + 1 : 0;
+    }
+    consume_peeked();
+
+    if (can_data_length) {
+        auto can_data_bytes = co_await peek_bytes(can_data_length);
+        if (!can_data_bytes) [[unlikely]]
+            co_return false;
+        data_view.can_data = std::span<const std::byte>{can_data_bytes, can_data_length};
+        consume_peeked();
+    } else {
+        data_view.can_data = std::span<const std::byte>{};
+    }
+
+    callback_.can_deserialized_callback(field_id, data_view);
+
+    co_return true;
+}
+
+coroutine::LifoTask<bool> Deserializer::process_uart_field(FieldId field_id) {
+    data::UartDataView data_view;
+    uint16_t uart_data_length = 0;
+    {
+        auto header_bytes = co_await peek_bytes(sizeof(UartHeader));
+        if (!header_bytes) [[unlikely]]
+            co_return false;
+        auto header = UartHeader::CRef{header_bytes};
+        data_view.idle_delimited = header.get<UartHeader::IdleDelimited>();
+        if (!header.get<UartHeader::IsExtendedLength>())
+            uart_data_length = header.get<UartHeader::DataLengthCode>() + 1;
+    }
+    if (!uart_data_length) {
+        auto header_bytes = co_await peek_bytes(sizeof(UartHeaderExtended));
+        if (!header_bytes) [[unlikely]]
+            co_return false;
+        auto header = UartHeaderExtended::CRef{header_bytes};
+        uart_data_length = header.get<UartHeaderExtended::DataLengthCodeExtended>() + 1;
+        if (uart_data_length > sizeof(pending_bytes_buffer_) - sizeof(UartHeaderExtended))
+            [[unlikely]]
+            co_return false;
+    }
+    consume_peeked();
+    {
+        auto uart_data_bytes = co_await peek_bytes(uart_data_length);
+        if (!uart_data_bytes) [[unlikely]]
+            co_return false;
+        data_view.uart_data = std::span<const std::byte>(uart_data_bytes, uart_data_length);
+    }
+    consume_peeked();
+
+    callback_.uart_deserialized_callback(field_id, data_view);
+
+    co_return true;
+}
+
+coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
+    ImuHeader::PayloadEnum payload_type;
+    {
+        auto header_bytes = co_await peek_bytes(sizeof(ImuHeader));
+        if (!header_bytes) [[unlikely]]
+            co_return false;
+
+        auto header = ImuHeader::CRef{header_bytes};
+        payload_type = header.get<ImuHeader::PayloadType>();
+        consume_peeked();
+    }
+
+    switch (payload_type) {
+    case ImuHeader::PayloadEnum::ACCELEROMETER: {
+        data::AccelerometerDataView data_view{};
+        auto payload_bytes = co_await peek_bytes(sizeof(ImuAccelerometerPayload));
+        if (!payload_bytes) [[unlikely]]
+            co_return false;
+        auto payload = ImuAccelerometerPayload::CRef{payload_bytes};
+        data_view.x = payload.get<ImuAccelerometerPayload::X>();
+        data_view.y = payload.get<ImuAccelerometerPayload::Y>();
+        data_view.z = payload.get<ImuAccelerometerPayload::Z>();
+        consume_peeked();
+        callback_.accelerometer_deserialized_callback(data_view);
+        break;
+    }
+    case ImuHeader::PayloadEnum::GYROSCOPE: {
+        data::GyroscopeDataView data_view{};
+        auto payload_bytes = co_await peek_bytes(sizeof(ImuGyroscopePayload));
+        if (!payload_bytes) [[unlikely]]
+            co_return false;
+        auto payload = ImuGyroscopePayload::CRef{payload_bytes};
+        data_view.x = payload.get<ImuGyroscopePayload::X>();
+        data_view.y = payload.get<ImuGyroscopePayload::Y>();
+        data_view.z = payload.get<ImuGyroscopePayload::Z>();
+        consume_peeked();
+        callback_.gyroscope_deserialized_callback(data_view);
+        break;
+    }
+    default: co_return false;
+    }
+    co_return true;
+}
+
+} // namespace librmcs::core::protocol
