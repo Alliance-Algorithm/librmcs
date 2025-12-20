@@ -5,7 +5,9 @@
 namespace librmcs::host::utility {
 
 template <typename Functor>
-struct FinalAction {
+requires requires(Functor& action) {
+    { action() } noexcept;
+} struct FinalAction {
     constexpr explicit FinalAction(Functor action)
         : enabled_(true)
         , action_{std::move(action)} {}
@@ -15,9 +17,10 @@ struct FinalAction {
     constexpr FinalAction(FinalAction&&) = delete;
     constexpr FinalAction& operator=(FinalAction&&) = delete;
 
-    ~FinalAction() {
-        if (enabled_)
+    ~FinalAction() noexcept {
+        if (enabled_) {
             action_();
+        }
     }
 
     void disable() { enabled_ = false; };

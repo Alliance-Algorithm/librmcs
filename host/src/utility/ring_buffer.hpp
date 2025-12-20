@@ -23,14 +23,14 @@ public:
      * @note This data structure is single-producer/single-consumer. Only one
      *       thread may push, and only one thread may pop, at a time.
      */
-    constexpr explicit RingBuffer(size_t size) {
+    explicit RingBuffer(size_t size) {
         if (size <= 2)
             size = 2;
         else
             size = round_up_to_next_power_of_2(size);
         mask = size - 1;
         storage_ = new Storage[size];
-    };
+    }
 
     RingBuffer(const RingBuffer&) = delete;
     RingBuffer& operator=(const RingBuffer&) = delete;
@@ -254,4 +254,4 @@ private:
     std::atomic<size_t> in_{0}, out_{0};
 };
 
-}; // namespace librmcs::host::utility
+} // namespace librmcs::host::utility

@@ -109,7 +109,9 @@ struct LifoStackedPromise {
 };
 
 template <typename T = void, LifoContext* static_context = nullptr>
-requires(std::is_same_v<T, void> || std::is_move_assignable_v<T>) class LifoTask {
+requires(
+    std::is_same_v<T, void> || (std::is_move_assignable_v<T> && std::is_default_constructible_v<T>))
+class LifoTask {
 public:
     struct promise_type : LifoStackedPromise<static_context> {
         friend class LifoTask;
@@ -263,4 +265,4 @@ private:
     const std::coroutine_handle<promise_type> handle_;
 };
 
-}; // namespace librmcs::core::coroutine
+} // namespace librmcs::core::coroutine

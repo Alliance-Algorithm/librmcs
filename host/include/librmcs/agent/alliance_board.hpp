@@ -10,6 +10,8 @@ public:
     AllianceBoard()
         : handler_(0xa11c, -1, nullptr, *this) {}
 
+    ~AllianceBoard() = default;
+
     class PacketBuilder {
         friend class AllianceBoard;
 

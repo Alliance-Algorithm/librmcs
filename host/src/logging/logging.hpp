@@ -1,8 +1,6 @@
 #pragma once
 
-#include <cctype>
 #include <cstdio>
-#include <cstdlib>
 
 #include <format>
 #include <iostream>
@@ -36,7 +34,7 @@ public:
     Logger& operator=(Logger&&) = delete;
 
 public: // Singleton
-    static constexpr Logger& get_instance() noexcept {
+    static Logger& get_instance() noexcept {
         static Logger logger{};
         return logger;
     }
@@ -134,7 +132,7 @@ private:
             return;
 
         print_prefix(level);
-        std::cout << msg << '\n';
+        std::cerr << msg << '\n';
     }
 
     static void print_prefix(Level level) {
@@ -158,6 +156,6 @@ private:
     }
 };
 
-constexpr Logger& get_logger() { return Logger::get_instance(); }
+inline Logger& get_logger() { return Logger::get_instance(); }
 
 } // namespace librmcs::host::logging

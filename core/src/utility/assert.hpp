@@ -39,7 +39,6 @@ constexpr inline void
     assert(bool condition, const std::source_location& location = std::source_location::current()) {
 #ifdef NDEBUG
     [[assume(condition)]];
-    (void)condition;
     (void)location;
 #else
     assert_always(condition, location);

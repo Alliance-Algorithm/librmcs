@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(librmcs LANGUAGES C CXX)
+project(librmcs VERSION 3.0.0 LANGUAGES C CXX)
 
 # Set C++ standard to C++23
 set(CMAKE_CXX_STANDARD 23)

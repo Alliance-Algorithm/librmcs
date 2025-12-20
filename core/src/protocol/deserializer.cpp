@@ -27,7 +27,7 @@ coroutine::LifoTask<void> Deserializer::process_stream() {
         if (id == FieldId::EXTEND) {
             auto header_bytes = co_await peek_bytes(sizeof(FieldHeaderExtended));
             if (!header_bytes) [[unlikely]] {
-                deserializing_error();
+                enter_discard_mode();
                 continue;
             }
             auto header = FieldHeaderExtended::CRef{header_bytes};
@@ -54,7 +54,7 @@ coroutine::LifoTask<void> Deserializer::process_stream() {
         default: break;
         }
         if (!success)
-            deserializing_error();
+            enter_discard_mode();
     }
 }
 
@@ -128,8 +128,7 @@ coroutine::LifoTask<bool> Deserializer::process_uart_field(FieldId field_id) {
             co_return false;
         auto header = UartHeaderExtended::CRef{header_bytes};
         uart_data_length = header.get<UartHeaderExtended::DataLengthCodeExtended>() + 1;
-        if (uart_data_length > sizeof(pending_bytes_buffer_) - sizeof(UartHeaderExtended))
-            [[unlikely]]
+        if (uart_data_length > sizeof(pending_bytes_buffer_)) [[unlikely]]
             co_return false;
     }
     consume_peeked();

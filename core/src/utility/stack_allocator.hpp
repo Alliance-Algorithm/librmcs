@@ -1,7 +1,8 @@
+#pragma once
+
 #include <cstddef>
 #include <cstdint>
 
-#include <print>
 #include <span>
 
 #include "core/src/utility/assert.hpp"

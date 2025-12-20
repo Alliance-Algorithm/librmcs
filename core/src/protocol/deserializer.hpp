@@ -44,7 +44,7 @@ public:
         utility::assert(requested_bytes_);
         utility::assert(pending_bytes_ < requested_bytes_);
 
-        if (!buffer.data() || deserializing_error_)
+        if (!buffer.data() || discard_mode_)
             return;
 
         input_cursor_ = buffer.data();
@@ -71,15 +71,15 @@ public:
 
     void finish_transfer() {
         if (awaiting_field_first_byte_) {
-            deserializing_error_ = false;
+            discard_mode_ = false;
             return;
         }
 
         // Input ended while parsing a field; truncated field.
         // Cancel the outstanding peek by making await_resume() return nullptr.
-        deserializing_error_ = true;
+        discard_mode_ = true;
         resume();
-        deserializing_error_ = false;
+        discard_mode_ = false;
 
         utility::assert(awaiting_field_first_byte_);
     }
@@ -155,7 +155,7 @@ private:
         constexpr const std::byte* await_resume() const noexcept {
             utility::assert(owner_.requested_bytes_);
             // Discard mode cancels outstanding peeks by returning nullptr.
-            if (owner_.deserializing_error_) [[unlikely]]
+            if (owner_.discard_mode_) [[unlikely]]
                 return nullptr;
             else if (owner_.pending_bytes_) {
                 utility::assert(owner_.pending_bytes_ == owner_.requested_bytes_);
@@ -211,16 +211,21 @@ private:
         requested_bytes_ -= n;
     }
 
-    void deserializing_error() {
+    void enter_discard_mode() {
         callback_.error_callback();
 
-        // Ignore subsequent input until end_of_stream.
+        // - Treat the current input chunk as exhausted (so the next peek_bytes() suspends)
+        // - Ignore subsequent feed() calls while discard_mode_ is true
+        // Recovery is driven by finish_transfer(): when suspended waiting for the first header
+        // byte (awaiting_field_first_byte_ == true), finish_transfer() clears discard_mode_
+        // and returns, allowing parsing to resume on the next transfer.
+
         pending_bytes_ = requested_bytes_ = 0;
         input_cursor_ = input_end_;
-        deserializing_error_ = true;
+        discard_mode_ = true;
     }
 
-    bool deserializing_error_ = false;
+    bool discard_mode_ = false;
     bool awaiting_field_first_byte_ = false;
     IDeserializeCallback& callback_;
 

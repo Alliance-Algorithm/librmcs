@@ -164,11 +164,12 @@ private:
             logger_.error("Failed to init libusb: {} ({})", ret, libusb_errname(ret));
             return false;
         }
-        utility::FinalAction exit_libusb{[this]() { libusb_exit(libusb_context_); }};
+        utility::FinalAction exit_libusb{[this]() noexcept { libusb_exit(libusb_context_); }};
 
         if (!select_device(vendor_id, product_id, serial_number))
             return false;
-        utility::FinalAction close_device_handle{[this]() { libusb_close(libusb_device_handle_); }};
+        utility::FinalAction close_device_handle{
+            [this]() noexcept { libusb_close(libusb_device_handle_); }};
 
         if constexpr (utility::is_linux()) {
             ret = libusb_detach_kernel_driver(libusb_device_handle_, target_interface_);
@@ -201,11 +202,11 @@ private:
         }
 
         utility::FinalAction free_device_list{
-            [&device_list]() { libusb_free_device_list(device_list, 1); }};
+            [&device_list]() noexcept { libusb_free_device_list(device_list, 1); }};
 
         auto device_descriptors = new libusb_device_descriptor[device_count];
         utility::FinalAction free_device_descriptors{
-            [&device_descriptors]() { delete[] device_descriptors; }};
+            [&device_descriptors]() noexcept { delete[] device_descriptors; }};
 
         std::vector<libusb_device_handle*> devices_opened;
 
@@ -229,7 +230,7 @@ private:
             ret = libusb_open(device_list[i], &handle);
             if (ret != 0)
                 continue;
-            utility::FinalAction close_device{[&handle]() { libusb_close(handle); }};
+            utility::FinalAction close_device{[&handle]() noexcept { libusb_close(handle); }};
 
             if (serial_number) {
                 unsigned char serial_buf[256];
@@ -311,7 +312,7 @@ private:
                     libusb_errname(ret));
                 continue;
             }
-            utility::FinalAction close_device{[&handle]() { libusb_close(handle); }};
+            utility::FinalAction close_device{[&handle]() noexcept { libusb_close(handle); }};
 
             unsigned char serial_buf[256];
             int n = libusb_get_string_descriptor_ascii(
