@@ -35,7 +35,7 @@ namespace librmcs::host::protocol {
  * - All buffer lifecycle is managed internally - no manual cleanup needed
  *
  * @section Constraints
- * - Single allocation size must not exceed kTransportBufferSize
+ * - Single allocation size must not exceed kProtocolBufferSize
  * - Move-only
  * - Not thread-safe - external synchronization required for concurrent access
  *
@@ -102,13 +102,13 @@ public:
      * transmitted and a new buffer will be acquired.
      *
      * @param size Number of bytes to allocate.
-     *             Must be in range (0, kTransportBufferSize].
+     *             Must be in range (0, kProtocolBufferSize].
      *
      * @return A span of exactly 'size' bytes on success, or an empty span
      *         if buffer acquisition fails (e.g., resource exhaustion)
      *
      * @pre size must be greater than 0
-     * @pre size must not exceed kTransportBufferSize
+     * @pre size must not exceed kProtocolBufferSize
      *
      * @par Example
      * @code
@@ -150,14 +150,14 @@ public:
      * automatically transmitted and a new buffer will be acquired.
      *
      * @param min_size Minimum acceptable allocation size.
-     *                 Must be in range (0, kTransportBufferSize].
+     *                 Must be in range (0, kProtocolBufferSize].
      * @param max_size Maximum desired allocation size. Must be >= min_size.
      *
      * @return A span of size in range [min_size, max_size] on success, or an
      *         empty span if buffer acquisition fails (e.g., resource exhaustion)
      *
      * @pre min_size must be greater than 0
-     * @pre min_size must not exceed kTransportBufferSize
+     * @pre min_size must not exceed kProtocolBufferSize
      * @pre max_size must be >= min_size
      *
      * @par Example

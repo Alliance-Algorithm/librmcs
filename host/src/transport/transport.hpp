@@ -23,7 +23,7 @@ namespace librmcs::host::transport {
  * - Passing a buffer to a different transport instance is undefined behavior
  *
  * @section Memory Guarantees:
- * - data() returns a memory region of exactly kTransportBufferSize bytes
+ * - data() returns a memory region of exactly kProtocolBufferSize bytes
  * - data() always returns the same memory region for a given buffer instance
  */
 class ITransportBuffer {
@@ -35,7 +35,7 @@ public:
     /**
      * @brief Returns a mutable view of the buffer's memory region.
      *
-     * The returned span is guaranteed to be exactly kTransportBufferSize bytes and remains
+     * The returned span is guaranteed to be exactly kProtocolBufferSize bytes and remains
      * valid for the lifetime of this buffer object. Multiple calls to data()
      * must return a span pointing to the same underlying memory.
      */
@@ -70,7 +70,7 @@ public:
      * The returned buffer is owned by the caller and must be passed back to
      * this transport via either transmit() or release_transmit_buffer().
      *
-     * @return A buffer with exactly kTransportBufferSize bytes of writable memory, or nullptr
+     * @return A buffer with exactly kProtocolBufferSize bytes of writable memory, or nullptr
      *         if buffer acquisition fails (e.g., resource exhaustion)
      */
     virtual std::unique_ptr<ITransportBuffer> acquire_transmit_buffer() noexcept = 0;

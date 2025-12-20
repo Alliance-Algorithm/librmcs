@@ -119,10 +119,10 @@ public:
         auto in = in_.load(std::memory_order::relaxed);
         auto out = out_.load(std::memory_order::acquire);
 
-        auto writeable = max_size() - (in - out);
+        auto writable = max_size() - (in - out);
 
-        if (count > writeable)
-            count = writeable;
+        if (count > writable)
+            count = writable;
         if (!count)
             return 0;
 
