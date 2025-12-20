@@ -8,6 +8,8 @@
 #include <string_view>
 #include <utility>
 
+#include "core/src/utility/assert.hpp"
+
 namespace librmcs::host::logging {
 
 enum class Level : int {
@@ -150,7 +152,7 @@ private:
             else if (level == Level::CRITICAL)
                 return "critical";
             else
-                std::unreachable();
+                core::utility::assert_failed();
         }();
         std::print(std::cerr, "[librmcs] [{}] ", level_text);
     }

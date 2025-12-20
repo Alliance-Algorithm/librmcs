@@ -16,7 +16,6 @@
 
 #include "host/src/logging/logging.hpp"
 #include "host/src/transport/transport.hpp"
-#include "host/src/utility/cross_os.hpp"
 #include "host/src/utility/final_action.hpp"
 #include "host/src/utility/ring_buffer.hpp"
 
@@ -45,14 +44,12 @@ public:
             std::lock_guard guard{transmit_transfer_push_mutex_};
             stop_handling_events_.store(true, std::memory_order::relaxed);
         }
-        free_transmit_transfers_.pop_front_n([](TransferWrapper* wrapper) {
+        free_transmit_transfers_.pop_front_n([](TransferWrapper* wrapper) noexcept {
             wrapper->destroy();
             delete wrapper;
         });
 
         libusb_release_interface(libusb_device_handle_, target_interface_);
-        if constexpr (utility::is_linux())
-            libusb_attach_kernel_driver(libusb_device_handle_, 0);
 
         // libusb_close() reliably cancels all pending transfers and invokes their callbacks,
         // avoiding race conditions present in other cancellation methods
@@ -69,7 +66,7 @@ public:
         {
             std::lock_guard guard{transmit_transfer_pop_mutex_};
             free_transmit_transfers_.pop_front(
-                [&transfer](TransferWrapper*&& value) { transfer = value; });
+                [&transfer](TransferWrapper*&& value) noexcept { transfer = value; });
         }
         if (!transfer)
             return nullptr;
@@ -145,7 +142,7 @@ private:
                 core::protocol::kProtocolBufferSize};
         }
 
-        void destroy() {
+        void destroy() noexcept {
             self_.destroy_libusb_transfer(transfer_);
             transfer_ = nullptr;
         }
@@ -170,14 +167,6 @@ private:
             return false;
         utility::FinalAction close_device_handle{
             [this]() noexcept { libusb_close(libusb_device_handle_); }};
-
-        if constexpr (utility::is_linux()) {
-            ret = libusb_detach_kernel_driver(libusb_device_handle_, target_interface_);
-            if (ret != LIBUSB_ERROR_NOT_FOUND && ret != 0) [[unlikely]] {
-                logger_.error("Failed to detach kernel driver: {} ({})", ret, libusb_errname(ret));
-                return false;
-            }
-        }
 
         ret = libusb_claim_interface(libusb_device_handle_, target_interface_);
         if (ret != 0) [[unlikely]] {
@@ -375,7 +364,7 @@ private:
 
         auto iter = transmit_transfers;
         free_transmit_transfers_.push_back_n(
-            [&iter]() { return *iter++; }, transmit_transfer_count_);
+            [&iter]() noexcept { return *iter++; }, transmit_transfer_count_);
     }
 
     void init_receive_transfers() {
@@ -452,7 +441,7 @@ private:
         return transfer;
     }
 
-    void destroy_libusb_transfer(libusb_transfer* transfer) {
+    void destroy_libusb_transfer(libusb_transfer* transfer) noexcept {
         libusb_free_transfer(transfer);
         active_transfers_.fetch_sub(1, std::memory_order::relaxed);
     }

@@ -181,9 +181,14 @@ public:
 
     [[nodiscard]] constexpr bool done() const noexcept { return handle_.done(); }
 
-    T result() noexcept(std::is_nothrow_move_constructible_v<T>) {
+    T& result() noexcept {
         utility::assert(handle_.done());
-        return std::move(handle_.promise().result_);
+        return handle_.promise().result_;
+    }
+
+    const T& result() const noexcept {
+        utility::assert(handle_.done());
+        return handle_.promise().result_;
     }
 
 private:
