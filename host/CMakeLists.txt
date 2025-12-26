@@ -30,8 +30,8 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
 # Get project sources
 file(GLOB_RECURSE PROJECT_SOURCE CONFIGURE_DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/../core/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../core/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../core/src/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../core/src/*.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c
 )
