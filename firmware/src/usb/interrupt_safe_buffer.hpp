@@ -1,10 +1,9 @@
 #pragma once
 
-#include <cstddef>
-
 #include <algorithm>
 #include <atomic>
 #include <bit>
+#include <cstddef>
 #include <span>
 
 #include "core/src/protocol/serializer.hpp"
@@ -17,8 +16,6 @@ class InterruptSafeBuffer final
     : public core::protocol::ISerializeBuffer
     , private core::utility::Immovable {
 public:
-    friend class Cdc;
-
     static constexpr size_t batch_size = 64;
     static constexpr size_t batch_count = 8;
     static_assert(std::has_single_bit(batch_count), "Batch count must be a power of 2");
@@ -49,7 +46,6 @@ public:
         }
     }
 
-private:
     static constexpr size_t mask = batch_count - 1;
 
     struct Batch {
@@ -107,6 +103,7 @@ private:
         out_.store(in, std::memory_order::relaxed);
     }
 
+private:
     std::atomic<size_t> in_{0}, out_{0};
     static_assert(std::atomic<size_t>::is_always_lock_free);
     Batch batches_[batch_count];

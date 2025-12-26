@@ -1,3 +1,5 @@
+#include "core/src/utility/assert.hpp"
+
 #include <source_location>
 
 namespace librmcs::core::utility {

@@ -1,5 +1,7 @@
 #include "firmware/src/usb/usb_descriptors.hpp"
 
+#include <cstdint>
+
 namespace librmcs::firmware::usb {
 
 // TinyUSB descriptor callbacks

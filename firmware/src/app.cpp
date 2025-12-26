@@ -1,10 +1,11 @@
 #include "firmware/src/app.hpp"
 #include "firmware/src/can/can.hpp"
-#include "firmware/src/usb/cdc.hpp"
 #include "firmware/src/usb/usb_descriptors.hpp"
+#include "firmware/src/usb/vendor.hpp"
 #include "firmware/src/utility/interrupt_lock_guard.hpp"
 
 #include <board.h>
+#include <device/usbd.h>
 #include <tusb.h>
 
 int main() { librmcs::firmware::app.init().run(); }
@@ -24,14 +25,14 @@ App::App() {
 
     usb::usb_descriptors.init();
     tusb_init();
-    usb::cdc.init();
+    usb::vendor.init();
 }
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 [[noreturn]] void App::run() {
     while (true) {
         tud_task();
-        usb::cdc->try_transmit();
+        usb::vendor->try_transmit();
     }
 }
 

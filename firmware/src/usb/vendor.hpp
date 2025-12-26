@@ -1,18 +1,18 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
-
-#include <atomic>
 #include <span>
 
-#include <tusb.h>
+#include <class/vendor/vendor_device.h>
+#include <device/usbd.h>
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/deserializer.hpp"
+#include "core/src/protocol/protocol.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
-#include "core/src/utility/assert.inl.hpp"
 #include "core/src/utility/immovable.hpp"
 #include "firmware/src/can/can.hpp"
 #include "firmware/src/usb/interrupt_safe_buffer.hpp"
@@ -20,13 +20,13 @@
 
 namespace librmcs::firmware::usb {
 
-class Cdc
+class Vendor
     : private core::protocol::IDeserializeCallback
     , private core::utility::Immovable {
 public:
-    using Lazy = utility::Lazy<Cdc>;
+    using Lazy = utility::Lazy<Vendor>;
 
-    Cdc() = default;
+    Vendor() = default;
 
     core::protocol::Serializer& serializer() { return serializer_; }
 
@@ -89,6 +89,6 @@ private:
     core::protocol::Serializer serializer_{transmit_buffer_};
 };
 
-inline constinit Cdc::Lazy cdc;
+inline constinit Vendor::Lazy vendor;
 
 } // namespace librmcs::firmware::usb

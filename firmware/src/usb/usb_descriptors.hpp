@@ -2,10 +2,14 @@
 
 #include <cstddef>
 #include <cstdint>
-
+#include <cstring>
 #include <string_view>
 
+#include <common/tusb_types.h>
+#include <device/usbd.h>
 #include <tusb.h>
+#include <tusb_config.h>
+#include <tusb_option.h>
 
 #include "firmware/src/utility/lazy.hpp"
 
@@ -17,7 +21,7 @@ public:
         return reinterpret_cast<uint8_t const*>(&device_descriptor_);
     }
 
-    uint8_t const* get_configuration_descriptor(uint8_t index) {
+    static uint8_t const* get_configuration_descriptor(uint8_t index) {
         (void)index; // For multiple configurations
 
         if constexpr (TUD_OPT_HIGH_SPEED)
@@ -32,7 +36,7 @@ public:
         uint8_t str_size;
 
         if (index == 0) {
-            memcpy(&descriptor_string_buffer_[1], string_descriptor_->data(), 2);
+            std::memcpy(&descriptor_string_buffer_[1], string_descriptor_->data(), 2);
             str_size = 1;
         } else {
             // Note: the 0xEE index string is a Microsoft OS 1.0 Descriptors.

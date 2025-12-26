@@ -4,8 +4,9 @@
 #include <cstdint>
 #include <cstring>
 
-#include "board.h"
-#include "hpm_mcan_drv.h"
+#include <board.h>
+#include <hpm_common.h>
+#include <hpm_mcan_drv.h>
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/protocol.hpp"

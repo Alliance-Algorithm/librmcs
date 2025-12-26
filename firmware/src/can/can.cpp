@@ -1,6 +1,12 @@
 #include "firmware/src/can/can.hpp"
-#include "firmware/src/usb/cdc.hpp"
+
+#include <cstdint>
+
+#include <board.h>
+#include <hpm_mcan_drv.h>
+
 #include "core/include/librmcs/data/datas.hpp"
+#include "firmware/src/usb/vendor.hpp"
 
 namespace librmcs::firmware::can {
 
@@ -13,7 +19,7 @@ void can0_isr() {
         return;
 
     if (flags & MCAN_INT_RXFIFO0_NEW_MSG) [[likely]]
-        can0->handle_uplink(data::DataId::CAN0, usb::cdc->serializer());
+        can0->handle_uplink(data::DataId::CAN0, usb::vendor->serializer());
 
     mcan_clear_interrupt_flags(base, flags);
 }
@@ -27,7 +33,7 @@ void can1_isr() {
         return;
 
     if (flags & MCAN_INT_RXFIFO0_NEW_MSG) [[likely]]
-        can1->handle_uplink(data::DataId::CAN1, usb::cdc->serializer());
+        can1->handle_uplink(data::DataId::CAN1, usb::vendor->serializer());
 
     mcan_clear_interrupt_flags(base, flags);
 }
@@ -41,7 +47,7 @@ void can2_isr() {
         return;
 
     if (flags & MCAN_INT_RXFIFO0_NEW_MSG) [[likely]]
-        can2->handle_uplink(data::DataId::CAN2, usb::cdc->serializer());
+        can2->handle_uplink(data::DataId::CAN2, usb::vendor->serializer());
 
     mcan_clear_interrupt_flags(base, flags);
 }
@@ -55,7 +61,7 @@ void can3_isr() {
         return;
 
     if (flags & MCAN_INT_RXFIFO0_NEW_MSG) [[likely]]
-        can3->handle_uplink(data::DataId::CAN3, usb::cdc->serializer());
+        can3->handle_uplink(data::DataId::CAN3, usb::vendor->serializer());
 
     mcan_clear_interrupt_flags(base, flags);
 }

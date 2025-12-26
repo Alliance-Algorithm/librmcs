@@ -1,8 +1,13 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+
 #include <atomic>
 #include <tuple>
+#include <utility>
 
+#include "firmware/src/utility/interrupt_lock_guard.hpp"
 #include "core/src/utility/assert.hpp"
 
 namespace librmcs::firmware::utility {
@@ -17,6 +22,8 @@ public:
     constexpr ~Lazy() {}; // No need to deconstruct
 
     constexpr T& init() {
+        InterruptLockGuard guard;
+
         auto init_status = init_status_.load(std::memory_order::relaxed);
         if (init_status != InitStatus::INITIALIZED) {
             core::utility::assert_always(init_status == InitStatus::UNINITIALIZED);
@@ -35,17 +42,17 @@ public:
     }
 
     constexpr T* get() {
-        core::utility::assert_always(static_cast<bool>(*this));
+        core::utility::assert(static_cast<bool>(*this));
         return std::addressof(object);
     }
 
     constexpr T* operator->() {
-        core::utility::assert_always(static_cast<bool>(*this));
+        core::utility::assert(static_cast<bool>(*this));
         return std::addressof(object);
     }
 
     constexpr T& operator*() {
-        core::utility::assert_always(static_cast<bool>(*this));
+        core::utility::assert(static_cast<bool>(*this));
         return object;
     }
 
