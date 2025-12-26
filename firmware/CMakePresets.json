@@ -1,0 +1,31 @@
+{
+    "version": 2,
+    "configurePresets": [
+        {
+            "name": "debug",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "HOST_DEBUGGER": "OFF",
+                "CMAKE_BUILD_TYPE": "debug"
+            }
+        },
+        {
+            "name": "debug-outside",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "HOST_DEBUGGER": "ON",
+                "CMAKE_BUILD_TYPE": "debug"
+            }
+        },
+        {
+            "name": "release",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "release"
+            }
+        }
+    ]
+}
