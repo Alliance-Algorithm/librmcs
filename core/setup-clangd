@@ -1,0 +1,50 @@
+#!/usr/bin/env sh
+set -eu
+
+usage() {
+    cat <<'EOF'
+Usage: setup-clangd <host|firmware>
+Creates symlinks in core/:
+    .clangd -> ../<mode>/.clangd
+    compile_commands.json -> ../<mode>/build/compile_commands.json
+EOF
+}
+
+if [ "$#" -ne 1 ]; then
+    usage
+    exit 1
+fi
+
+mode="$1"
+case "$mode" in
+    host|firmware) ;;
+    *)
+        usage
+        exit 1
+        ;;
+esac
+
+core_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+
+link_clangd="$core_dir/.clangd"
+link_compile="$core_dir/compile_commands.json"
+
+if [ -L "$link_clangd" ]; then
+    rm -f "$link_clangd"
+elif [ -e "$link_clangd" ]; then
+    echo "Error: $link_clangd exists and is not a symlink." >&2
+    exit 1
+fi
+
+if [ -L "$link_compile" ]; then
+    rm -f "$link_compile"
+elif [ -e "$link_compile" ]; then
+    echo "Error: $link_compile exists and is not a symlink." >&2
+    exit 1
+fi
+
+(
+    cd "$core_dir"
+    ln -s "../$mode/.clangd" .clangd
+    ln -s "../$mode/build/compile_commands.json" compile_commands.json
+)
