@@ -1,2 +1,5 @@
 Documentation:
   CommentFormat: Doxygen
+Diagnostics:
+  UnusedIncludes: Strict
+  MissingIncludes: Strict
