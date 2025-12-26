@@ -1,6 +1,10 @@
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
+
 #include <memory>
 #include <new>
+#include <span>
 #include <utility>
 
 #include <librmcs/protocol/handler.hpp>
@@ -12,6 +16,7 @@
 #include "host/src/logging/logging.hpp"
 #include "host/src/protocol/stream_buffer.hpp"
 #include "host/src/transport/transport.hpp"
+#include "librmcs/data/datas.hpp"
 
 namespace librmcs::host::protocol {
 

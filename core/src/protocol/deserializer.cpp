@@ -1,6 +1,7 @@
 #include "deserializer.hpp"
 
 #include <cstddef>
+#include <cstdint>
 
 #include <span>
 
