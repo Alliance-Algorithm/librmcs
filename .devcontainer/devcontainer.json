@@ -30,7 +30,8 @@
         "NO_PROXY": "${localEnv:NO_PROXY}",
         "http_proxy": "${localEnv:http_proxy}",
         "https_proxy": "${localEnv:https_proxy}",
-        "no_proxy": "${localEnv:no_proxy}"
+        "no_proxy": "${localEnv:no_proxy}",
+        "HOST_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
     },
     "runArgs": [
         "--network=host"
