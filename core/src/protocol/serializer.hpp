@@ -34,7 +34,7 @@ public:
 
         auto dst = buffer_.allocate(required);
         LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
-        utility::assert(dst.size() == required);
+        utility::assert_debug(dst.size() == required);
         std::byte* cursor = dst.data();
 
         write_field_header(cursor, field_id);
@@ -69,7 +69,7 @@ public:
             cursor += can_data_length;
         }
 
-        utility::assert(cursor == dst.data() + dst.size());
+        utility::assert_debug(cursor == dst.data() + dst.size());
         return SerializeResult::kSuccess;
     }
 
@@ -79,7 +79,7 @@ public:
 
         auto dst = buffer_.allocate(required);
         LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
-        utility::assert(dst.size() == required);
+        utility::assert_debug(dst.size() == required);
         std::byte* cursor = dst.data();
 
         write_field_header(cursor, field_id);
@@ -104,7 +104,7 @@ public:
         std::memcpy(cursor, view.uart_data.data(), uart_data_length);
         cursor += uart_data_length;
 
-        utility::assert(cursor == dst.data() + dst.size());
+        utility::assert_debug(cursor == dst.data() + dst.size());
         return SerializeResult::kSuccess;
     }
 
@@ -114,7 +114,7 @@ public:
 
         auto dst = buffer_.allocate(required);
         LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
-        utility::assert(dst.size() == required);
+        utility::assert_debug(dst.size() == required);
         std::byte* cursor = dst.data();
 
         write_field_header(cursor, FieldId::IMU);
@@ -129,7 +129,7 @@ public:
         payload.set<ImuAccelerometerPayload::Y>(view.y);
         payload.set<ImuAccelerometerPayload::Z>(view.z);
 
-        utility::assert(cursor == dst.data() + dst.size());
+        utility::assert_debug(cursor == dst.data() + dst.size());
         return SerializeResult::kSuccess;
     }
 
@@ -139,7 +139,7 @@ public:
 
         auto dst = buffer_.allocate(required);
         LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
-        utility::assert(dst.size() == required);
+        utility::assert_debug(dst.size() == required);
         std::byte* cursor = dst.data();
 
         write_field_header(cursor, FieldId::IMU);
@@ -154,13 +154,13 @@ public:
         payload.set<ImuGyroscopePayload::Y>(view.y);
         payload.set<ImuGyroscopePayload::Z>(view.z);
 
-        utility::assert(cursor == dst.data() + dst.size());
+        utility::assert_debug(cursor == dst.data() + dst.size());
         return SerializeResult::kSuccess;
     }
 
 private:
     static constexpr bool use_extended_field_header(FieldId field_id) {
-        utility::assert(field_id != FieldId::EXTEND);
+        utility::assert_debug(field_id != FieldId::EXTEND);
         return static_cast<std::uint8_t>(field_id) > 0xF;
     }
 
@@ -195,7 +195,7 @@ private:
             view.is_extended_can_id ? sizeof(CanHeaderExtended) : sizeof(CanHeaderStandard);
         const std::size_t total =
             (field_header_bytes + can_header_bytes - 1) + view.can_data.size();
-        utility::assert(total <= kProtocolBufferSize);
+        utility::assert_debug(total <= kProtocolBufferSize);
 
         return total;
     }
@@ -229,7 +229,7 @@ private:
                                             : sizeof(ImuGyroscopePayload);
 
         const std::size_t total = (field_header_bytes + imu_header_bytes - 1) + payload_bytes;
-        utility::assert(total <= kProtocolBufferSize);
+        utility::assert_debug(total <= kProtocolBufferSize);
 
         return total;
     }

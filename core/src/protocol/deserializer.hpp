@@ -41,8 +41,8 @@ public:
     // Feed a new chunk of input bytes to satisfy the current peek_bytes() request.
     // May resume the coroutine immediately if the request can be fully satisfied.
     void feed(std::span<const std::byte> buffer) {
-        utility::assert(requested_bytes_);
-        utility::assert(pending_bytes_ < requested_bytes_);
+        utility::assert_debug(requested_bytes_);
+        utility::assert_debug(pending_bytes_ < requested_bytes_);
 
         if (!buffer.data() || discard_mode_)
             return;
@@ -81,7 +81,7 @@ public:
         resume();
         discard_mode_ = false;
 
-        utility::assert(awaiting_field_first_byte_);
+        utility::assert_debug(awaiting_field_first_byte_);
     }
 
 private:
@@ -100,22 +100,23 @@ private:
         constexpr explicit PeekBytesAwaiter(Deserializer& owner, size_t size) noexcept
             : owner_(owner)
             , scheduler_awaiter_(owner_.suspend()) {
-            utility::assert(size);
+            utility::assert_debug(size);
             // Request must fit cache and not shrink a previous request.
-            utility::assert(size <= sizeof(pending_bytes_buffer_));
-            utility::assert(size >= owner.requested_bytes_);
+            utility::assert_debug(size <= sizeof(pending_bytes_buffer_));
+            utility::assert_debug(size >= owner.requested_bytes_);
             owner.requested_bytes_ = size;
         }
 
         constexpr bool await_ready() noexcept {
-            utility::assert(!owner_.input_cursor_ || owner_.input_end_ >= owner_.input_cursor_);
+            utility::assert_debug(
+                !owner_.input_cursor_ || owner_.input_end_ >= owner_.input_cursor_);
             const auto remaining = owner_.input_cursor_
                                      ? static_cast<size_t>(owner_.input_end_ - owner_.input_cursor_)
                                      : 0;
 
             const auto requested_bytes = owner_.requested_bytes_;
             const auto pending_bytes = owner_.pending_bytes_;
-            utility::assert(requested_bytes >= pending_bytes);
+            utility::assert_debug(requested_bytes >= pending_bytes);
 
             // Fast path: satisfy the request directly from the input span (no copy).
             if (!pending_bytes && remaining >= requested_bytes)
@@ -136,10 +137,10 @@ private:
             }
 
             // Enough bytes, but split across chunks: top up the pending cache to satisfy peek.
-            utility::assert(pending_bytes);
+            utility::assert_debug(pending_bytes);
             const auto required = static_cast<std::size_t>(requested_bytes - pending_bytes);
             if (required) {
-                utility::assert(owner_.input_cursor_);
+                utility::assert_debug(owner_.input_cursor_);
                 std::memcpy(
                     owner_.pending_bytes_buffer_ + pending_bytes, owner_.input_cursor_, required);
                 owner_.input_cursor_ += required;
@@ -153,17 +154,17 @@ private:
         }
 
         constexpr const std::byte* await_resume() const noexcept {
-            utility::assert(owner_.requested_bytes_);
+            utility::assert_debug(owner_.requested_bytes_);
             // Discard mode cancels outstanding peeks by returning nullptr.
             if (owner_.discard_mode_) [[unlikely]]
                 return nullptr;
             else if (owner_.pending_bytes_) {
-                utility::assert(owner_.pending_bytes_ == owner_.requested_bytes_);
+                utility::assert_debug(owner_.pending_bytes_ == owner_.requested_bytes_);
                 return owner_.pending_bytes_buffer_;
             } else {
-                utility::assert(owner_.input_cursor_);
-                utility::assert(owner_.input_end_ >= owner_.input_cursor_);
-                utility::assert(
+                utility::assert_debug(owner_.input_cursor_);
+                utility::assert_debug(owner_.input_end_ >= owner_.input_cursor_);
+                utility::assert_debug(
                     static_cast<size_t>(owner_.input_end_ - owner_.input_cursor_)
                     >= owner_.requested_bytes_);
 
@@ -188,9 +189,9 @@ private:
     PeekBytesAwaiter peek_bytes(size_t size) { return PeekBytesAwaiter{*this, size}; }
 
     void consume_peeked() {
-        utility::assert(requested_bytes_);
+        utility::assert_debug(requested_bytes_);
         if (pending_bytes_) {
-            utility::assert(pending_bytes_ == requested_bytes_);
+            utility::assert_debug(pending_bytes_ == requested_bytes_);
             pending_bytes_ = 0;
         } else
             input_cursor_ += requested_bytes_;
@@ -198,11 +199,11 @@ private:
     }
 
     void consume_peeked_partial(size_t n) {
-        utility::assert(requested_bytes_);
-        utility::assert(n < requested_bytes_);
+        utility::assert_debug(requested_bytes_);
+        utility::assert_debug(n < requested_bytes_);
 
         if (pending_bytes_) {
-            utility::assert(pending_bytes_ == requested_bytes_);
+            utility::assert_debug(pending_bytes_ == requested_bytes_);
             std::memmove(pending_bytes_buffer_, pending_bytes_buffer_ + n, requested_bytes_ - n);
             pending_bytes_ -= n;
         } else

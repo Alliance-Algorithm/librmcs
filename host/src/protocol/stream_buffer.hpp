@@ -119,7 +119,7 @@ public:
      * @endcode
      */
     std::span<std::byte> allocate(std::size_t size) noexcept override {
-        core::utility::assert(
+        core::utility::assert_debug(
             0 < size && size <= core::protocol::kProtocolBufferSize && current_ <= end_);
 
         if (!buffer_) {
@@ -171,7 +171,7 @@ public:
      * @endcode
      */
     std::span<std::byte> allocate_up_to(std::size_t min_size, std::size_t max_size) noexcept {
-        core::utility::assert(
+        core::utility::assert_debug(
             0 < min_size && min_size <= core::protocol::kProtocolBufferSize && min_size <= max_size
             && current_ <= end_);
 
@@ -192,7 +192,7 @@ public:
 
 private:
     bool init_buffer() noexcept {
-        core::utility::assert(!buffer_ && !current_ && !end_);
+        core::utility::assert_debug(!buffer_ && !current_ && !end_);
 
         buffer_ = transport_.acquire_transmit_buffer();
         if (!buffer_)
@@ -201,17 +201,17 @@ private:
         auto data = buffer_->data();
         current_ = data.data();
         end_ = current_ + data.size();
-        core::utility::assert(data.size() == core::protocol::kProtocolBufferSize);
+        core::utility::assert_debug(data.size() == core::protocol::kProtocolBufferSize);
 
         return true;
     }
 
     void finalize_buffer() noexcept {
-        core::utility::assert(buffer_ && current_ && end_ && current_ <= end_);
+        core::utility::assert_debug(buffer_ && current_ && end_ && current_ <= end_);
 
         std::byte* begin = buffer_->data().data();
         std::size_t payload_size = current_ - begin;
-        core::utility::assert(payload_size > 0);
+        core::utility::assert_debug(payload_size > 0);
 
         transport_.transmit(std::move(buffer_), payload_size);
         buffer_.reset();
