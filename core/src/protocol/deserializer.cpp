@@ -14,13 +14,14 @@ namespace librmcs::core::protocol {
 
 coroutine::LifoTask<void> Deserializer::process_stream() {
     while (true) {
-        utility::assert(pending_bytes_ == 0 && requested_bytes_ == 0);
+        utility::assert_debug(pending_bytes_ == 0 && requested_bytes_ == 0);
 
         FieldId id;
         {
             awaiting_field_first_byte_ = true;
             auto header_bytes = co_await peek_bytes(sizeof(FieldHeader));
-            utility::assert(header_bytes); // Logically impossible; stack unwinding is invalid here.
+            // Logically impossible; stack unwinding is invalid here.
+            utility::assert_debug(header_bytes);
             auto header = FieldHeader::CRef{header_bytes};
             id = header.get<FieldHeader::Id>();
             awaiting_field_first_byte_ = false;

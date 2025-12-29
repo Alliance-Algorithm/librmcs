@@ -4,17 +4,16 @@
 
 #ifdef NDEBUG
 # include <utility>
-#else
-# include <exception>
-# include <iostream>
-# include <print>
-#endif
-
-#ifdef assert
-# undef assert
 #endif
 
 namespace librmcs::core::utility {
+
+[[noreturn]] void assert_func(const std::source_location& location);
+
+constexpr inline void
+    assert_failed_always(const std::source_location& location = std::source_location::current()) {
+    assert_func(location);
+}
 
 [[noreturn]] inline void
     assert_failed(const std::source_location& location = std::source_location::current()) {
@@ -22,21 +21,18 @@ namespace librmcs::core::utility {
     (void)location;
     std::unreachable();
 #else
-    std::println(
-        std::cerr, "Assertion failed at {}:{} in function {}", location.file_name(),
-        location.line(), location.function_name());
-    std::terminate();
+    assert_func(location);
 #endif
 }
 
 constexpr inline void assert_always(
     bool condition, const std::source_location& location = std::source_location::current()) {
     if (!condition) [[unlikely]]
-        assert_failed(location);
+        assert_func(location);
 }
 
-constexpr inline void
-    assert(bool condition, const std::source_location& location = std::source_location::current()) {
+constexpr inline void assert_debug(
+    bool condition, const std::source_location& location = std::source_location::current()) {
 #ifdef NDEBUG
     [[assume(condition)]];
     (void)location;

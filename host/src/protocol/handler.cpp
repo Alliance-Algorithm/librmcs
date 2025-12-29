@@ -166,7 +166,7 @@ Handler& Handler::operator=(Handler&& other) noexcept {
 Handler::~Handler() noexcept { delete impl_; }
 
 Handler::PacketBuilder Handler::start_transmit() noexcept {
-    core::utility::assert(impl_);
+    core::utility::assert_debug(impl_);
     return PacketBuilder{impl_->transport_.get()};
 }
 
