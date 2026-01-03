@@ -117,7 +117,7 @@ public:
         friend class LifoTask;
 
         [[noreturn]] static LifoTask get_return_object_on_allocation_failure() noexcept {
-            utility::assert_failed();
+            utility::assert_failed_debug();
         }
 
         constexpr LifoTask get_return_object() noexcept {
@@ -147,7 +147,7 @@ public:
             result_ = std::move(value);
         }
 
-        [[noreturn]] static void unhandled_exception() noexcept { utility::assert_failed(); }
+        [[noreturn]] static void unhandled_exception() noexcept { utility::assert_failed_debug(); }
 
     private:
         T result_;
@@ -205,7 +205,7 @@ public:
         friend class LifoTask;
 
         [[noreturn]] static LifoTask get_return_object_on_allocation_failure() noexcept {
-            utility::assert_failed();
+            utility::assert_failed_debug();
         }
 
         constexpr LifoTask get_return_object() noexcept {
@@ -233,7 +233,7 @@ public:
 
         constexpr void return_void() noexcept {}
 
-        [[noreturn]] static void unhandled_exception() noexcept { utility::assert_failed(); }
+        [[noreturn]] static void unhandled_exception() noexcept { utility::assert_failed_debug(); }
 
     private:
         std::coroutine_handle<> continuation_{nullptr};

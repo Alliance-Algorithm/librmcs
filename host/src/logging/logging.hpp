@@ -152,7 +152,7 @@ private:
             else if (level == Level::CRITICAL)
                 return "critical";
             else
-                core::utility::assert_failed();
+                core::utility::assert_failed_debug();
         }();
         std::print(std::cerr, "[librmcs] [{}] ", level_text);
     }
