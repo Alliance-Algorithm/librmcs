@@ -10,13 +10,13 @@ namespace librmcs::core::utility {
 
 [[noreturn]] void assert_func(const std::source_location& location);
 
-constexpr inline void
+[[noreturn]] constexpr inline void
     assert_failed_always(const std::source_location& location = std::source_location::current()) {
     assert_func(location);
 }
 
 [[noreturn]] inline void
-    assert_failed(const std::source_location& location = std::source_location::current()) {
+    assert_failed_debug(const std::source_location& location = std::source_location::current()) {
 #ifdef NDEBUG
     (void)location;
     std::unreachable();

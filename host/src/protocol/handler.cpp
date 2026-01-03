@@ -107,7 +107,7 @@ private:
         if (result == Serializer::SerializeResult::kInvalidArgument) {
             return false;
         }
-        core::utility::assert_failed();
+        core::utility::assert_failed_debug();
     }
 
     StreamBuffer buffer_;
