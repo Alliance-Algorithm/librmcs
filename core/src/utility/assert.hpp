@@ -1,9 +1,11 @@
 #pragma once
 
 #include <source_location>
+#include <type_traits>
+#include <utility>
 
-#ifdef NDEBUG
-# include <utility>
+#ifndef NDEBUG
+# include <functional>
 #endif
 
 namespace librmcs::core::utility {
@@ -38,6 +40,18 @@ constexpr inline void assert_debug(
     (void)location;
 #else
     assert_always(condition, location);
+#endif
+}
+
+// Debug-only lazy assertion: The predicate is evaluated only in debug builds.
+template <typename Condition>
+requires std::is_nothrow_invocable_r_v<bool, Condition&&> inline void assert_debug_lazy(
+    Condition&& condition, const std::source_location& location = std::source_location::current()) {
+#ifdef NDEBUG
+    (void)condition;
+    (void)location;
+#else
+    assert_always(static_cast<bool>(std::invoke(std::forward<Condition>(condition))), location);
 #endif
 }
 
