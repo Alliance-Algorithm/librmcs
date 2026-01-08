@@ -5,6 +5,7 @@
 #include <atomic>
 #include <functional>
 #include <numbers>
+#include <tuple>    // <-- add this
 #include <utility>
 
 namespace librmcs::device {
@@ -26,6 +27,69 @@ public:
         std::function<std::tuple<double, double, double>(double, double, double)>
             mapping_function) {
         coordinate_mapping_function_ = std::move(mapping_function);
+    }
+
+    // Configure ONE mapping that supports:
+    // - axis remap / sign flip (optional, same style as your current lambda), AND
+    // - arbitrary fixed mounting tilt (a real 3D rotation).
+    //
+    // roll/pitch/yaw are the IMU mounting angles in radians, using ZYX order:
+    // yaw(Z) -> pitch(Y) -> roll(X).
+    //
+    // We assume the matrix R = Rz(yaw)*Ry(pitch)*Rx(roll) describes "sensor_from_target"
+    // (i.e., the target/robot frame rotated into the sensor frame by the mounting).
+    // To convert measured vectors back into the target frame we apply R^T (the inverse).
+    //
+    // Example:
+    //   // First do axis remap, then undo a mounting tilt:
+    //   bmi088_.set_coordinate_mapping_tilted(
+    //       roll_rad, pitch_rad, yaw_rad,
+    //       [](double x, double y, double z) {
+    //           // Original remap/sign fix:
+    //           return std::make_tuple(-y, x, z);
+    //       });
+    void set_coordinate_mapping_tilted(
+        double roll_rad, double pitch_rad, double yaw_rad,
+        std::function<std::tuple<double, double, double>(double, double, double)> base_mapping =
+            {}) {
+
+        // Precompute sin/cos for speed (this is called only when configuring, not per-sample).
+        const double cr = std::cos(roll_rad), sr = std::sin(roll_rad);
+        const double cp = std::cos(pitch_rad), sp = std::sin(pitch_rad);
+        const double cy = std::cos(yaw_rad), sy = std::sin(yaw_rad);
+
+        // R = Rz(yaw) * Ry(pitch) * Rx(roll)
+        const double r00 = cy * cp;
+        const double r01 = cy * sp * sr - sy * cr;
+        const double r02 = cy * sp * cr + sy * sr;
+
+        const double r10 = sy * cp;
+        const double r11 = sy * sp * sr + cy * cr;
+        const double r12 = sy * sp * cr - cy * sr;
+
+        const double r20 = -sp;
+        const double r21 = cp * sr;
+        const double r22 = cp * cr;
+
+        coordinate_mapping_function_ =
+            [base_mapping = std::move(base_mapping),
+             r00, r01, r02, r10, r11, r12, r20, r21, r22](double x, double y, double z) mutable {
+                // Step 1: optional axis remap/sign flip (your old "map" lambda).
+                if (base_mapping) {
+                    std::tie(x, y, z) = base_mapping(x, y, z);
+                }
+
+                // Step 2: undo mounting tilt: v_target = R^T * v_sensor.
+                // R^T =
+                // [ r00 r10 r20 ]
+                // [ r01 r11 r21 ]
+                // [ r02 r12 r22 ]
+                const double tx = r00 * x + r10 * y + r20 * z;
+                const double ty = r01 * x + r11 * y + r21 * z;
+                const double tz = r02 * x + r12 * y + r22 * z;
+
+                return std::make_tuple(tx, ty, tz);
+            };
     }
 
     void store_accelerometer_status(int16_t x, int16_t y, int16_t z) {
