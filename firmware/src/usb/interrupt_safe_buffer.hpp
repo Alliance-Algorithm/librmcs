@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <span>
 
+#include "core/src/protocol/constant.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
@@ -16,14 +17,13 @@ class InterruptSafeBuffer final
     : public core::protocol::ISerializeBuffer
     , private core::utility::Immovable {
 public:
-    static constexpr size_t batch_size = 64;
-    static constexpr size_t batch_count = 8;
-    static_assert(std::has_single_bit(batch_count), "Batch count must be a power of 2");
+    static constexpr size_t kBatchCount = 8;
+    static_assert(std::has_single_bit(kBatchCount), "Batch count must be a power of 2");
 
     constexpr InterruptSafeBuffer() = default;
 
     std::span<std::byte> allocate(size_t size) noexcept override {
-        core::utility::assert_debug(size <= batch_size);
+        core::utility::assert_debug(size <= core::protocol::kProtocolBufferSize);
 
         auto out = out_.load(std::memory_order::relaxed);
 
@@ -36,7 +36,7 @@ public:
                     return {result, size};
             }
 
-            auto writeable = batch_count - readable - 1;
+            auto writeable = kBatchCount - readable - 1;
             if (!writeable) {
                 // TODO: buffer full indication hook (LED/log); platform pending.
                 return {};
@@ -46,7 +46,7 @@ public:
         }
     }
 
-    static constexpr size_t mask = batch_count - 1;
+    static constexpr size_t mask = kBatchCount - 1;
 
     struct Batch {
         std::byte* allocate(size_t size) {
@@ -54,7 +54,7 @@ public:
 
             do {
                 written_size_local = written_size.load(std::memory_order::relaxed);
-                if (batch_size - written_size_local < size)
+                if (core::protocol::kProtocolBufferSize - written_size_local < size)
                     return nullptr;
             } while (!written_size.compare_exchange_weak(
                 written_size_local, written_size_local + size, std::memory_order::relaxed));
@@ -63,7 +63,7 @@ public:
         }
 
         std::atomic<size_t> written_size = 0;
-        alignas(size_t) std::byte data[batch_size]{};
+        alignas(size_t) std::byte data[core::protocol::kProtocolBufferSize]{};
     };
 
     Batch* pop_batch() {
@@ -92,7 +92,7 @@ public:
             return;
 
         auto offset = out & mask;
-        auto slice = std::min(readable, batch_count - offset);
+        auto slice = std::min(readable, kBatchCount - offset);
 
         for (size_t i = 0; i < slice; i++)
             batches_[offset + i].written_size.store(0, std::memory_order::relaxed);
@@ -106,7 +106,7 @@ public:
 private:
     std::atomic<size_t> in_{0}, out_{0};
     static_assert(std::atomic<size_t>::is_always_lock_free);
-    Batch batches_[batch_count];
+    Batch batches_[kBatchCount];
 };
 
 } // namespace librmcs::firmware::usb
