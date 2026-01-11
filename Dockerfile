@@ -29,7 +29,7 @@ RUN apt-get update \
     openssh-client \
     # Host
     libc6-dev gcc-14 g++-14 \
-    libusb-1.0-0-dev \
+    pkg-config libusb-1.0-0-dev \
     # Firmware (HPM SDK)
     libmpc3 \
     python3 python3-pip python3-venv \
