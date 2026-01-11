@@ -73,8 +73,10 @@ public:
         return SerializeResult::kSuccess;
     }
 
-    SerializeResult write_uart(FieldId field_id, const data::UartDataView& view) noexcept {
-        const std::size_t required = required_uart_size(field_id, view);
+    SerializeResult write_uart(
+        FieldId field_id, const data::UartDataView& view,
+        std::span<const std::byte> suffix_data = {}) noexcept {
+        const std::size_t required = required_uart_size(field_id, view, suffix_data);
         LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
 
         auto dst = buffer_.allocate(required);
@@ -84,25 +86,27 @@ public:
 
         write_field_header(cursor, field_id);
 
-        const std::size_t uart_data_length = view.uart_data.size();
-        const bool use_extended_length = uart_data_length > 4;
+        const std::size_t uart_data_length = view.uart_data.size() + suffix_data.size();
+        const bool use_extended_length = uart_data_length >= 4;
         if (use_extended_length) {
             auto header = UartHeaderExtended::Ref(cursor);
             cursor += sizeof(UartHeaderExtended);
             header.set<UartHeaderExtended::IdleDelimited>(view.idle_delimited);
             header.set<UartHeaderExtended::IsExtendedLength>(true);
-            header.set<UartHeaderExtended::DataLengthCodeExtended>(
-                static_cast<std::uint16_t>(uart_data_length - 1));
+            header.set<UartHeaderExtended::DataLengthExtended>(
+                static_cast<std::uint16_t>(uart_data_length));
         } else {
             auto header = UartHeader::Ref(cursor);
             cursor += sizeof(UartHeader);
             header.set<UartHeader::IdleDelimited>(view.idle_delimited);
             header.set<UartHeader::IsExtendedLength>(false);
-            header.set<UartHeader::DataLengthCode>(static_cast<std::uint8_t>(uart_data_length - 1));
+            header.set<UartHeader::DataLength>(static_cast<std::uint8_t>(uart_data_length));
         }
 
-        std::memcpy(cursor, view.uart_data.data(), uart_data_length);
-        cursor += uart_data_length;
+        std::memcpy(cursor, view.uart_data.data(), view.uart_data.size());
+        cursor += view.uart_data.size();
+        std::memcpy(cursor, suffix_data.data(), suffix_data.size());
+        cursor += suffix_data.size();
 
         utility::assert_debug(cursor == dst.data() + dst.size());
         return SerializeResult::kSuccess;
@@ -200,16 +204,15 @@ private:
         return total;
     }
 
-    static std::size_t
-        required_uart_size(FieldId field_id, const data::UartDataView& view) noexcept {
-        LIBRMCS_VERIFY_LIKELY(!view.uart_data.empty(), 0);
-
+    static std::size_t required_uart_size(
+        FieldId field_id, const data::UartDataView& view,
+        std::span<const std::byte> suffix_data) noexcept {
         const std::size_t field_header_bytes = required_field_header_size(field_id);
 
-        const std::size_t uart_data_length = view.uart_data.size();
+        const std::size_t uart_data_length = view.uart_data.size() + suffix_data.size();
         LIBRMCS_VERIFY_LIKELY(uart_data_length <= kProtocolBufferSize, 0);
 
-        const bool use_extended_length = uart_data_length > 4;
+        const bool use_extended_length = uart_data_length >= 4;
         const std::size_t uart_header_bytes =
             use_extended_length ? sizeof(UartHeaderExtended) : sizeof(UartHeader);
 

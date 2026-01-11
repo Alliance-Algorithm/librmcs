@@ -114,33 +114,37 @@ coroutine::LifoTask<bool> Deserializer::process_can_field(FieldId field_id) {
 
 coroutine::LifoTask<bool> Deserializer::process_uart_field(FieldId field_id) {
     data::UartDataView data_view;
-    uint16_t uart_data_length = 0;
+    uint16_t uart_data_length;
     {
         auto header_bytes = co_await peek_bytes(sizeof(UartHeader));
         if (!header_bytes) [[unlikely]]
             co_return false;
         auto header = UartHeader::CRef{header_bytes};
         data_view.idle_delimited = header.get<UartHeader::IdleDelimited>();
+
         if (!header.get<UartHeader::IsExtendedLength>())
-            uart_data_length = header.get<UartHeader::DataLengthCode>() + 1;
-    }
-    if (!uart_data_length) {
-        auto header_bytes = co_await peek_bytes(sizeof(UartHeaderExtended));
-        if (!header_bytes) [[unlikely]]
-            co_return false;
-        auto header = UartHeaderExtended::CRef{header_bytes};
-        uart_data_length = header.get<UartHeaderExtended::DataLengthCodeExtended>() + 1;
-        if (uart_data_length > sizeof(pending_bytes_buffer_)) [[unlikely]]
-            co_return false;
+            uart_data_length = header.get<UartHeader::DataLength>();
+        else {
+            auto header_bytes = co_await peek_bytes(sizeof(UartHeaderExtended));
+            if (!header_bytes) [[unlikely]]
+                co_return false;
+            auto header = UartHeaderExtended::CRef{header_bytes};
+            uart_data_length = header.get<UartHeaderExtended::DataLengthExtended>();
+            if (uart_data_length > sizeof(pending_bytes_buffer_)) [[unlikely]]
+                co_return false;
+        }
     }
     consume_peeked();
-    {
+
+    if (uart_data_length) {
         auto uart_data_bytes = co_await peek_bytes(uart_data_length);
         if (!uart_data_bytes) [[unlikely]]
             co_return false;
-        data_view.uart_data = std::span<const std::byte>(uart_data_bytes, uart_data_length);
+        data_view.uart_data = std::span<const std::byte>{uart_data_bytes, uart_data_length};
+        consume_peeked();
+    } else {
+        data_view.uart_data = std::span<const std::byte>{};
     }
-    consume_peeked();
 
     callback_.uart_deserialized_callback(field_id, data_view);
 

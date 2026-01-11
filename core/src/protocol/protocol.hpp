@@ -41,11 +41,11 @@ struct CanHeaderExtendedLayout {
 struct UartHeaderLayout {
     using IdleDelimited = BitfieldMember<4, 1>;
     using IsExtendedLength = BitfieldMember<5, 1>;
-    using DataLengthCode = BitfieldMember<6, 2>;
+    using DataLength = BitfieldMember<6, 2>;
 };
 
 struct UartHeaderExtendedLayout {
-    using DataLengthCodeExtended = BitfieldMember<6, 10>;
+    using DataLengthExtended = BitfieldMember<6, 10>;
 };
 
 } // namespace layouts
