@@ -1,8 +1,8 @@
 #pragma once
 
+#include <coroutine>
 #include <cstddef>
 #include <cstring>
-
 #include <span>
 
 #include "core/include/librmcs/data/datas.hpp"
@@ -44,7 +44,7 @@ public:
         utility::assert_debug(requested_bytes_);
         utility::assert_debug(pending_bytes_ < requested_bytes_);
 
-        if (!buffer.data() || discard_mode_)
+        if (buffer.empty() || discard_mode_)
             return;
 
         input_cursor_ = buffer.data();

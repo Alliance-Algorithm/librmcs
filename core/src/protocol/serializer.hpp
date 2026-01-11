@@ -103,10 +103,14 @@ public:
             header.set<UartHeader::DataLength>(static_cast<std::uint8_t>(uart_data_length));
         }
 
-        std::memcpy(cursor, view.uart_data.data(), view.uart_data.size());
-        cursor += view.uart_data.size();
-        std::memcpy(cursor, suffix_data.data(), suffix_data.size());
-        cursor += suffix_data.size();
+        if (!view.uart_data.empty()) {
+            std::memcpy(cursor, view.uart_data.data(), view.uart_data.size());
+            cursor += view.uart_data.size();
+        }
+        if (!suffix_data.empty()) {
+            std::memcpy(cursor, suffix_data.data(), suffix_data.size());
+            cursor += suffix_data.size();
+        }
 
         utility::assert_debug(cursor == dst.data() + dst.size());
         return SerializeResult::kSuccess;

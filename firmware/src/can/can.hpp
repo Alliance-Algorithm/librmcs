@@ -60,7 +60,8 @@ public:
 
         core::utility::assert_debug(data.can_data.size() <= 8);
         frame.dlc = data.can_data.size();
-        std::memcpy(frame.data_8, data.can_data.data(), data.can_data.size());
+        if (!data.can_data.empty())
+            std::memcpy(frame.data_8, data.can_data.data(), data.can_data.size());
 
         mcan_transmit_via_txfifo_nonblocking(can_base_, &frame, nullptr);
     }
