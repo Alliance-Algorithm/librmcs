@@ -1,36 +1,37 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 
 #include <algorithm>
 #include <atomic>
 #include <limits>
 #include <memory>
 #include <new>
+#include <type_traits>
 #include <utility>
 
-namespace librmcs::host::utility {
+namespace librmcs::firmware::utility {
 
 // Lock-free Single-Producer/Single-Consumer (SPSC) ring buffer
 // Inspired by Linux kfifo.
-template <typename T>
+template <typename T, size_t max_size>
 class RingBuffer {
 public:
-    /*!
-     * @brief Construct an SPSC ring buffer
-     * @param size Minimum capacity requested. Actual capacity is rounded up
-     *        to the next power of two and clamped to at least 2.
-     * @note This data structure is single-producer/single-consumer. Only one
-     *       thread may push, and only one thread may pop, at a time.
-     */
-    explicit RingBuffer(size_t size) {
-        if (size <= 2)
-            size = 2;
-        else
-            size = round_up_to_next_power_of_2(size);
-        mask = size - 1;
-        storage_ = new Storage[size];
-    }
+    using IndexType = std::conditional_t<
+        (max_size <= std::numeric_limits<uint8_t>::max()), uint8_t,
+        std::conditional_t<
+            (max_size <= std::numeric_limits<uint16_t>::max()), uint16_t,
+            std::conditional_t<
+                (max_size <= std::numeric_limits<uint32_t>::max()), uint32_t, uint64_t>>>;
+
+    static_assert(max_size >= 2, "RingBuffer size must be at least 2");
+    static_assert((max_size & (max_size - 1)) == 0, "RingBuffer size must be a power of two");
+
+    static constexpr size_t kMaxSize = max_size;
+    static constexpr size_t kMask = max_size - 1;
+
+    constexpr RingBuffer() = default;
 
     RingBuffer(const RingBuffer&) = delete;
     RingBuffer& operator=(const RingBuffer&) = delete;
@@ -39,18 +40,9 @@ public:
 
     /*!
      * @brief Destructor
-     * Destroys all elements remaining in the buffer and frees storage.
+     * Destroys all elements remaining in the buffer.
      */
-    ~RingBuffer() {
-        clear();
-        delete[] storage_;
-    }
-
-    /*!
-     * @brief Capacity of the ring buffer
-     * @return Total number of slots (power of two)
-     */
-    size_t max_size() const { return mask + 1; }
+    ~RingBuffer() { clear(); }
 
     /*!
      * @brief Number of elements currently readable
@@ -61,7 +53,8 @@ public:
     size_t readable() const {
         const auto in = in_.load(std::memory_order::acquire);
         const auto out = out_.load(std::memory_order::relaxed);
-        return in - out;
+
+        return static_cast<size_t>(static_cast<IndexType>(in - out));
     }
 
     /*!
@@ -73,7 +66,8 @@ public:
     size_t writable() const {
         const auto in = in_.load(std::memory_order::relaxed);
         const auto out = out_.load(std::memory_order::acquire);
-        return max_size() - (in - out);
+
+        return kMaxSize - static_cast<size_t>(static_cast<IndexType>(in - out));
     }
 
     /*!
@@ -88,7 +82,7 @@ public:
         if (out == in_.load(std::memory_order::acquire))
             return nullptr;
         else
-            return std::launder(reinterpret_cast<T*>(storage_[out & mask].data));
+            return std::launder(reinterpret_cast<T*>(storage_[out & kMask].data));
     }
 
     /*!
@@ -103,7 +97,8 @@ public:
         if (in == out_.load(std::memory_order::relaxed))
             return nullptr;
         else
-            return std::launder(reinterpret_cast<T*>(storage_[(in - 1) & mask].data));
+            return std::launder(
+                reinterpret_cast<T*>(storage_[(static_cast<size_t>(in) - 1) & kMask].data));
     }
 
     /*!
@@ -111,6 +106,9 @@ public:
      * @tparam F Functor with signature `void(std::byte* storage)` that constructs
      *         a `T` in-place via placement-new.
      * @param count Maximum number of elements to construct (defaults to as many as fit)
+     * @param fail_fast If true, this function constructs nothing and returns 0
+     *        unless there is enough space for @p count elements. If false, it
+     *        constructs as many elements as currently fit (up to @p count).
      * @return Number of elements actually constructed
      * @note Producer-only. Publishes with release semantics.
      */
@@ -118,26 +116,31 @@ public:
     requires requires(F& f, std::byte* storage) {
         { f(storage) } noexcept;
     }
-    size_t emplace_back_n(F construct_functor, size_t count = std::numeric_limits<size_t>::max()) {
+    size_t emplace_back_n(
+        F construct_functor, size_t count = std::numeric_limits<size_t>::max(),
+        bool fail_fast = false) {
+
         const auto in = in_.load(std::memory_order::relaxed);
         const auto out = out_.load(std::memory_order::acquire);
 
-        const auto writable = max_size() - (in - out);
+        const auto used = static_cast<IndexType>(in - out);
+        const auto writable = kMaxSize - static_cast<size_t>(used);
 
         if (count > writable)
-            count = writable;
+            count = fail_fast ? 0 : writable;
         if (!count)
             return 0;
 
-        const auto offset = in & mask;
-        const auto slice = std::min(count, max_size() - offset);
+        const auto offset = in & kMask;
+        const auto slice = std::min(count, kMaxSize - offset);
 
         for (size_t i = 0; i < slice; i++)
             construct_functor(storage_[offset + i].data);
         for (size_t i = 0; i < count - slice; i++)
             construct_functor(storage_[i].data);
 
-        in_.store(in + count, std::memory_order::release);
+        const auto count_index = static_cast<IndexType>(count);
+        in_.store(static_cast<IndexType>(in + count_index), std::memory_order::release);
 
         return count;
     }
@@ -159,18 +162,22 @@ public:
      * @brief Batch-push using a generator (producer)
      * @tparam F Functor returning a `T` to be stored
      * @param count Maximum number to generate/push
+     * @param fail_fast If true, this function pushes nothing and returns 0
+     *        unless there is enough space for @p count elements. If false, it
+     *        pushes as many elements as currently fit (up to @p count).
      * @return Number of elements actually pushed
      */
     template <typename F>
     requires requires(F& f) {
         { f() } noexcept;
         { T{f()} } noexcept;
-    } size_t push_back_n(F generator, size_t count = std::numeric_limits<size_t>::max()) {
+    } size_t push_back_n(
+        F generator, size_t count = std::numeric_limits<size_t>::max(), bool fail_fast = false) {
         return emplace_back_n(
             [&](std::byte* storage) noexcept(noexcept(T{generator()})) {
                 new (storage) T{generator()};
             },
-            count);
+            count, fail_fast);
     }
 
     /*!
@@ -207,14 +214,14 @@ public:
         const auto in = in_.load(std::memory_order::acquire);
         const auto out = out_.load(std::memory_order::relaxed);
 
-        const auto readable = in - out;
+        const auto readable = static_cast<size_t>(static_cast<IndexType>(in - out));
         if (count > readable)
             count = readable;
         if (!count)
             return 0;
 
-        const auto offset = out & mask;
-        const auto slice = std::min(count, max_size() - offset);
+        const auto offset = out & kMask;
+        const auto slice = std::min(count, kMaxSize - offset);
 
         auto process = [&callback_functor](std::byte* storage) {
             auto& element = *std::launder(reinterpret_cast<T*>(storage));
@@ -226,7 +233,8 @@ public:
         for (size_t i = 0; i < count - slice; i++)
             process(storage_[i].data);
 
-        out_.store(out + count, std::memory_order::release);
+        const auto count_index = static_cast<IndexType>(count);
+        out_.store(static_cast<IndexType>(out + count_index), std::memory_order::release);
 
         return count;
     }
@@ -251,29 +259,12 @@ public:
     }
 
 private:
-    /*!
-     * @brief Round up to next power of two
-     * @note Assumes n > 0. Handles 32/64-bit size_t.
-     */
-    constexpr static size_t round_up_to_next_power_of_2(size_t n) {
-        n--;
-        n |= n >> 1;
-        n |= n >> 2;
-        n |= n >> 4;
-        n |= n >> 8;
-        n |= n >> 16;
-        if constexpr (sizeof(size_t) > 4)
-            n |= n >> 32;
-        n++;
-        return n;
-    }
-
-    size_t mask;
-    struct Storage {
+    struct {
         alignas(T) std::byte data[sizeof(T)];
-    }* storage_;
+    } storage_[max_size];
 
-    std::atomic<size_t> in_{0}, out_{0};
+    std::atomic<IndexType> in_{0}, out_{0};
+    static_assert(std::atomic<IndexType>::is_always_lock_free);
 };
 
-} // namespace librmcs::host::utility
+} // namespace librmcs::firmware::utility
