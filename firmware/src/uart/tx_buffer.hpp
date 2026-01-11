@@ -84,13 +84,15 @@ public:
             }
         }
 
-        auto slice = std::min(size, kBufferSize - offset);
-        std::memcpy(data_buffer_.data() + offset, data_view.uart_data.data(), slice);
-        std::memcpy(data_buffer_.data(), data_view.uart_data.data() + slice, size - slice);
+        if (size) {
+            auto slice = std::min(size, kBufferSize - offset);
+            std::memcpy(data_buffer_.data() + offset, data_view.uart_data.data(), slice);
+            std::memcpy(data_buffer_.data(), data_view.uart_data.data() + slice, size - slice);
 
-        in_.store(
-            static_cast<BufferIndexType>(in + static_cast<BufferIndexType>(size)),
-            std::memory_order::release);
+            in_.store(
+                static_cast<BufferIndexType>(in + static_cast<BufferIndexType>(size)),
+                std::memory_order::release);
+        }
 
         return true;
     }
