@@ -17,6 +17,7 @@
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
 #include "firmware/src/can/can.hpp"
+#include "firmware/src/uart/uart.hpp"
 #include "firmware/src/usb/interrupt_safe_buffer.hpp"
 #include "firmware/src/utility/lazy.hpp"
 
@@ -51,8 +52,11 @@ public:
 
     void uart_deserialized_callback(
         core::protocol::FieldId id, const data::UartDataView& data) override {
-        (void)id;
-        (void)data;
+        switch (id) {
+        case data::DataId::UART3: uart::uart3->handle_downlink(data); break;
+        // TODO: Handle other UART events
+        default: core::utility::assert_failed_always();
+        }
     };
 
     void accelerometer_deserialized_callback(const data::AccelerometerDataView& data) override {
