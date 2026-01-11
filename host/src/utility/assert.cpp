@@ -1,3 +1,5 @@
+#include "core/src/utility/assert.hpp"
+
 #include <exception>
 #include <iostream>
 #include <print>

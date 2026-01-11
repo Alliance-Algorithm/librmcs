@@ -1,10 +1,9 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
-
 #include <algorithm>
 #include <atomic>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <new>
@@ -171,7 +170,8 @@ public:
     requires requires(F& f) {
         { f() } noexcept;
         { T{f()} } noexcept;
-    } size_t push_back_n(
+    }
+    size_t push_back_n(
         F generator, size_t count = std::numeric_limits<size_t>::max(), bool fail_fast = false) {
         return emplace_back_n(
             [&](std::byte* storage) noexcept(noexcept(T{generator()})) {

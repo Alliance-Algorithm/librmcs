@@ -1,19 +1,23 @@
+#include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
-
-#include <atomic>
+#include <exception>
 #include <format>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <new>
 #include <span>
 #include <stdexcept>
 #include <thread>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include <libusb.h>
 
+#include "core/src/protocol/constant.hpp"
 #include "host/src/logging/logging.hpp"
 #include "host/src/transport/transport.hpp"
 #include "host/src/utility/final_action.hpp"

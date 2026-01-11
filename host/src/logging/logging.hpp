@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdio>
-
 #include <format>
 #include <iostream>
 #include <print>

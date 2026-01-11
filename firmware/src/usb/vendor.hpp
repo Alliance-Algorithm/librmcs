@@ -2,12 +2,12 @@
 
 #include <algorithm>
 #include <atomic>
-#include <common/tusb_types.h>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 
 #include <class/vendor/vendor_device.h>
+#include <common/tusb_types.h>
 #include <device/usbd.h>
 
 #include "core/include/librmcs/data/datas.hpp"

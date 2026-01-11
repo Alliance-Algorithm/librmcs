@@ -1,9 +1,8 @@
 #pragma once
 
-#include <cstddef>
-
 #include <algorithm>
 #include <atomic>
+#include <cstddef>
 #include <limits>
 #include <memory>
 #include <new>

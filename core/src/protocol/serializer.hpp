@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-
 #include <span>
 
 #include "core/include/librmcs/data/datas.hpp"

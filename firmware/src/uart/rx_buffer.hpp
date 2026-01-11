@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <type_traits>
 
 #include <board.h>
 #include <hpm_common.h>
@@ -13,7 +14,6 @@
 #include <hpm_dmav2_drv.h>
 #include <hpm_l1c_drv.h>
 #include <hpm_uart_drv.h>
-#include <type_traits>
 
 #include "core/src/protocol/constant.hpp"
 #include "core/src/protocol/protocol.hpp"

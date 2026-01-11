@@ -1,13 +1,12 @@
+#include "librmcs/protocol/handler.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-
 #include <memory>
 #include <new>
 #include <span>
 #include <utility>
-
-#include <librmcs/protocol/handler.hpp>
 
 #include "core/src/protocol/deserializer.hpp"
 #include "core/src/protocol/protocol.hpp"

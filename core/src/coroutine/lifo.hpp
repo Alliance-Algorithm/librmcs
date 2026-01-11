@@ -1,8 +1,7 @@
 #pragma once
 
-#include <cstddef>
-
 #include <coroutine>
+#include <cstddef>
 #include <new>
 #include <span>
 #include <type_traits>

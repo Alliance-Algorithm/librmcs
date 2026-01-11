@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-
 #include <span>
 
 #include "core/include/librmcs/data/datas.hpp"
