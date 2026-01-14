@@ -21,8 +21,16 @@ using DefaultValueTypeT = std::conditional_t<
                 (BitWidth <= 32), std::uint32_t,
                 std::conditional_t<(BitWidth <= 64), std::uint64_t, void>>>>>;
 
+/**
+ * @brief Describes a single field within a Bitfield buffer.
+ *
+ * If ValueT is a signed integral type and BitWidth is smaller than sizeof(ValueT) * 8,
+ * Bitfield::get performs two's-complement sign extension after extraction.
+ */
 template <std::size_t Index, std::size_t BitWidth, typename ValueT = DefaultValueTypeT<BitWidth>>
-requires(std::is_trivial_v<ValueT> && sizeof(ValueT) <= sizeof(std::uint64_t))
+requires(
+    std::is_trivial_v<ValueT> && sizeof(ValueT) <= sizeof(std::uint64_t)
+    && (std::is_integral_v<ValueT> || std::is_enum_v<ValueT>) && (sizeof(ValueT) * 8) >= BitWidth)
 struct BitfieldMember : BitfieldMemberTag {
     static_assert(BitWidth > 0 && BitWidth <= 64);
 
@@ -57,7 +65,8 @@ concept is_bitfield_member = std::derived_from<T, BitfieldMemberTag>;
  *   - Bitfield<SizeInBytes>::set<Member>(...) to write a field
  *
  * The implementation:
- *   - operates only on std::byte and unsigned integer types
+ *   - operates only on std::byte and integer/enum types (bitwise extraction)
+ *   - supports signed integral types via two's-complement sign extension
  *   - does not use or rely on C++ struct bitfields
  *   - enforces bounds and width constraints at compile time where possible
  *   - does not perform any implicit initialization or runtime bounds checks
@@ -209,7 +218,22 @@ private:
             (bit_width == sizeof(Word) * 8) ? ~Word(0) : ((Word(1) << bit_width) - 1);
 
         Word value = (accum >> inner_offset) & full_mask;
-        return static_cast<typename Member::ValueType>(value);
+
+        using ValueType = typename Member::ValueType;
+        if constexpr (std::is_integral_v<ValueType> && std::is_signed_v<ValueType>) {
+            // Use the "shift-left-then-shift-right" idiom for sign extension.
+            // This relies on C++20's mandatory arithmetic right shift and defined left-shift
+            // overflow.
+            static_assert(__cplusplus >= 202002L);
+
+            using ComputeType =
+                std::conditional_t<(sizeof(Word) < sizeof(int)), int, std::make_signed_t<Word>>;
+            constexpr int shift_amount = sizeof(ComputeType) * 8 - bit_width;
+            return static_cast<ValueType>(
+                (static_cast<ComputeType>(value) << shift_amount) >> shift_amount);
+        } else {
+            return static_cast<ValueType>(value);
+        }
     }
 
     template <is_bitfield_member Member>
