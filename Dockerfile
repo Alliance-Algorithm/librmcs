@@ -10,10 +10,10 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* /tmp/*
 
 WORKDIR /src
-RUN git clone --depth 1 https://github.com/riscv-collab/riscv-gnu-toolchain --recursive \
+RUN git clone --depth 1 https://github.com/riscv-collab/riscv-gnu-toolchain \
     && cd /src/riscv-gnu-toolchain \
-    && git submodule update --init --depth 1 binutils gcc glibc \
-    && ./configure --prefix=/opt/riscv --with-arch=rv32gc --with-abi=ilp32d \
+    && git submodule update --init --depth 1 binutils glibc gcc gdb \
+    && ./configure --prefix=/opt/riscv --with-arch=rv32gcb --with-abi=ilp32d \
     && make -j$(nproc) linux \
     && find /opt/riscv -type f -exec sh -c 'file "$1" | grep -q "ELF" && strip "$1"' _ {} \;
     
