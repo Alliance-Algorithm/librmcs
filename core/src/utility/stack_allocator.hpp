@@ -54,27 +54,27 @@ public:
         : Impl(buffer) {}
 
     void* allocate(std::size_t n) noexcept {
-        utility::assert_always(n > 0);
+        assert_always(n > 0);
         void* p = Impl::allocate(n);
         if (!p)
             return nullptr;
-        utility::assert_always(
+        assert_always(
             reinterpret_cast<std::uintptr_t>(p) % alignof(std::max_align_t) == 0);
 
-        utility::assert_always(lifo_check_depth_ < kMaxAllocs);
+        assert_always(lifo_check_depth_ < kMaxAllocs);
         lifo_check_stack_[lifo_check_depth_++] = p;
 
         return p;
     }
 
-    void deallocate(void* p, size_t n) noexcept {
-        utility::assert_always(p);
-        utility::assert_always(lifo_check_depth_ > 0);
-        utility::assert_always(p == lifo_check_stack_[lifo_check_depth_ - 1]);
+    void deallocate(void* p, std::size_t n) noexcept {
+        assert_always(p);
+        assert_always(lifo_check_depth_ > 0);
+        assert_always(p == lifo_check_stack_[lifo_check_depth_ - 1]);
 
         constexpr std::size_t align = alignof(std::max_align_t);
         n = (n + align - 1) & ~(align - 1);
-        utility::assert_always(p == Impl::top_ - n);
+        assert_always(p == Impl::top_ - n);
 
         Impl::deallocate(p, n);
         --lifo_check_depth_;

@@ -68,4 +68,4 @@ public:
     virtual void gyroscope_receive_callback(const GyroscopeDataView& data) = 0;
 };
 
-}; // namespace librmcs::data
+} // namespace librmcs::data

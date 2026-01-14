@@ -18,6 +18,7 @@
 #include <libusb.h>
 
 #include "core/src/protocol/constant.hpp"
+#include "core/src/utility/assert.hpp"
 #include "host/src/logging/logging.hpp"
 #include "host/src/transport/transport.hpp"
 #include "host/src/utility/final_action.hpp"
@@ -79,6 +80,8 @@ public:
     };
 
     void transmit(std::unique_ptr<ITransportBuffer> buffer, size_t size) override {
+        core::utility::assert_debug(static_cast<bool>(buffer));
+
         if (size > core::protocol::kProtocolBufferSize)
             throw std::invalid_argument("Transmit size exceeds maximum transfer length");
 
@@ -98,6 +101,8 @@ public:
     }
 
     void release_transmit_buffer(std::unique_ptr<ITransportBuffer> buffer) override {
+        core::utility::assert_debug(static_cast<bool>(buffer));
+
         std::lock_guard guard{transmit_transfer_push_mutex_};
 
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)

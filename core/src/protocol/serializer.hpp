@@ -180,6 +180,7 @@ private:
         if (use_extended_field_header(field_id)) {
             auto header = FieldHeaderExtended::Ref(cursor);
             cursor += 1;
+            static_assert(sizeof(FieldHeaderExtended) == sizeof(FieldHeader) + 1);
             header.set<FieldHeaderExtended::Id>(FieldId::EXTEND);
             header.set<FieldHeaderExtended::IdExtended>(field_id);
         } else {
