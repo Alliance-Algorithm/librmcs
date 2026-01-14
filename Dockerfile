@@ -12,9 +12,11 @@ RUN apt-get update \
 WORKDIR /src
 RUN git clone --depth 1 https://github.com/riscv-collab/riscv-gnu-toolchain --recursive \
     && cd /src/riscv-gnu-toolchain \
+    && git submodule update --init --depth 1 binutils gcc glibc \
     && ./configure --prefix=/opt/riscv --with-arch=rv32gc --with-abi=ilp32d \
     && make -j$(nproc) linux \
     && find /opt/riscv -type f -exec sh -c 'file "$1" | grep -q "ELF" && strip "$1"' _ {} \;
+    
 
 FROM ubuntu:24.04
 
