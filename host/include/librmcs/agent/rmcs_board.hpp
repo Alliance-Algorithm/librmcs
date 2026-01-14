@@ -1,56 +1,67 @@
 #pragma once
 
+#include <stdexcept>
+
 #include <librmcs/data/datas.hpp>
 #include <librmcs/protocol/handler.hpp>
 
 namespace librmcs::agent {
 
-class AllianceBoard : private data::IDataCallback {
+class RmcsBoard : private data::IDataCallback {
 public:
-    AllianceBoard()
+    RmcsBoard()
         : handler_(0xa11c, -1, nullptr, *this) {}
 
-    ~AllianceBoard() = default;
+    ~RmcsBoard() = default;
 
     class PacketBuilder {
-        friend class AllianceBoard;
+        friend class RmcsBoard;
 
     public:
         PacketBuilder& can0_transmit(const librmcs::data::CanDataView& data) {
-            builder_.write_can(data::DataId::CAN0, data);
+            if (!builder_.write_can(data::DataId::CAN0, data)) [[unlikely]]
+                throw std::invalid_argument{"CAN0 transmission failed: Invalid CAN data"};
             return *this;
         }
         PacketBuilder& can1_transmit(const librmcs::data::CanDataView& data) {
-            builder_.write_can(data::DataId::CAN1, data);
+            if (!builder_.write_can(data::DataId::CAN1, data)) [[unlikely]]
+                throw std::invalid_argument{"CAN1 transmission failed: Invalid CAN data"};
             return *this;
         }
         PacketBuilder& can2_transmit(const librmcs::data::CanDataView& data) {
-            builder_.write_can(data::DataId::CAN2, data);
+            if (!builder_.write_can(data::DataId::CAN2, data)) [[unlikely]]
+                throw std::invalid_argument{"CAN2 transmission failed: Invalid CAN data"};
             return *this;
         }
         PacketBuilder& can3_transmit(const librmcs::data::CanDataView& data) {
-            builder_.write_can(data::DataId::CAN3, data);
+            if (!builder_.write_can(data::DataId::CAN3, data)) [[unlikely]]
+                throw std::invalid_argument{"CAN3 transmission failed: Invalid CAN data"};
             return *this;
         }
 
         PacketBuilder& dbus_transmit(const librmcs::data::UartDataView& data) {
-            builder_.write_uart(data::DataId::UART_DBUS, data);
+            if (!builder_.write_uart(data::DataId::UART_DBUS, data)) [[unlikely]]
+                throw std::invalid_argument{"DBUS transmission failed: Invalid UART data"};
             return *this;
         }
         PacketBuilder& uart0_transmit(const librmcs::data::UartDataView& data) {
-            builder_.write_uart(data::DataId::UART0, data);
+            if (!builder_.write_uart(data::DataId::UART0, data)) [[unlikely]]
+                throw std::invalid_argument{"UART0 transmission failed: Invalid UART data"};
             return *this;
         }
         PacketBuilder& uart1_transmit(const librmcs::data::UartDataView& data) {
-            builder_.write_uart(data::DataId::UART1, data);
+            if (!builder_.write_uart(data::DataId::UART1, data)) [[unlikely]]
+                throw std::invalid_argument{"UART1 transmission failed: Invalid UART data"};
             return *this;
         }
         PacketBuilder& uart2_transmit(const librmcs::data::UartDataView& data) {
-            builder_.write_uart(data::DataId::UART2, data);
+            if (!builder_.write_uart(data::DataId::UART2, data)) [[unlikely]]
+                throw std::invalid_argument{"UART2 transmission failed: Invalid UART data"};
             return *this;
         }
         PacketBuilder& uart3_transmit(const librmcs::data::UartDataView& data) {
-            builder_.write_uart(data::DataId::UART3, data);
+            if (!builder_.write_uart(data::DataId::UART3, data)) [[unlikely]]
+                throw std::invalid_argument{"UART3 transmission failed: Invalid UART data"};
             return *this;
         }
 
