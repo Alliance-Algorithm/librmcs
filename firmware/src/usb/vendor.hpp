@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -78,23 +77,21 @@ public:
         if (!transmitting_batch_)
             return false;
 
-        const auto written_size =
-            transmitting_batch_->written_size.load(std::memory_order::relaxed);
+        const auto data = transmitting_batch_->data();
 
         const std::size_t max_packet_size = (tud_speed_get() == TUSB_SPEED_HIGH) ? 512 : 64;
-        const auto target_size = std::min(written_size - transmitted_size_, max_packet_size);
+        const auto target_size = std::min(data.size() - transmitted_size_, max_packet_size);
 
         if (target_size) {
-            auto data = reinterpret_cast<uint8_t*>(transmitting_batch_->data + transmitted_size_);
-            auto sent = tud_vendor_n_write(0, data, target_size);
-            core::utility::assert_debug(sent == target_size);
+            const auto src = reinterpret_cast<const uint8_t*>(data.data() + transmitted_size_);
+            core::utility::assert_debug(tud_vendor_n_write(0, src, target_size) == target_size);
         } else {
             core::utility::assert_debug(tud_vendor_n_write_zlp(0));
         }
 
         transmitted_size_ += target_size;
-        if (transmitted_size_ == written_size && target_size < max_packet_size) {
-            transmitting_batch_->written_size.store(0, std::memory_order::relaxed);
+        if (transmitted_size_ == data.size() && target_size < max_packet_size) {
+            transmit_buffer_.release_batch(transmitting_batch_);
             transmitting_batch_ = nullptr;
             transmitted_size_ = 0;
         }
@@ -110,7 +107,7 @@ private:
     InterruptSafeBuffer transmit_buffer_{};
     core::protocol::Serializer serializer_{transmit_buffer_};
 
-    InterruptSafeBuffer::Batch* transmitting_batch_ = nullptr;
+    const InterruptSafeBuffer::Batch* transmitting_batch_ = nullptr;
     size_t transmitted_size_ = 0;
 };
 

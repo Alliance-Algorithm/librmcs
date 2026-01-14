@@ -48,25 +48,35 @@ public:
 
     static constexpr size_t mask = kBatchCount - 1;
 
-    struct Batch {
+    class Batch {
+    public:
+        bool empty() const { return written_size_.load(std::memory_order::relaxed) == 0; }
+
+        std::span<const std::byte> data() const {
+            return {data_, written_size_.load(std::memory_order::relaxed)};
+        }
+
         std::byte* allocate(size_t size) {
             size_t written_size_local;
 
             do {
-                written_size_local = written_size.load(std::memory_order::relaxed);
+                written_size_local = written_size_.load(std::memory_order::relaxed);
                 if (core::protocol::kProtocolBufferSize - written_size_local < size)
                     return nullptr;
-            } while (!written_size.compare_exchange_weak(
+            } while (!written_size_.compare_exchange_weak(
                 written_size_local, written_size_local + size, std::memory_order::relaxed));
 
-            return data + written_size_local;
+            return data_ + written_size_local;
         }
 
-        std::atomic<size_t> written_size = 0;
-        alignas(size_t) std::byte data[core::protocol::kProtocolBufferSize]{};
+        void reset() { written_size_.store(0, std::memory_order::relaxed); }
+
+    private:
+        std::atomic<size_t> written_size_ = 0;
+        alignas(size_t) std::byte data_[core::protocol::kProtocolBufferSize]{};
     };
 
-    Batch* pop_batch() {
+    const Batch* pop_batch() {
         auto in = in_.load(std::memory_order::relaxed);
         auto out = out_.load(std::memory_order::relaxed);
 
@@ -74,7 +84,7 @@ public:
         if (!readable)
             return nullptr;
         auto& batch = batches_[out & mask];
-        if (!batch.written_size.load(std::memory_order::relaxed))
+        if (batch.empty())
             return nullptr;
 
         std::atomic_signal_fence(std::memory_order_release);
@@ -82,6 +92,8 @@ public:
 
         return &batch;
     }
+
+    static void release_batch(const Batch* batch) { const_cast<Batch*>(batch)->reset(); }
 
     void clear() {
         auto in = in_.load(std::memory_order::relaxed);
@@ -95,9 +107,9 @@ public:
         auto slice = std::min(readable, kBatchCount - offset);
 
         for (size_t i = 0; i < slice; i++)
-            batches_[offset + i].written_size.store(0, std::memory_order::relaxed);
+            batches_[offset + i].reset();
         for (size_t i = 0; i < readable - slice; i++)
-            batches_[i].written_size.store(0, std::memory_order::relaxed);
+            batches_[i].reset();
 
         std::atomic_signal_fence(std::memory_order_release);
         out_.store(in, std::memory_order::relaxed);
