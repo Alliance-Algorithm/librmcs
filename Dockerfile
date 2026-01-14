@@ -1,3 +1,21 @@
+FROM ubuntu:24.04 AS builder
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends autoconf automake autotools-dev \
+    curl python3 python3-pip python3-tomli libmpc-dev libmpfr-dev libgmp-dev gawk \
+    build-essential bison flex texinfo gperf libtool patchutils bc \
+    zlib1g-dev libexpat-dev ninja-build git cmake libglib2.0-dev libslirp-dev libncurses-dev \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/*
+
+WORKDIR /src
+RUN git clone --depth 1 https://github.com/riscv-collab/riscv-gnu-toolchain --recursive \
+    && cd /src/riscv-gnu-toolchain \
+    && ./configure --prefix=/opt/riscv --with-arch=rv32gc --with-abi=ilp32d \
+    && make -j$(nproc) linux \
+    && find /opt/riscv -type f -exec sh -c 'file "$1" | grep -q "ELF" && strip "$1"' _ {} \;
+
 FROM ubuntu:24.04
 
 ARG TARGETARCH
@@ -52,14 +70,8 @@ RUN apt-get update \
     && ln -sf /usr/bin/gcc-14 /usr/bin/${TARGETARCH_UNAME}-linux-gnu-gcc \
     && ln -sf /usr/bin/g++-14 /usr/bin/${TARGETARCH_UNAME}-linux-gnu-g++
 
-# Download the latest riscv32 toolchain and expand it into /opt/riscv
-RUN VERSION=15.2-r1 \
-    && wget https://releases.riscstar.com/toolchain/${VERSION}/riscstar-toolchain-${VERSION}-${TARGETARCH_UNAME}-riscv32-none-elf.tar.xz \
-        -O riscv-gnu-toolchain.tar.xz \
-    && tar -xvf riscv-gnu-toolchain.tar.xz -C /opt/ \
-    && rm riscv-gnu-toolchain.tar.xz \
-    && mv /opt/riscstar-toolchain-${VERSION}-${TARGETARCH_UNAME}-riscv32-none-elf /opt/riscv32-none-elf
-ENV GNURISCV_TOOLCHAIN_PATH=/opt/riscv32-none-elf
+COPY --from=builder /opt/riscv /opt/riscv
+ENV GNURISCV_TOOLCHAIN_PATH=/opt/riscv
 ENV PATH="${GNURISCV_TOOLCHAIN_PATH}/bin:${PATH}"
 
 # Download the latest arm-gnu-toolchain and expand it into /opt/arm-none-eabi
