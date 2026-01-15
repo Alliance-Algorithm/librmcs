@@ -1,10 +1,11 @@
 FROM ubuntu:24.04 AS builder
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends autoconf automake autotools-dev \
-    curl python3 python3-pip python3-tomli libmpc-dev libmpfr-dev libgmp-dev gawk \
-    build-essential bison flex texinfo gperf libtool patchutils bc \
-    zlib1g-dev libexpat-dev ninja-build git cmake libglib2.0-dev libslirp-dev libncurses-dev \
+    && apt-get install -y --no-install-recommends \
+    autoconf automake autotools-dev curl python3 python3-pip python3-tomli \
+    libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex \
+    texinfo gperf libtool patchutils bc zlib1g-dev libexpat-dev \
+    git ca-certificates file \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/*
@@ -15,6 +16,7 @@ RUN git clone --depth 1 https://github.com/riscv-collab/riscv-gnu-toolchain \
     && git submodule update --init --depth 1 binutils glibc gcc gdb \
     && ./configure --prefix=/opt/riscv --with-arch=rv32gcb --with-abi=ilp32d \
     && make -j$(nproc) linux \
+    && ./.github/dedup-dir.sh /opt/riscv/ \
     && find /opt/riscv -type f -exec sh -c 'file "$1" | grep -q "ELF" && strip "$1"' _ {} \;
     
 
