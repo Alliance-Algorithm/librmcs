@@ -22,7 +22,7 @@ RUN git clone --depth 1 https://github.com/riscv-collab/riscv-gnu-toolchain \
     && find /opt/riscv32-none-elf -type f -exec sh -c 'file "$1" | grep -q "ELF" && strip "$1"' _ {} \;
     
 
-FROM ubuntu:24.04
+FROM ubuntu:24.04 AS ci
 
 ARG TARGETARCH
 ARG TARGETARCH_UNAME=${TARGETARCH/amd64/x86_64}
@@ -90,6 +90,8 @@ RUN VERSION=15.2.rel1 \
     && mv /opt/arm-gnu-toolchain-${VERSION}-${TARGETARCH_UNAME}-arm-none-eabi /opt/arm-none-eabi
 ENV GNUARM_TOOLCHAIN_PATH=/opt/arm-none-eabi
 ENV PATH="${GNUARM_TOOLCHAIN_PATH}/bin:${PATH}"
+
+FROM ci AS develop
 
 # Install latest clangd
 RUN wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc \
