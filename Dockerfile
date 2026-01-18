@@ -49,7 +49,7 @@ RUN apt-get update \
     zsh usbutils \
     cmake make ninja-build \
     git sudo \
-    unzip xz-utils \
+    zip unzip xz-utils \
     openssh-client \
     # Host toolchain
     libc6-dev gcc-14 g++-14 \
