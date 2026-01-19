@@ -5,9 +5,11 @@
 #include <cstdint>
 #include <span>
 
+#include <board.h>
 #include <class/vendor/vendor_device.h>
 #include <common/tusb_types.h>
 #include <device/usbd.h>
+#include <tusb.h>
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/deserializer.hpp"
@@ -18,6 +20,7 @@
 #include "firmware/src/can/can.hpp"
 #include "firmware/src/uart/uart.hpp"
 #include "firmware/src/usb/interrupt_safe_buffer.hpp"
+#include "firmware/src/usb/usb_descriptors.hpp"
 #include "firmware/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::usb {
@@ -28,7 +31,16 @@ class Vendor
 public:
     using Lazy = utility::Lazy<Vendor>;
 
-    Vendor() = default;
+    Vendor() {
+        usb::usb_descriptors.init();
+
+        board_init_user_sw();
+        tusb_rhport_init_t init_config{
+            .role = TUSB_ROLE_DEVICE,
+            .speed = board_get_user_sw_status() ? TUSB_SPEED_FULL : TUSB_SPEED_HIGH,
+        };
+        core::utility::assert_always(tusb_rhport_init(0, &init_config));
+    }
 
     core::protocol::Serializer& serializer() { return serializer_; }
 

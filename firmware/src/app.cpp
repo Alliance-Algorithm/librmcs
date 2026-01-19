@@ -3,14 +3,12 @@
 #include <board.h>
 #include <device/usbd.h>
 #include <hpm_dma_mgr.h>
-#include <tusb.h>
 
 #include "firmware/src/can/can.hpp"
 #include "firmware/src/gpio/gpio.hpp"
 #include "firmware/src/spi/bmi088/accel.hpp"
 #include "firmware/src/spi/bmi088/gyro.hpp"
 #include "firmware/src/uart/uart.hpp"
-#include "firmware/src/usb/usb_descriptors.hpp"
 #include "firmware/src/usb/vendor.hpp"
 #include "firmware/src/utility/interrupt_lock_guard.hpp"
 
@@ -35,8 +33,6 @@ App::App() {
     spi::bmi088::gyroscope.init();
     gpio::init_bmi088_interrupts();
 
-    usb::usb_descriptors.init();
-    tusb_init();
     usb::vendor.init();
 }
 
