@@ -10,7 +10,8 @@ on:
   workflow_dispatch:
 
 env:
-  REGISTRY_IMAGE: ${{ vars.DOCKERHUB_USERNAME }}/librmcs-develop
+  REGISTRY_IMAGE_CI: ${{ vars.DOCKERHUB_USERNAME }}/librmcs-ci
+  REGISTRY_IMAGE_DEVELOP: ${{ vars.DOCKERHUB_USERNAME }}/librmcs-develop
 
 jobs:
   build:
@@ -36,27 +37,63 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push by digest
-        id: build
-        uses: docker/build-push-action@v6
+      - name: Free disk space
+        uses: BRAINSia/free-disk-space@v2
         with:
-          context: .
+          tool-cache: false
+          mandb: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
+
+      - name: Build and push by digest (CI)
+        uses: docker/build-push-action@v6
+        id: build_ci
+        with:
+          target: ci
           platforms: linux/${{ matrix.arch }}
-          outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ env.REGISTRY_IMAGE_CI }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=docker-build-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=docker-build-${{ matrix.arch }}
 
-      - name: Export digest
+      - name: Export digest (CI)
         run: |
-          mkdir -p "${{ runner.temp }}/digests"
-          digest="${{ steps.build.outputs.digest }}"
-          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+          mkdir -p "${{ runner.temp }}/digests-ci"
+          digest="${{ steps.build_ci.outputs.digest }}"
+          touch "${{ runner.temp }}/digests-ci/${digest#sha256:}"
 
-      - name: Upload digest
-        uses: actions/upload-artifact@v4
+      - name: Upload digest (CI)
+        uses: actions/upload-artifact@v6
         with:
-          name: digests-${{ matrix.arch }}
-          path: ${{ runner.temp }}/digests/*
+          name: digests-ci-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests-ci/*
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Build and push by digest (Develop)
+        uses: docker/build-push-action@v6
+        id: build_develop
+        with:
+          target: develop
+          platforms: linux/${{ matrix.arch }}
+          outputs: type=image,name=${{ env.REGISTRY_IMAGE_DEVELOP }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=docker-build-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=docker-build-${{ matrix.arch }}
+
+      - name: Export digest (Develop)
+        run: |
+          mkdir -p "${{ runner.temp }}/digests-develop"
+          digest="${{ steps.build_develop.outputs.digest }}"
+          touch "${{ runner.temp }}/digests-develop/${digest#sha256:}"
+
+      - name: Upload digest (Develop)
+        uses: actions/upload-artifact@v6
+        with:
+          name: digests-develop-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests-develop/*
           if-no-files-found: error
           retention-days: 1
 
@@ -64,11 +101,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Download digests
-        uses: actions/download-artifact@v4
+      - name: Download digests (CI)
+        uses: actions/download-artifact@v7
         with:
-          path: ${{ runner.temp }}/digests
-          pattern: digests-*
+          path: ${{ runner.temp }}/digests/ci
+          pattern: digests-ci-*
+          merge-multiple: true
+
+      - name: Download digests (develop)
+        uses: actions/download-artifact@v7
+        with:
+          path: ${{ runner.temp }}/digests/develop
+          pattern: digests-develop-*
           merge-multiple: true
 
       - name: Login to Docker Hub
@@ -80,13 +124,21 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Create manifest list and push
-        working-directory: ${{ runner.temp }}/digests
+      - name: Create manifest list and push (CI)
+        working-directory: ${{ runner.temp }}/digests/ci
         run: |
           docker buildx imagetools create \
-            -t "${{ env.REGISTRY_IMAGE }}:latest" \
-            $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
+            -t "${{ env.REGISTRY_IMAGE_CI }}:latest" \
+            $(printf '${{ env.REGISTRY_IMAGE_CI }}@sha256:%s ' *)
 
-      - name: Inspect image
+      - name: Create manifest list and push (Develop)
+        working-directory: ${{ runner.temp }}/digests/develop
         run: |
-          docker buildx imagetools inspect "${{ env.REGISTRY_IMAGE }}:latest"
+          docker buildx imagetools create \
+            -t "${{ env.REGISTRY_IMAGE_DEVELOP }}:latest" \
+            $(printf '${{ env.REGISTRY_IMAGE_DEVELOP }}@sha256:%s ' *)
+
+      - name: Inspect images
+        run: |
+          docker buildx imagetools inspect "${{ env.REGISTRY_IMAGE_CI }}:latest"
+          docker buildx imagetools inspect "${{ env.REGISTRY_IMAGE_DEVELOP }}:latest"

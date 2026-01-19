@@ -1,14 +1,6 @@
 CompileFlags:
-  Compiler: /opt/riscv32-none-elf/bin/riscv32-unknown-elf-g++
   Add:
     - --gcc-toolchain=/opt/riscv32-none-elf
-    - --sysroot=/opt/riscv32-none-elf/riscv32-unknown-elf
-    - -isystem/opt/riscv32-none-elf/riscv32-unknown-elf/include/c++/15.1.0
-    - -isystem/opt/riscv32-none-elf/riscv32-unknown-elf/include/c++/15.1.0/riscv32-unknown-elf
-    - -isystem/opt/riscv32-none-elf/riscv32-unknown-elf/include/c++/15.1.0/backward
-    - -isystem/opt/riscv32-none-elf/lib/gcc/riscv32-unknown-elf/15.1.0/include
-    - -isystem/opt/riscv32-none-elf/lib/gcc/riscv32-unknown-elf/15.1.0/include-fixed
-    - -isystem/opt/riscv32-none-elf/riscv32-unknown-elf/include
 Diagnostics:
   Includes:
     IgnoreHeader: firmware/bsp/hpm_sdk/soc/.*

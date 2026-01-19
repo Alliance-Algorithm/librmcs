@@ -1,0 +1,7 @@
+.vscode/
+.cache/
+
+build/
+compile_commands.json
+
+.devcontainer/.zsh_history
