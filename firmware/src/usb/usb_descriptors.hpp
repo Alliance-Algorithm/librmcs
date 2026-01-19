@@ -1,10 +1,13 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <string_view>
+#include <tuple>
 
 #include <common/tusb_types.h>
 #include <device/usbd.h>
@@ -48,8 +51,12 @@ public:
             if (index >= string_descriptor_array_size)
                 return nullptr;
 
+            constexpr auto max_size = std::min<size_t>(
+                std::tuple_size_v<decltype(descriptor_string_buffer_)> - 1,
+                (std::numeric_limits<uint8_t>::max() - 2) / 2);
+
             const auto& str = string_descriptor_[index];
-            str_size = std::min<size_t>(str.size(), 64 - 1);
+            str_size = std::min<size_t>(str.size(), max_size);
 
             // Convert ASCII string into UTF-16
             for (uint8_t i = 0; i < str_size; i++)
@@ -59,7 +66,7 @@ public:
         // first byte is length (including header), second byte is string type
         descriptor_string_buffer_[0] = (TUSB_DESC_STRING << 8) | (2 * str_size + 2);
 
-        return descriptor_string_buffer_;
+        return descriptor_string_buffer_.data();
     }
 
 private: // Device Descriptor
@@ -115,14 +122,14 @@ private: // Configuration Descriptor
     };
     static_assert(sizeof(configuration_descriptor_hs_) == CONFIG_TOTAL_LEN);
 
-private:                             // String Descriptor
+private:                                               // String Descriptor
     static constexpr std::string_view string_descriptor_[4] = {
-        "\x09\x04",                  // 0: Support English (0x0409)
-        "Alliance RoboMaster Team.", // 1: Manufacturer
-        "RMCS Slave v3.0.0alpha",    // 2: Product
-        "123456",                    // 3: Serials, should use chip ID
+        "\x09\x04",                                    // 0: Support English (0x0409)
+        "Alliance RoboMaster Team.",                   // 1: Manufacturer
+        "RMCS Board v" LIBRMCS_PROJECT_VERSION_STRING, // 2: Product
+        "123456",                                      // 3: Serials, should use chip ID
     };
-    uint16_t descriptor_string_buffer_[64];
+    std::array<uint16_t, 128> descriptor_string_buffer_;
 };
 inline constinit utility::Lazy<UsbDescriptors> usb_descriptors;
 

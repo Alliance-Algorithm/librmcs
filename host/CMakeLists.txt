@@ -1,6 +1,18 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.28)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
-project(librmcs VERSION 3.0.0 LANGUAGES C CXX)
+project(librmcs-sdk VERSION 3 LANGUAGES C CXX)
+
+if(NOT DEFINED LIBRMCS_PROJECT_VERSION OR LIBRMCS_PROJECT_VERSION STREQUAL "")
+    execute_process(
+        COMMAND ".scripts/generate_version"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/.."
+        OUTPUT_VARIABLE LIBRMCS_PROJECT_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND_ERROR_IS_FATAL ANY
+    )
+endif()
+message(STATUS "Librmcs project version: ${LIBRMCS_PROJECT_VERSION}")
 
 # Set C++ standard to C++23
 set(CMAKE_CXX_STANDARD 23)
@@ -52,6 +64,7 @@ else()
     message(STATUS "Building shared librmcs")
 endif()
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE LIBRMCS_PROJECT_VERSION_STRING="${LIBRMCS_PROJECT_VERSION}")
 target_compile_definitions(${PROJECT_NAME} PRIVATE BUILDING_LIBRMCS)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../core/include)
@@ -86,6 +99,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 )
 
 install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
+install(DIRECTORY ../core/include/ DESTINATION include)
 install(DIRECTORY include/ DESTINATION include)
 
 # include(CTest)
@@ -112,21 +126,30 @@ install(DIRECTORY include/ DESTINATION include)
 # endif()
 
 if(UNIX AND NOT APPLE)
-    set(CPACK_GENERATOR "DEB;RPM")
+    if(NOT DEFINED LIBRMCS_DEBIAN_VERSION OR LIBRMCS_DEBIAN_VERSION STREQUAL "")
+        execute_process(
+            COMMAND ".scripts/generate_version" "--format" "debian"
+            WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/.."
+            OUTPUT_VARIABLE LIBRMCS_DEBIAN_VERSION
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            COMMAND_ERROR_IS_FATAL ANY
+        )
+    endif()
+    message(STATUS "Librmcs Debian package version: ${LIBRMCS_DEBIAN_VERSION}")
+
+    set(CPACK_GENERATOR "DEB")
 
     set(ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
     if(ARCHITECTURE STREQUAL "x86_64")
         set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
-        set(CPACK_RPM_PACKAGE_ARCHITECTURE "x86_64")
     elseif(ARCHITECTURE STREQUAL "aarch64")
         set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "arm64")
-        set(CPACK_RPM_PACKAGE_ARCHITECTURE "aarch64")
     else()
         message(FATAL_ERROR "Unsupported architecture: ${ARCHITECTURE}.")
     endif()
 
     set(CPACK_DEBIAN_PACKAGE_NAME "${PROJECT_NAME}")
-    set(CPACK_DEBIAN_PACKAGE_VERSION "${PROJECT_VERSION}")
+    set(CPACK_DEBIAN_PACKAGE_VERSION "${LIBRMCS_DEBIAN_VERSION}")
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Zihan Qin <zihanqin2048@gmail.com>")
     set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "A portable library implements the core functionality of RMCS")
     set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/Alliance-Algorithm/librmcs")
@@ -134,17 +157,8 @@ if(UNIX AND NOT APPLE)
     set(CPACK_DEBIAN_PACKAGE_SECTION "libs")
     set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 
-    set(CPACK_RPM_PACKAGE_NAME "${PROJECT_NAME}")
-    set(CPACK_RPM_PACKAGE_VERSION "${PROJECT_VERSION}")
-    set(CPACK_RPM_PACKAGE_VENDOR "Zihan Qin <zihanqin2048@gmail.com>")
-    set(CPACK_RPM_PACKAGE_DESCRIPTION "A portable library implements the core functionality of RMCS")
-    set(CPACK_RPM_PACKAGE_URL "https://github.com/Alliance-Algorithm/librmcs")
-    set(CPACK_RPM_PACKAGE_RELEASE "1")
-    set(CPACK_RPM_PACKAGE_LICENSE "GPLv3")
-    set(CPACK_RPM_PACKAGE_REQUIRES "libusbx-devel")
-    set(CPACK_RPM_PACKAGE_GROUP "Development/Libraries")
-
-    set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}-${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}")
+    string(TOLOWER "${CMAKE_BUILD_TYPE}" PACKAGE_BUILD_MODE)
+    set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${LIBRMCS_PROJECT_VERSION}-${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}-${PACKAGE_BUILD_MODE}")
     set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE")
 
     include(CPack)

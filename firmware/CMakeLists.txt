@@ -1,9 +1,7 @@
-# Copyright (c) 2025 HPMicro
-# SPDX-License-Identifier: BSD-3-Clause
-
 cmake_minimum_required(VERSION 3.28)
-
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+
+set(APP_NAME librmcs-firmware)
 
 set(BOARD "hpm5300evk" CACHE STRING "Target board")
 set(RV_ARCH "rv32imafdcb" CACHE STRING "RISC-V arch")
@@ -20,7 +18,18 @@ if(NOT DEFINED ENV{HPM_SDK_BASE} OR "$ENV{HPM_SDK_BASE}" STREQUAL "")
 endif()
 find_package(hpm-sdk REQUIRED HINTS $ENV{HPM_SDK_BASE})
 
-project(rmcs_slave LANGUAGES C CXX ASM)
+project(librmcs-firmware VERSION 3 LANGUAGES C CXX ASM)
+
+if(NOT DEFINED LIBRMCS_PROJECT_VERSION OR LIBRMCS_PROJECT_VERSION STREQUAL "")
+    execute_process(
+        COMMAND ".scripts/generate_version"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/.."
+        OUTPUT_VARIABLE LIBRMCS_PROJECT_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        COMMAND_ERROR_IS_FATAL ANY
+    )
+endif()
+message(STATUS "Librmcs project version: ${LIBRMCS_PROJECT_VERSION}")
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -31,7 +40,6 @@ set(CMAKE_C_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_C_EXTENSIONS OFF)
 
-set(APP_NAME rmcs_slave)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 sdk_compile_options(-Wall -Wextra -Wpedantic -fvisibility=hidden)
@@ -70,6 +78,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "debug")
     sdk_compile_options(-Og)
 endif()
 
+sdk_compile_definitions(-DLIBRMCS_PROJECT_VERSION_STRING="${LIBRMCS_PROJECT_VERSION}")
 sdk_compile_definitions(-DCFG_TUSB_MCU=OPT_MCU_HPM)
 sdk_compile_definitions(-DUSB_HOST_MCU_CORE=HPM_CORE0)
 

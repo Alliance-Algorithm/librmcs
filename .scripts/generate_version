@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+
+import argparse
+import subprocess
+import re
+import sys
+
+
+class VersionError(Exception):
+    pass
+
+
+VERSION_PATTERN = (
+    r"^v(?P<release>[0-9]+(?:\.[0-9]+)*)(?:(?P<pre_l>a|b|rc)(?P<pre_n>[0-9]+))?$"
+)
+REGEX = re.compile(VERSION_PATTERN)
+
+
+def run_git_command() -> str:
+    try:
+        cmd = ["git", "describe", "--tags", "--dirty", "--long"]
+        return (
+            subprocess.check_output(cmd, stderr=subprocess.PIPE).decode("utf-8").strip()
+        )
+    except subprocess.CalledProcessError as e:
+        err_msg = e.stderr.decode("utf-8").strip()
+        raise VersionError(f"Git command failed: {err_msg}")
+    except FileNotFoundError:
+        raise VersionError("'git' executable not found in PATH.")
+
+
+def generate_version() -> tuple:
+    desc = run_git_command()
+
+    is_dirty = desc.endswith("-dirty")
+    clean_desc = desc[:-6] if is_dirty else desc
+
+    try:
+        tag, distance_str, commit_hash = clean_desc.rsplit("-", 2)
+        distance = int(distance_str)
+    except ValueError:
+        raise VersionError(f"Unexpected git describe output format: '{desc}'")
+
+    match = REGEX.match(tag)
+    if not match:
+        raise VersionError(
+            f"Tag '{tag}' is invalid. It must start with 'v' and follow N(.N)*[{{a|b|rc}}N]."
+        )
+
+    release = [int(i) for i in match.group("release").split(".")]
+
+    pre_l = match.group("pre_l")
+    pre_n = match.group("pre_n")
+    if pre_l == "a":
+        pre_l = "alpha"
+    elif pre_l == "b":
+        pre_l = "beta"
+    pre = f"{pre_l}.{int(pre_n)}" if pre_l else None
+
+    if distance == 0 and not is_dirty:
+        dev = None
+    else:
+        dev = f"dev.{distance}.{commit_hash}"
+
+    if is_dirty:
+        dev = dev + ".dirty" if dev else "dirty"
+
+    return (release, pre, dev)
+
+
+def format_version(version: tuple, format: str):
+    release, pre, dev = version
+
+    if not pre and not dev:
+        trailing = None
+    elif pre and not dev:
+        trailing = pre
+    elif not pre and dev:
+        release[-1] += 1
+        trailing = f"0.{dev}"
+    else:
+        trailing = f"{pre}.{dev}"
+
+    release = ".".join([str(i) for i in release])
+
+    if format == "semver":
+        return f"{release}-{trailing}" if trailing else release
+    elif format == "debian":
+        return f"{release}~{trailing}" if trailing else release
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate version string from git tag state."
+    )
+    parser.add_argument(
+        "-f",
+        "--format",
+        choices=["semver", "debian"],
+        default="semver",
+        help="Version output format (Default: semver).",
+    )
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    try:
+        args = parse_args()
+        print(format_version(generate_version(), format=args.format))
+    except VersionError as e:
+        sys.stderr.write(f"Error: {e}\n")
+        sys.exit(1)
