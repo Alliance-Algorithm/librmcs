@@ -1,0 +1,21 @@
+FROM qzhhhi/librmcs-ci AS build
+
+SHELL ["/bin/bash", "-c"]
+
+WORKDIR /src
+RUN --mount=type=bind,target=/src,source=.,readonly \
+    LIBRMCS_PROJECT_VERSION=$(.scripts/generate_version) \
+    && cd firmware \
+    && cmake --preset debug -B /output/build-debug \
+    && cmake --build /output/build-debug \
+    && cmake --preset release -B /output/build-release \
+    && cmake --build /output/build-release \
+    && cd /output \
+    && mv build-debug/output/librmcs-firmware.elf \
+        ./librmcs-firmware-${LIBRMCS_PROJECT_VERSION}-debug.elf \
+    && mv build-release/output/librmcs-firmware.elf \
+        ./librmcs-firmware-${LIBRMCS_PROJECT_VERSION}-release.elf \
+    && rm -rf build*
+
+FROM scratch AS output
+COPY --from=build /output/ /
