@@ -56,6 +56,7 @@ jobs:
           target: ci
           platforms: linux/${{ matrix.arch }}
           outputs: type=image,name=${{ env.REGISTRY_IMAGE_CI }},push-by-digest=true,name-canonical=true,push=true
+          no-cache: ${{ github.event_name == 'schedule' }}
           cache-from: type=gha,scope=docker-build-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=docker-build-${{ matrix.arch }}
 
@@ -80,6 +81,7 @@ jobs:
           target: develop
           platforms: linux/${{ matrix.arch }}
           outputs: type=image,name=${{ env.REGISTRY_IMAGE_DEVELOP }},push-by-digest=true,name-canonical=true,push=true
+          no-cache: ${{ github.event_name == 'schedule' }}
           cache-from: type=gha,scope=docker-build-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=docker-build-${{ matrix.arch }}
 
