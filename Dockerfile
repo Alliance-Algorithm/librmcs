@@ -104,6 +104,13 @@ RUN wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.
     && rm -rf /var/lib/apt/lists/* /tmp/* \
     && update-alternatives --install /usr/bin/clangd clangd /usr/bin/clangd-$version 50
 
+# Install Node.js 24 LTS (required by Codex CLI)
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/*
+
 # Add optional Tsinghua mirror configuration for CN users
 COPY <<EOF /etc/apt/sources.list.d/ubuntu.sources.cn.bak
 Types: deb

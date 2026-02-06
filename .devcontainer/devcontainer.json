@@ -21,8 +21,8 @@
             "type": "bind"
         }
     ],
-    "onCreateCommand": "ln -sfn /mnt/home/.codex ~/.codex",
-    "postCreateCommand": "bash -c 'if [ -d ~/.codex ]; then $(ls ~/.vscode-server*/bin/*/bin/code-server* | head -n 1) --install-extension openai.chatgpt || true; fi;'",
+    "onCreateCommand": "bash -c '[ -d /mnt/home/.codex ] && ln -sfn /mnt/home/.codex ~/.codex; [ -d /mnt/home/.claude ] && ln -sfn /mnt/home/.claude ~/.claude; true'",
+    "postCreateCommand": "bash -c '[ -d ~/.codex ] && sudo npm i -g @openai/codex; [ -d ~/.claude ] && curl -fsSL https://claude.ai/install.sh | bash && sudo ln -sf ~/.local/bin/claude /usr/local/bin/claude; true'",
     "containerEnv": {
         "DISPLAY": "${localEnv:DISPLAY}",
         "HTTP_PROXY": "${localEnv:HTTP_PROXY}",
