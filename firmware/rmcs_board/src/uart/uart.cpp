@@ -1,4 +1,4 @@
-#include "firmware/src/uart/uart.hpp"
+#include "firmware/rmcs_board/src/uart/uart.hpp"
 
 #include <board.h>
 #include <hpm_uart_drv.h>

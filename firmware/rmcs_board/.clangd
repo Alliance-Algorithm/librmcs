@@ -3,4 +3,4 @@ CompileFlags:
     - --gcc-toolchain=/opt/riscv32-none-elf
 Diagnostics:
   Includes:
-    IgnoreHeader: firmware/bsp/hpm_sdk/soc/.*
+    IgnoreHeader: bsp/hpm_sdk/soc/.+

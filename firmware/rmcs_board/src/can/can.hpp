@@ -13,7 +13,7 @@
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
-#include "firmware/src/utility/lazy.hpp"
+#include "firmware/rmcs_board/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::can {
 

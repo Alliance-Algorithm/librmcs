@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/src/utility/immovable.hpp"
-#include "firmware/src/utility/lazy.hpp"
+#include "firmware/rmcs_board/src/utility/lazy.hpp"
 
 namespace librmcs::firmware {
 

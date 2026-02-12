@@ -1,4 +1,4 @@
-#include "firmware/src/can/can.hpp"
+#include "firmware/rmcs_board/src/can/can.hpp"
 
 #include <cstdint>
 
@@ -6,7 +6,7 @@
 #include <hpm_mcan_drv.h>
 
 #include "core/include/librmcs/data/datas.hpp"
-#include "firmware/src/usb/vendor.hpp"
+#include "firmware/rmcs_board/src/usb/vendor.hpp"
 
 namespace librmcs::firmware::can {
 

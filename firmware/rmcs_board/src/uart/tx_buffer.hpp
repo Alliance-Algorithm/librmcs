@@ -19,7 +19,7 @@
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/utility/assert.hpp"
-#include "firmware/src/utility/ring_buffer.hpp"
+#include "firmware/rmcs_board/src/utility/ring_buffer.hpp"
 
 namespace librmcs::firmware::uart {
 

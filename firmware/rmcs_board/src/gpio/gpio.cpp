@@ -1,4 +1,4 @@
-#include "firmware/src/gpio/gpio.hpp"
+#include "firmware/rmcs_board/src/gpio/gpio.hpp"
 
 #include <cstdint>
 
@@ -6,8 +6,8 @@
 #include <hpm_gpio_drv.h>
 #include <hpm_gpiom_drv.h>
 
-#include "firmware/src/spi/bmi088/accel.hpp"
-#include "firmware/src/spi/bmi088/gyro.hpp"
+#include "firmware/rmcs_board/src/spi/bmi088/accel.hpp"
+#include "firmware/rmcs_board/src/spi/bmi088/gyro.hpp"
 
 namespace {
 

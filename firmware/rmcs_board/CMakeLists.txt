@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
-set(APP_NAME librmcs-firmware)
+set(APP_NAME "librmcs-firmware")
 
 set(BOARD "hpm5300evk" CACHE STRING "Target board")
 set(RV_ARCH "rv32imafdcb" CACHE STRING "RISC-V arch")
@@ -14,16 +14,19 @@ set(CONFIG_USB_DEVICE 1)
 set(CONFIG_USB_DEVICE_VENDOR 1)
 
 if(NOT DEFINED ENV{HPM_SDK_BASE} OR "$ENV{HPM_SDK_BASE}" STREQUAL "")
-    set(ENV{HPM_SDK_BASE} "${CMAKE_CURRENT_LIST_DIR}/bsp/hpm_sdk")
+    set(ENV{HPM_SDK_BASE} "${CMAKE_CURRENT_SOURCE_DIR}/bsp/hpm_sdk")
 endif()
-find_package(hpm-sdk REQUIRED HINTS $ENV{HPM_SDK_BASE})
+find_package(hpm-sdk REQUIRED HINTS "$ENV{HPM_SDK_BASE}")
 
 project(librmcs-firmware VERSION 3 LANGUAGES C CXX ASM)
+
+set(LIBRMCS_PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+cmake_path(ABSOLUTE_PATH LIBRMCS_PROJECT_ROOT NORMALIZE)
 
 if(NOT DEFINED LIBRMCS_PROJECT_VERSION OR LIBRMCS_PROJECT_VERSION STREQUAL "")
     execute_process(
         COMMAND ".scripts/generate_version"
-        WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/.."
+        WORKING_DIRECTORY "${LIBRMCS_PROJECT_ROOT}"
         OUTPUT_VARIABLE LIBRMCS_PROJECT_VERSION
         OUTPUT_STRIP_TRAILING_WHITESPACE
         COMMAND_ERROR_IS_FATAL ANY
@@ -61,15 +64,12 @@ if(HOST_DEBUGGER AND SOURCE_PATH_MAP STREQUAL "")
     endif()
 endif()
 if(NOT SOURCE_PATH_MAP STREQUAL "")
-    set(SOURCE_PATH_MAP_FROM "${CMAKE_CURRENT_SOURCE_DIR}/..")
-    cmake_path(ABSOLUTE_PATH SOURCE_PATH_MAP_FROM NORMALIZE)
-
     set(SOURCE_PATH_MAP "${SOURCE_PATH_MAP}/")
     cmake_path(NORMAL_PATH SOURCE_PATH_MAP)
 
     sdk_compile_options(
-        "-fdebug-prefix-map=${SOURCE_PATH_MAP_FROM}=${SOURCE_PATH_MAP}"
-        "-ffile-prefix-map=${SOURCE_PATH_MAP_FROM}=${SOURCE_PATH_MAP}"
+        "-fdebug-prefix-map=${LIBRMCS_PROJECT_ROOT}=${SOURCE_PATH_MAP}"
+        "-ffile-prefix-map=${LIBRMCS_PROJECT_ROOT}=${SOURCE_PATH_MAP}"
     )
 endif()
 
@@ -82,15 +82,15 @@ sdk_compile_definitions(-DLIBRMCS_PROJECT_VERSION_STRING="${LIBRMCS_PROJECT_VERS
 sdk_compile_definitions(-DCFG_TUSB_MCU=OPT_MCU_HPM)
 sdk_compile_definitions(-DUSB_HOST_MCU_CORE=HPM_CORE0)
 
-sdk_inc(${CMAKE_CURRENT_SOURCE_DIR}/include)
+sdk_inc("${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-sdk_app_inc(${CMAKE_CURRENT_SOURCE_DIR}/..)
+sdk_app_inc("${LIBRMCS_PROJECT_ROOT}")
 
 file(GLOB_RECURSE PROJECT_SOURCE CONFIGURE_DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/../core/src/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../core/src/*.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../firmware/src/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../firmware/src/*.c
+    "${LIBRMCS_PROJECT_ROOT}/core/src/*.cpp"
+    "${LIBRMCS_PROJECT_ROOT}/core/src/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
 )
 sdk_app_src(${PROJECT_SOURCE})
 

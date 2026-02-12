@@ -1,4 +1,4 @@
-#include "firmware/src/usb/vendor.hpp"
+#include "firmware/rmcs_board/src/usb/vendor.hpp"
 
 #include <cstddef>
 #include <cstdint>

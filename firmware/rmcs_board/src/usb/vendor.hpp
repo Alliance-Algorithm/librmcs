@@ -17,11 +17,11 @@
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
-#include "firmware/src/can/can.hpp"
-#include "firmware/src/uart/uart.hpp"
-#include "firmware/src/usb/interrupt_safe_buffer.hpp"
-#include "firmware/src/usb/usb_descriptors.hpp"
-#include "firmware/src/utility/lazy.hpp"
+#include "firmware/rmcs_board/src/can/can.hpp"
+#include "firmware/rmcs_board/src/uart/uart.hpp"
+#include "firmware/rmcs_board/src/usb/interrupt_safe_buffer.hpp"
+#include "firmware/rmcs_board/src/usb/usb_descriptors.hpp"
+#include "firmware/rmcs_board/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::usb {
 

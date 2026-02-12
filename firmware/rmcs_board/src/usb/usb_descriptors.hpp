@@ -15,7 +15,7 @@
 #include <tusb_config.h>
 #include <tusb_option.h>
 
-#include "firmware/src/utility/lazy.hpp"
+#include "firmware/rmcs_board/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::usb {
 

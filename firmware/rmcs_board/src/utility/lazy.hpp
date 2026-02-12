@@ -8,7 +8,7 @@
 #include <utility>
 
 #include "core/src/utility/assert.hpp"
-#include "firmware/src/utility/interrupt_lock_guard.hpp"
+#include "firmware/rmcs_board/src/utility/interrupt_lock_guard.hpp"
 
 namespace librmcs::firmware::utility {
 
