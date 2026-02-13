@@ -91,18 +91,21 @@ RUN VERSION=15.2.rel1 \
 ENV GNUARM_TOOLCHAIN_PATH=/opt/arm-none-eabi
 ENV PATH="${GNUARM_TOOLCHAIN_PATH}/bin:${PATH}"
 
-FROM ci AS develop
-
-# Install latest clangd
+# Install latest LLVM tools
 RUN wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc \
     && echo "deb https://apt.llvm.org/noble/ llvm-toolchain-noble main" > /etc/apt/sources.list.d/llvm.list \
     && apt-get update \
     && version=$(apt-cache search clangd- | grep clangd- | awk -F' ' '{print $1}' | sort -V | tail -1 | cut -d- -f2) \
-    && apt-get install -y --no-install-recommends clangd-$version \
+    && apt-get install -y --no-install-recommends \
+    clangd-$version clang-tidy-$version clang-format-$version \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* \
-    && update-alternatives --install /usr/bin/clangd clangd /usr/bin/clangd-$version 50
+    && update-alternatives --install /usr/bin/clangd clangd /usr/bin/clangd-$version 50 \
+    && update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-$version 50 \
+    && update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-$version 50
+
+FROM ci AS develop
 
 # Install Node.js 24 LTS (required by Codex CLI)
 RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \

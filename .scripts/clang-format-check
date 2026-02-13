@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+
+import argparse
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import List, Sequence
+
+from lint_common import (
+    collect_source_files,
+    load_targets,
+    repo_root,
+)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Checks (or fixes) C/C++ formatting with clang-format for project sources."
+    )
+    parser.add_argument("--fix", action="store_true", help="Format files in place.")
+    return parser.parse_args()
+
+
+def run_clang_format(files: Sequence[Path], fix: bool) -> int:
+    base_cmd = ["clang-format"]
+    if fix:
+        base_cmd.append("-i")
+    else:
+        base_cmd.extend(["--dry-run", "--Werror"])
+
+    result = subprocess.run(base_cmd + [str(p) for p in files])
+    return result.returncode
+
+
+def main() -> int:
+    args = parse_args()
+
+    if shutil.which("clang-format") is None:
+        sys.stderr.write("Error: 'clang-format' executable not found in PATH.\n")
+        return 1
+
+    root = repo_root()
+    exclude_dirs, targets = load_targets(root)
+
+    all_folders: List[Path] = []
+    seen: set = set()
+    for target in targets.values():
+        for folder in target.folders:
+            if folder not in seen:
+                seen.add(folder)
+                all_folders.append(folder)
+
+    files = collect_source_files(all_folders, root=root, exclude_dirs=exclude_dirs)
+    if not files:
+        sys.stderr.write("Error: no matching source files found.\n")
+        return 1
+
+    if args.fix:
+        print(f"clang-format: fixing {len(files)} files...", flush=True)
+    else:
+        print(f"clang-format: checking {len(files)} files...", flush=True)
+
+    return run_clang_format(files, fix=args.fix)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,255 @@
+#!/usr/bin/env python3
+
+import argparse
+import shutil
+import subprocess
+import sys
+
+import yaml
+from pathlib import Path
+from typing import Dict, List, Optional, Sequence, Set, Tuple
+
+from lint_common import (
+    LintTarget,
+    collect_source_files,
+    load_targets,
+    repo_root,
+)
+
+CLANG_TIDY_ALIASES: Dict[str, str] = {
+    "cert-arr39-c": "bugprone-sizeof-expression",
+    "cert-con36-c": "bugprone-spuriously-wake-up-functions",
+    "cert-con54-cpp": "bugprone-spuriously-wake-up-functions",
+    "cert-ctr56-cpp": "bugprone-pointer-arithmetic-on-polymorphic-object",
+    "cert-dcl03-c": "misc-static-assert",
+    "cert-dcl16-c": "readability-uppercase-literal-suffix",
+    "cert-dcl37-c": "bugprone-reserved-identifier",
+    "cert-dcl50-cpp": "modernize-avoid-variadic-functions",
+    "cert-dcl51-cpp": "bugprone-reserved-identifier",
+    "cert-dcl54-cpp": "misc-new-delete-overloads",
+    "cert-dcl58-cpp": "bugprone-std-namespace-modification",
+    "cert-dcl59-cpp": "misc-anonymous-namespace-in-header",
+    "cert-env33-c": "bugprone-command-processor",
+    "cert-err09-cpp": "misc-throw-by-value-catch-by-reference",
+    "cert-err34-c": "bugprone-unchecked-string-to-number-conversion",
+    "cert-err52-cpp": "modernize-avoid-setjmp-longjmp",
+    "cert-err58-cpp": "bugprone-throwing-static-initialization",
+    "cert-err60-cpp": "bugprone-exception-copy-constructor-throws",
+    "cert-err61-cpp": "misc-throw-by-value-catch-by-reference",
+    "cert-exp42-c": "bugprone-suspicious-memory-comparison",
+    "cert-fio38-c": "misc-non-copyable-objects",
+    "cert-flp30-c": "bugprone-float-loop-counter",
+    "cert-flp37-c": "bugprone-suspicious-memory-comparison",
+    "cert-int09-c": "readability-enum-initial-value",
+    "cert-mem57-cpp": "bugprone-default-operator-new-on-overaligned-type",
+    "cert-msc24-c": "bugprone-unsafe-functions",
+    "cert-msc30-c": "misc-predictable-rand",
+    "cert-msc32-c": "bugprone-random-generator-seed",
+    "cert-msc33-c": "bugprone-unsafe-functions",
+    "cert-msc50-cpp": "misc-predictable-rand",
+    "cert-msc51-cpp": "bugprone-random-generator-seed",
+    "cert-msc54-cpp": "bugprone-signal-handler",
+    "cert-oop11-cpp": "performance-move-constructor-init",
+    "cert-oop54-cpp": "bugprone-unhandled-self-assignment",
+    "cert-oop57-cpp": "bugprone-raw-memory-call-on-non-trivial-type",
+    "cert-oop58-cpp": "bugprone-copy-constructor-mutates-argument",
+    "cert-pos44-c": "bugprone-bad-signal-to-kill-thread",
+    "cert-pos47-c": "concurrency-thread-canceltype-asynchronous",
+    "cert-sig30-c": "bugprone-signal-handler",
+    "cert-str34-c": "bugprone-signed-char-misuse",
+    "cppcoreguidelines-avoid-c-arrays": "modernize-avoid-c-arrays",
+    "cppcoreguidelines-avoid-magic-numbers": "readability-magic-numbers",
+    "cppcoreguidelines-c-copy-assignment-signature": "misc-unconventional-assign-operator",
+    "cppcoreguidelines-explicit-virtual-functions": "modernize-use-override",
+    "cppcoreguidelines-macro-to-enum": "modernize-macro-to-enum",
+    "cppcoreguidelines-narrowing-conversions": "bugprone-narrowing-conversions",
+    "cppcoreguidelines-noexcept-destructor": "performance-noexcept-destructor",
+    "cppcoreguidelines-noexcept-move-operations": "performance-noexcept-move-constructor",
+    "cppcoreguidelines-noexcept-swap": "performance-noexcept-swap",
+    "cppcoreguidelines-non-private-member-variables-in-classes": "misc-non-private-member-variables-in-classes",
+    "cppcoreguidelines-use-default-member-init": "modernize-use-default-member-init",
+    "fuchsia-header-anon-namespaces": "misc-anonymous-namespace-in-header",
+    "fuchsia-multiple-inheritance": "misc-multiple-inheritance",
+    "google-build-namespaces": "misc-anonymous-namespace-in-header",
+    "google-readability-braces-around-statements": "readability-braces-around-statements",
+    "google-readability-casting": "modernize-avoid-c-style-cast",
+    "google-readability-function-size": "readability-function-size",
+    "google-readability-namespace-comments": "llvm-namespace-comment",
+    "hicpp-avoid-c-arrays": "modernize-avoid-c-arrays",
+    "hicpp-avoid-goto": "cppcoreguidelines-avoid-goto",
+    "hicpp-braces-around-statements": "readability-braces-around-statements",
+    "hicpp-deprecated-headers": "modernize-deprecated-headers",
+    "hicpp-explicit-conversions": "google-explicit-constructor",
+    "hicpp-function-size": "readability-function-size",
+    "hicpp-invalid-access-moved": "bugprone-use-after-move",
+    "hicpp-member-init": "cppcoreguidelines-pro-type-member-init",
+    "hicpp-move-const-arg": "performance-move-const-arg",
+    "hicpp-named-parameter": "readability-named-parameter",
+    "hicpp-new-delete-operators": "misc-new-delete-overloads",
+    "hicpp-no-array-decay": "cppcoreguidelines-pro-bounds-array-to-pointer-decay",
+    "hicpp-no-malloc": "cppcoreguidelines-no-malloc",
+    "hicpp-noexcept-move": "performance-noexcept-move-constructor",
+    "hicpp-special-member-functions": "cppcoreguidelines-special-member-functions",
+    "hicpp-static-assert": "misc-static-assert",
+    "hicpp-undelegated-constructor": "bugprone-undelegated-constructor",
+    "hicpp-uppercase-literal-suffix": "readability-uppercase-literal-suffix",
+    "hicpp-use-auto": "modernize-use-auto",
+    "hicpp-use-emplace": "modernize-use-emplace",
+    "hicpp-use-equals-default": "modernize-use-equals-default",
+    "hicpp-use-equals-delete": "modernize-use-equals-delete",
+    "hicpp-use-noexcept": "modernize-use-noexcept",
+    "hicpp-use-nullptr": "modernize-use-nullptr",
+    "hicpp-use-override": "modernize-use-override",
+    "hicpp-vararg": "cppcoreguidelines-pro-type-vararg",
+    "llvm-else-after-return": "readability-else-after-return",
+    "llvm-qualified-auto": "readability-qualified-auto",
+}
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Runs clang-tidy static analysis for project sources."
+    )
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="Apply clang-tidy fixes in place (where possible).",
+    )
+    return parser.parse_args()
+
+
+def parse_clangd(target: LintTarget) -> Optional[dict]:
+    if target.clangd is None:
+        return None
+    if not target.clangd.is_file():
+        return None
+    try:
+        data = yaml.safe_load(target.clangd.read_text())
+    except (yaml.YAMLError, OSError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def clangd_extra_args(target: LintTarget) -> List[str]:
+    data = parse_clangd(target)
+    if data is None:
+        return []
+    compile_flags = data.get("CompileFlags")
+    if not isinstance(compile_flags, dict):
+        return []
+    add_flags = compile_flags.get("Add")
+    if isinstance(add_flags, list):
+        return [str(flag) for flag in add_flags]
+    return []
+
+
+def clang_tidy_args(target: LintTarget, fix: bool) -> List[str]:
+    args = ["-p", str(target.compile_database.parent)]
+    if fix:
+        args.append("--fix")
+    else:
+        args.append("--warnings-as-errors=*")
+    for flag in clangd_extra_args(target):
+        args.append(f"--extra-arg={flag}")
+    return args
+
+
+def run_clang_tidy(
+    target: LintTarget, files: Sequence[Path], fix: bool
+) -> int:
+    args = clang_tidy_args(target, fix=fix)
+    result = subprocess.run(["clang-tidy", *args, *[str(p) for p in files]])
+    return result.returncode
+
+
+def get_enabled_checks(root: Path) -> Optional[Set[str]]:
+    try:
+        result = subprocess.run(
+            ["clang-tidy", "--list-checks"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    checks = {line.strip() for line in result.stdout.splitlines()[1:] if line.strip()}
+    return checks
+
+
+def check_alias_overlaps(root: Path) -> None:
+    checks = get_enabled_checks(root)
+    if checks is None:
+        sys.stderr.write(
+            "Warning: failed to list clang-tidy checks; skipping alias overlap detection.\n"
+        )
+        return
+
+    enabled_aliases = checks & CLANG_TIDY_ALIASES.keys()
+    overlaps: List[Tuple[str, str]] = []
+
+    for alias in sorted(enabled_aliases):
+        canonical = CLANG_TIDY_ALIASES[alias]
+        if canonical in checks:
+            overlaps.append((alias, canonical))
+
+    for alias, canonical in overlaps:
+        sys.stderr.write(
+            f"Warning: clang-tidy check alias '{alias}' overlaps with '{canonical}'.\n"
+        )
+
+
+def main() -> int:
+    args = parse_args()
+
+    if shutil.which("clang-tidy") is None:
+        sys.stderr.write("Error: 'clang-tidy' executable not found in PATH.\n")
+        return 1
+
+    root = repo_root()
+    check_alias_overlaps(root)
+    exclude_dirs, targets = load_targets(root)
+
+    any_files = False
+    any_db = False
+    overall_rc = 0
+
+    for name, target in targets.items():
+        files = collect_source_files(
+            target.folders, root=root, exclude_dirs=exclude_dirs
+        )
+        if not files:
+            continue
+        any_files = True
+
+        if not target.compile_database.is_file():
+            sys.stderr.write(
+                f"Warning: missing {target.compile_database} (skipping {name}).\n"
+            )
+            continue
+
+        any_db = True
+        print(
+            f"clang-tidy: {name}: checking {len(files)} files...",
+            flush=True,
+        )
+        rc = run_clang_tidy(target, files, fix=args.fix)
+        if rc != 0:
+            overall_rc = rc
+
+    if not any_files:
+        sys.stderr.write("Error: no matching source files found.\n")
+        return 1
+
+    if not any_db:
+        sys.stderr.write(
+            "Error: no compile_commands.json found. Build host/firmware first.\n"
+        )
+        return 1
+
+    return overall_rc
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

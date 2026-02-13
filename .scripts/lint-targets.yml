@@ -1,0 +1,20 @@
+exclude:
+  - bsp
+  - build
+
+host:
+  compile_database: host/build/compile_commands.json
+  folders:
+    - core/src
+    - core/include
+    - host/src
+    - host/include
+
+rmcs_board:
+  compile_database: firmware/rmcs_board/build/compile_commands.json
+  clangd: firmware/rmcs_board/.clangd
+  folders:
+    - core/src
+    - core/include
+    - firmware/rmcs_board/src
+    - firmware/rmcs_board/include

@@ -1,0 +1,33 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    container:
+      image: qzhhhi/librmcs-ci:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          submodules: recursive
+
+      - name: Run clang-format check
+        run: .scripts/clang-format-check
+
+      - name: Configure host
+        run: cmake --preset linux-debug -S host
+
+      - name: Configure firmware/rmcs_board
+        run: cmake --preset debug -S firmware/rmcs_board
+
+      - name: Run clang-tidy check
+        run: .scripts/clang-tidy-check
