@@ -18,7 +18,7 @@ coroutine::LifoTask<void> Deserializer::process_stream() {
         FieldId id;
         {
             awaiting_field_first_byte_ = true;
-            auto header_bytes = co_await peek_bytes(sizeof(FieldHeader));
+            const auto* header_bytes = co_await peek_bytes(sizeof(FieldHeader));
             // Logically impossible; stack unwinding is invalid here.
             utility::assert_debug(header_bytes);
             auto header = FieldHeader::CRef{header_bytes};
@@ -26,7 +26,7 @@ coroutine::LifoTask<void> Deserializer::process_stream() {
             awaiting_field_first_byte_ = false;
         }
         if (id == FieldId::EXTEND) {
-            auto header_bytes = co_await peek_bytes(sizeof(FieldHeaderExtended));
+            const auto* header_bytes = co_await peek_bytes(sizeof(FieldHeaderExtended));
             if (!header_bytes) [[unlikely]] {
                 enter_discard_mode();
                 continue;
@@ -63,7 +63,7 @@ coroutine::LifoTask<bool> Deserializer::process_can_field(FieldId field_id) {
     data::CanDataView data_view;
     uint8_t can_data_length = 0;
     {
-        auto header_bytes = co_await peek_bytes(sizeof(CanHeader));
+        const auto* header_bytes = co_await peek_bytes(sizeof(CanHeader));
         if (!header_bytes) [[unlikely]]
             co_return false;
         auto header = CanHeader::CRef{header_bytes};
@@ -78,7 +78,7 @@ coroutine::LifoTask<bool> Deserializer::process_can_field(FieldId field_id) {
     }
 
     if (data_view.is_extended_can_id) {
-        auto header_ext_bytes = co_await peek_bytes(sizeof(CanHeaderExtended));
+        const auto* header_ext_bytes = co_await peek_bytes(sizeof(CanHeaderExtended));
         if (!header_ext_bytes) [[unlikely]]
             co_return false;
         auto header = CanHeaderExtended::CRef{header_ext_bytes};
@@ -86,7 +86,7 @@ coroutine::LifoTask<bool> Deserializer::process_can_field(FieldId field_id) {
         data_view.can_id = header.get<CanHeaderExtended::CanId>();
         can_data_length = can_data_length ? header.get<CanHeaderExtended::DataLengthCode>() + 1 : 0;
     } else {
-        auto header_std_bytes = co_await peek_bytes(sizeof(CanHeaderStandard));
+        const auto* header_std_bytes = co_await peek_bytes(sizeof(CanHeaderStandard));
         if (!header_std_bytes) [[unlikely]]
             co_return false;
         auto header = CanHeaderStandard::CRef{header_std_bytes};
@@ -97,7 +97,7 @@ coroutine::LifoTask<bool> Deserializer::process_can_field(FieldId field_id) {
     consume_peeked();
 
     if (can_data_length) {
-        auto can_data_bytes = co_await peek_bytes(can_data_length);
+        const auto* can_data_bytes = co_await peek_bytes(can_data_length);
         if (!can_data_bytes) [[unlikely]]
             co_return false;
         data_view.can_data = std::span<const std::byte>{can_data_bytes, can_data_length};
@@ -115,20 +115,20 @@ coroutine::LifoTask<bool> Deserializer::process_uart_field(FieldId field_id) {
     data::UartDataView data_view;
     uint16_t uart_data_length;
     {
-        auto header_bytes = co_await peek_bytes(sizeof(UartHeader));
+        const auto* header_bytes = co_await peek_bytes(sizeof(UartHeader));
         if (!header_bytes) [[unlikely]]
             co_return false;
         auto header = UartHeader::CRef{header_bytes};
         data_view.idle_delimited = header.get<UartHeader::IdleDelimited>();
 
-        if (!header.get<UartHeader::IsExtendedLength>())
+        if (!header.get<UartHeader::IsExtendedLength>()) {
             uart_data_length = header.get<UartHeader::DataLength>();
-        else {
-            auto header_bytes = co_await peek_bytes(sizeof(UartHeaderExtended));
-            if (!header_bytes) [[unlikely]]
+        } else {
+            const auto* header_ext_bytes = co_await peek_bytes(sizeof(UartHeaderExtended));
+            if (!header_ext_bytes) [[unlikely]]
                 co_return false;
-            auto header = UartHeaderExtended::CRef{header_bytes};
-            uart_data_length = header.get<UartHeaderExtended::DataLengthExtended>();
+            auto header_ext = UartHeaderExtended::CRef{header_ext_bytes};
+            uart_data_length = header_ext.get<UartHeaderExtended::DataLengthExtended>();
             if (uart_data_length > sizeof(pending_bytes_buffer_)) [[unlikely]]
                 co_return false;
         }
@@ -136,7 +136,7 @@ coroutine::LifoTask<bool> Deserializer::process_uart_field(FieldId field_id) {
     consume_peeked();
 
     if (uart_data_length) {
-        auto uart_data_bytes = co_await peek_bytes(uart_data_length);
+        const auto* uart_data_bytes = co_await peek_bytes(uart_data_length);
         if (!uart_data_bytes) [[unlikely]]
             co_return false;
         data_view.uart_data = std::span<const std::byte>{uart_data_bytes, uart_data_length};
@@ -153,7 +153,7 @@ coroutine::LifoTask<bool> Deserializer::process_uart_field(FieldId field_id) {
 coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
     ImuHeader::PayloadEnum payload_type;
     {
-        auto header_bytes = co_await peek_bytes(sizeof(ImuHeader));
+        const auto* header_bytes = co_await peek_bytes(sizeof(ImuHeader));
         if (!header_bytes) [[unlikely]]
             co_return false;
 
@@ -165,7 +165,7 @@ coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
     switch (payload_type) {
     case ImuHeader::PayloadEnum::ACCELEROMETER: {
         data::AccelerometerDataView data_view{};
-        auto payload_bytes = co_await peek_bytes(sizeof(ImuAccelerometerPayload));
+        const auto* payload_bytes = co_await peek_bytes(sizeof(ImuAccelerometerPayload));
         if (!payload_bytes) [[unlikely]]
             co_return false;
         auto payload = ImuAccelerometerPayload::CRef{payload_bytes};
@@ -178,7 +178,7 @@ coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
     }
     case ImuHeader::PayloadEnum::GYROSCOPE: {
         data::GyroscopeDataView data_view{};
-        auto payload_bytes = co_await peek_bytes(sizeof(ImuGyroscopePayload));
+        const auto* payload_bytes = co_await peek_bytes(sizeof(ImuGyroscopePayload));
         if (!payload_bytes) [[unlikely]]
             co_return false;
         auto payload = ImuGyroscopePayload::CRef{payload_bytes};

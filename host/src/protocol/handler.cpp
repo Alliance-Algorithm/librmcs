@@ -74,6 +74,7 @@ struct PacketBuilderImpl {
     PacketBuilderImpl& operator=(PacketBuilderImpl&&) = delete;
     PacketBuilderImpl(const PacketBuilderImpl&) = delete;
     PacketBuilderImpl& operator=(const PacketBuilderImpl&) = delete;
+    ~PacketBuilderImpl() = default;
 
     // `write_*` returns `true` if args are valid; it never reports transport/resource issues.
     // - `kInvalidArgument` => `false` (user error)

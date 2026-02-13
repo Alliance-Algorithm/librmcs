@@ -10,12 +10,14 @@
 #include <span>
 #include <type_traits>
 
-#include <board.h>
 #include <hpm_common.h>
 #include <hpm_dma_mgr.h>
 #include <hpm_dmav2_drv.h>
+#include <hpm_dmav2_regs.h>
 #include <hpm_l1c_drv.h>
+#include <hpm_soc_feature.h>
 #include <hpm_uart_drv.h>
+#include <hpm_uart_regs.h>
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/utility/assert.hpp"
@@ -57,7 +59,7 @@ public:
             const auto end_idle = static_cast<BufferIndexType>((offset + size) & kBufferMask);
 
             // Check if the previous packet ended exactly where this one starts.
-            if (auto back = idle_buffer_.peek_back(); back && *back == begin_idle) {
+            if (auto* back = idle_buffer_.peek_back(); back && *back == begin_idle) {
                 // Optimization: Deduplicate shared boundary.
                 // The existing 'back' serves as 'begin' for this packet.
                 if (size) {
@@ -117,7 +119,7 @@ public:
         size_t size;
         do {
             size = readable;
-            if (auto idle = idle_buffer_.peek_front())
+            if (auto* idle = idle_buffer_.peek_front())
                 size = static_cast<BufferIndexType>(*idle - offset) & kBufferMask;
 
             if (size)
@@ -126,7 +128,7 @@ public:
             if (tx_triggered_ && !uart_is_txline_idle(uart_base_))
                 return false;
 
-            idle_buffer_.pop_front([](BufferIndexType&&) noexcept {});
+            idle_buffer_.pop_front([](const BufferIndexType&) noexcept {});
         } while (true);
         tx_triggered_ = true;
         uart_clear_txline_idle_flag(uart_base_);
@@ -191,9 +193,9 @@ private:
     }
 
     static void l1c_dc_flush_cacheline_aligned(const std::byte* src, uint32_t size) {
-        uintptr_t aligned_start = HPM_L1C_CACHELINE_ALIGN_DOWN(src);
-        uintptr_t aligned_end = HPM_L1C_CACHELINE_ALIGN_UP(src + size);
-        size_t aligned_size = aligned_end - aligned_start;
+        const uintptr_t aligned_start = HPM_L1C_CACHELINE_ALIGN_DOWN(src);
+        const uintptr_t aligned_end = HPM_L1C_CACHELINE_ALIGN_UP(src + size);
+        const size_t aligned_size = aligned_end - aligned_start;
         l1c_dc_flush(aligned_start, aligned_size);
     }
 

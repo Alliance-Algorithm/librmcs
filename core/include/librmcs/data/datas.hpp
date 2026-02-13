@@ -56,6 +56,11 @@ struct GyroscopeDataView {
 
 class IDataCallback {
 public:
+    IDataCallback() = default;
+    IDataCallback(const IDataCallback&) = delete;
+    IDataCallback& operator=(const IDataCallback&) = delete;
+    IDataCallback(IDataCallback&&) = delete;
+    IDataCallback& operator=(IDataCallback&&) = delete;
     virtual ~IDataCallback() = default;
 
     // `*_receive_callback` returns `true` if id is valid

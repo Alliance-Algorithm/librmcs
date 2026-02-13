@@ -7,6 +7,11 @@
 #include <board.h>
 #include <hpm_common.h>
 #include <hpm_mcan_drv.h>
+#include <hpm_mcan_regs.h>
+#include <hpm_mcan_soc.h>
+#include <hpm_soc.h>
+#include <hpm_soc_feature.h>
+#include <hpm_soc_irq.h>
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/protocol.hpp"
@@ -25,12 +30,15 @@ public:
         uintptr_t can_base, uint32_t irq_num, uint32_t (*const ram_base)[], uint32_t ram_size)
         : can_base_(reinterpret_cast<MCAN_Type*>(can_base)) {
 
-        mcan_msg_buf_attr_t attr = {reinterpret_cast<uintptr_t>(ram_base), ram_size};
+        const mcan_msg_buf_attr_t attr = {
+            .ram_base = reinterpret_cast<uintptr_t>(ram_base),
+            .ram_size = ram_size,
+        };
         auto status = mcan_set_msg_buf_attr(can_base_, &attr);
         core::utility::assert_always(status == status_success);
 
         board_init_can(can_base_);
-        uint32_t can_source_clock_freq = board_init_can_clock(can_base_);
+        const uint32_t can_source_clock_freq = board_init_can_clock(can_base_);
 
         mcan_config_t config;
         mcan_get_default_config(can_base_, &config);
@@ -71,7 +79,7 @@ public:
         core::utility::assert_always(mcan_read_rxfifo(can_base_, 0, &rx) == status_success);
 
         data::CanDataView data;
-        size_t data_length = rx.dlc;
+        const size_t data_length = rx.dlc;
         data.is_fdcan = false;
         data.is_extended_can_id = rx.use_ext_id;
         data.is_remote_transmission = rx.rtr;

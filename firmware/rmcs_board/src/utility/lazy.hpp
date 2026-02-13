@@ -1,7 +1,6 @@
 #pragma once
 
 #include <atomic>
-#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <tuple>
@@ -20,9 +19,13 @@ public:
         , construction_arguments{std::move(args)...} {}
 
     constexpr ~Lazy() {}; // No need to deconstruct
+    Lazy(const Lazy&) = delete;
+    Lazy& operator=(const Lazy&) = delete;
+    Lazy(Lazy&&) = delete;
+    Lazy& operator=(Lazy&&) = delete;
 
     constexpr T& init() {
-        InterruptLockGuard guard;
+        const InterruptLockGuard guard;
 
         auto init_status = init_status_.load(std::memory_order::relaxed);
         if (init_status != InitStatus::INITIALIZED) {
@@ -32,8 +35,7 @@ public:
             auto moved_args = std::move(construction_arguments);
             std::destroy_at(std::addressof(construction_arguments));
 
-            construct_object(
-                std::move(moved_args), std::make_index_sequence<std::tuple_size_v<ArgTupleT>>{});
+            construct_object(std::move(moved_args));
 
             init_status_.store(InitStatus::INITIALIZED, std::memory_order::relaxed);
         }
@@ -63,9 +65,13 @@ public:
 private:
     using ArgTupleT = std::tuple<Args...>;
 
-    template <typename TupleT, std::size_t... I>
-    constexpr void construct_object(TupleT&& t, std::index_sequence<I...>) {
-        std::construct_at(std::addressof(object), std::get<I>(std::forward<TupleT>(t))...);
+    template <typename TupleT>
+    constexpr void construct_object(TupleT&& t) {
+        std::apply(
+            [this](auto&&... args) {
+                std::construct_at(std::addressof(object), std::forward<decltype(args)>(args)...);
+            },
+            std::forward<TupleT>(t));
     }
 
     enum class InitStatus : uint8_t { UNINITIALIZED = 2, INITIALIZING = 1, INITIALIZED = 0 };

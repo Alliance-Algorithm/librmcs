@@ -12,7 +12,7 @@ namespace librmcs::core::utility {
 
 [[noreturn]] void assert_func(const std::source_location& location);
 
-[[noreturn]] constexpr inline void
+[[noreturn]] constexpr void
     assert_failed_always(const std::source_location& location = std::source_location::current()) {
     assert_func(location);
 }
@@ -27,13 +27,13 @@ namespace librmcs::core::utility {
 #endif
 }
 
-constexpr inline void assert_always(
+constexpr void assert_always(
     bool condition, const std::source_location& location = std::source_location::current()) {
     if (!condition) [[unlikely]]
         assert_func(location);
 }
 
-constexpr inline void assert_debug(
+constexpr void assert_debug(
     bool condition, const std::source_location& location = std::source_location::current()) {
 #ifdef NDEBUG
     [[assume(condition)]];

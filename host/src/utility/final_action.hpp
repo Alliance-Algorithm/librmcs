@@ -9,8 +9,7 @@ requires requires(Functor& action) {
     { action() } noexcept;
 } struct FinalAction {
     constexpr explicit FinalAction(Functor action)
-        : enabled_(true)
-        , action_{std::move(action)} {}
+        : action_{std::move(action)} {}
 
     constexpr FinalAction(const FinalAction&) = delete;
     constexpr FinalAction& operator=(const FinalAction&) = delete;
@@ -26,7 +25,7 @@ requires requires(Functor& action) {
     void disable() { enabled_ = false; };
 
 private:
-    bool enabled_;
+    bool enabled_{true};
     Functor action_;
 };
 

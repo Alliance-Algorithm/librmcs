@@ -80,8 +80,8 @@ public:
 
         if (out == in_.load(std::memory_order::acquire))
             return nullptr;
-        else
-            return std::launder(reinterpret_cast<T*>(storage_[out & kMask].data));
+
+        return std::launder(reinterpret_cast<T*>(storage_[out & kMask].data));
     }
 
     /*!
@@ -95,9 +95,9 @@ public:
 
         if (in == out_.load(std::memory_order::relaxed))
             return nullptr;
-        else
-            return std::launder(
-                reinterpret_cast<T*>(storage_[(static_cast<size_t>(in) - 1) & kMask].data));
+
+        return std::launder(
+            reinterpret_cast<T*>(storage_[(static_cast<size_t>(in) - 1) & kMask].data));
     }
 
     /*!
@@ -215,8 +215,7 @@ public:
         const auto out = out_.load(std::memory_order::relaxed);
 
         const auto readable = static_cast<size_t>(static_cast<IndexType>(in - out));
-        if (count > readable)
-            count = readable;
+        count = std::min(count, readable);
         if (!count)
             return 0;
 
@@ -255,7 +254,7 @@ public:
      * @return Number of elements that were erased
      */
     size_t clear() {
-        return pop_front_n([](T&&) noexcept {});
+        return pop_front_n([](const T&) noexcept {});
     }
 
 private:

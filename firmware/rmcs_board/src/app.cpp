@@ -3,6 +3,7 @@
 #include <board.h>
 #include <device/usbd.h>
 #include <hpm_dma_mgr.h>
+#include <hpm_soc.h>
 
 #include "firmware/rmcs_board/src/can/can.hpp"
 #include "firmware/rmcs_board/src/gpio/gpio.hpp"
@@ -17,7 +18,7 @@ int main() { librmcs::firmware::app.init().run(); }
 namespace librmcs::firmware {
 
 App::App() {
-    utility::InterruptLockGuard guard;
+    const utility::InterruptLockGuard guard;
 
     board_init();
     board_init_usb(HPM_USB0);

@@ -35,8 +35,8 @@ public:
     }
 
     struct Awaiter {
-        constexpr explicit Awaiter(LifoContext& context) noexcept
-            : context(context) {}
+        constexpr explicit Awaiter(LifoContext& ctx) noexcept
+            : context(ctx) {}
 
         static constexpr bool await_ready() noexcept { return false; }
 
@@ -77,7 +77,7 @@ struct LifoStackedPromise {
         constexpr std::size_t align = alignof(LifoContext*);
         n = (n + align - 1) & ~(align - 1);
 
-        auto p = static_cast<std::byte*>(context.allocate(n + sizeof(LifoContext*)));
+        auto* p = static_cast<std::byte*>(context.allocate(n + sizeof(LifoContext*)));
         if (!p)
             return nullptr;
         new (p + n) LifoContext*(&context);
@@ -91,14 +91,14 @@ struct LifoStackedPromise {
         return static_context->allocate(n);
     }
 
-    // NOLINTNEXTLINE misc-new-delete-overloads
+    // NOLINTNEXTLINE(misc-new-delete-overloads)
     static void operator delete(void* p, std::size_t n) noexcept {
         if constexpr (static_context == nullptr) {
             constexpr std::size_t align = alignof(LifoContext*);
             n = (n + align - 1) & ~(align - 1);
 
             // Recover the original LifoContext from the trailer and deallocate the whole block.
-            auto context =
+            auto* context =
                 *std::launder(reinterpret_cast<LifoContext**>(static_cast<std::byte*>(p) + n));
             context->deallocate(p, n + sizeof(LifoContext*));
         } else {
@@ -134,8 +134,8 @@ public:
 
                 if (promise.continuation_)
                     return promise.continuation_;
-                else
-                    return std::noop_coroutine();
+
+                return std::noop_coroutine();
             }
 
             constexpr void await_resume() noexcept {}
@@ -222,8 +222,8 @@ public:
 
                 if (promise.continuation_)
                     return promise.continuation_;
-                else
-                    return std::noop_coroutine();
+
+                return std::noop_coroutine();
             }
 
             constexpr void await_resume() noexcept {}

@@ -19,7 +19,7 @@ void tud_vendor_rx_cb(uint8_t itf, const uint8_t* buffer, uint16_t size) {
     if (itf != 0) [[unlikely]]
         return;
 
-    std::size_t max_packet_size = (tud_speed_get() == TUSB_SPEED_HIGH) ? 512 : 64;
+    const std::size_t max_packet_size = (tud_speed_get() == TUSB_SPEED_HIGH) ? 512 : 64;
     usb::vendor->handle_downlink(
         {reinterpret_cast<const std::byte*>(buffer), size}, size < max_packet_size);
 }

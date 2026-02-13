@@ -22,6 +22,7 @@ public:
     BasicStackAllocator& operator=(const BasicStackAllocator&) = delete;
     BasicStackAllocator(BasicStackAllocator&&) = delete;
     BasicStackAllocator& operator=(BasicStackAllocator&&) = delete;
+    ~BasicStackAllocator() = default;
 
     constexpr void* allocate(std::size_t n) noexcept {
         constexpr std::size_t align = alignof(std::max_align_t);
@@ -58,8 +59,7 @@ public:
         void* p = Impl::allocate(n);
         if (!p)
             return nullptr;
-        assert_always(
-            reinterpret_cast<std::uintptr_t>(p) % alignof(std::max_align_t) == 0);
+        assert_always(reinterpret_cast<std::uintptr_t>(p) % alignof(std::max_align_t) == 0);
 
         assert_always(lifo_check_depth_ < kMaxAllocs);
         lifo_check_stack_[lifo_check_depth_++] = p;

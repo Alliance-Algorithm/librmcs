@@ -29,6 +29,11 @@ class ITransportBuffer {
 public:
     using BufferSpanType = std::span<std::byte, core::protocol::kProtocolBufferSize>;
 
+    ITransportBuffer() = default;
+    ITransportBuffer(const ITransportBuffer&) = delete;
+    ITransportBuffer& operator=(const ITransportBuffer&) = delete;
+    ITransportBuffer(ITransportBuffer&&) = delete;
+    ITransportBuffer& operator=(ITransportBuffer&&) = delete;
     virtual ~ITransportBuffer() noexcept = default;
 
     /**
@@ -61,7 +66,12 @@ public:
  */
 class ITransport {
 public:
+    ITransport() = default;
     virtual ~ITransport() noexcept = default;
+    ITransport(const ITransport&) = delete;
+    ITransport& operator=(const ITransport&) = delete;
+    ITransport(ITransport&&) = delete;
+    ITransport& operator=(ITransport&&) = delete;
 
     /**
      * @brief Acquires a buffer for transmission.

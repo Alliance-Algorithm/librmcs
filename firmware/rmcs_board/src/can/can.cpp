@@ -2,8 +2,10 @@
 
 #include <cstdint>
 
-#include <board.h>
 #include <hpm_mcan_drv.h>
+#include <hpm_mcan_regs.h>
+#include <hpm_soc.h>
+#include <hpm_soc_irq.h>
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "firmware/rmcs_board/src/usb/vendor.hpp"
@@ -13,7 +15,7 @@ namespace librmcs::firmware::can {
 SDK_DECLARE_EXT_ISR_M(IRQn_MCAN0, can0_isr)
 void can0_isr() {
     MCAN_Type* base = HPM_MCAN0;
-    uint32_t flags = mcan_get_interrupt_flags(base);
+    const uint32_t flags = mcan_get_interrupt_flags(base);
 
     if (!flags) [[unlikely]]
         return;
@@ -27,7 +29,7 @@ void can0_isr() {
 SDK_DECLARE_EXT_ISR_M(IRQn_MCAN1, can1_isr)
 void can1_isr() {
     MCAN_Type* base = HPM_MCAN1;
-    uint32_t flags = mcan_get_interrupt_flags(base);
+    const uint32_t flags = mcan_get_interrupt_flags(base);
 
     if (!flags) [[unlikely]]
         return;
@@ -41,7 +43,7 @@ void can1_isr() {
 SDK_DECLARE_EXT_ISR_M(IRQn_MCAN2, can2_isr)
 void can2_isr() {
     MCAN_Type* base = HPM_MCAN2;
-    uint32_t flags = mcan_get_interrupt_flags(base);
+    const uint32_t flags = mcan_get_interrupt_flags(base);
 
     if (!flags) [[unlikely]]
         return;
@@ -55,7 +57,7 @@ void can2_isr() {
 SDK_DECLARE_EXT_ISR_M(IRQn_MCAN3, can3_isr)
 void can3_isr() {
     MCAN_Type* base = HPM_MCAN3;
-    uint32_t flags = mcan_get_interrupt_flags(base);
+    const uint32_t flags = mcan_get_interrupt_flags(base);
 
     if (!flags) [[unlikely]]
         return;

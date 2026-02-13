@@ -9,6 +9,7 @@ public:
     Uncopyable& operator=(const Uncopyable&) = delete;
     Uncopyable(Uncopyable&&) = default;
     Uncopyable& operator=(Uncopyable&&) = default;
+    ~Uncopyable() = default;
 };
 
 } // namespace librmcs::core::utility

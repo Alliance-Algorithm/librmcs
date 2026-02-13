@@ -11,7 +11,6 @@
 
 #include <common/tusb_types.h>
 #include <device/usbd.h>
-#include <tusb.h>
 #include <tusb_config.h>
 #include <tusb_option.h>
 
@@ -64,7 +63,7 @@ public:
         }
 
         // first byte is length (including header), second byte is string type
-        descriptor_string_buffer_[0] = (TUSB_DESC_STRING << 8) | (2 * str_size + 2);
+        descriptor_string_buffer_[0] = (TUSB_DESC_STRING << 8) | ((2 * str_size) + 2);
 
         return descriptor_string_buffer_.data();
     }

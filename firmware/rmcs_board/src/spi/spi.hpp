@@ -7,7 +7,12 @@
 #include <board.h>
 #include <hpm_common.h>
 #include <hpm_gpio_drv.h>
+#include <hpm_gpio_regs.h>
+#include <hpm_soc.h>
+#include <hpm_soc_feature.h>
+#include <hpm_soc_irq.h>
 #include <hpm_spi_drv.h>
+#include <hpm_spi_regs.h>
 
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
@@ -27,6 +32,12 @@ public:
     friend class Spi;
     explicit ISpiModule(ChipSelectPin chip_select_pin)
         : chip_select_pin_(chip_select_pin) {}
+
+    ISpiModule(const ISpiModule&) = delete;
+    ISpiModule& operator=(const ISpiModule&) = delete;
+    ISpiModule(ISpiModule&&) = delete;
+    ISpiModule& operator=(ISpiModule&&) = delete;
+    virtual ~ISpiModule() = default;
 
 protected:
     virtual void transmit_receive_completed_callback(std::size_t size) = 0;
@@ -78,6 +89,10 @@ public:
     }
 
     ~Spi() = delete;
+    Spi(const Spi&) = delete;
+    Spi& operator=(const Spi&) = delete;
+    Spi(Spi&&) = delete;
+    Spi& operator=(Spi&&) = delete;
 
     bool locking() { return locking_.test(std::memory_order::relaxed); }
 
@@ -117,7 +132,7 @@ public:
     }
 
     void transmit_receive_completed_callback() {
-        if (auto module = finish_transfer())
+        if (auto* module = finish_transfer())
             module->transmit_receive_completed_callback(tx_rx_size_);
     }
 
@@ -153,7 +168,7 @@ private:
         for (size_t i = 0; i < tx_rx_size_; i++)
             rx_buffer[i] = static_cast<std::byte>(spi_base_->DATA);
 
-        auto module = module_;
+        auto* module = module_;
         module_ = nullptr;
         return module;
     }

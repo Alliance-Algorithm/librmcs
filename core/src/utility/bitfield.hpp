@@ -132,25 +132,24 @@ public:
 
     template <is_bitfield_member Member>
     requires(check_member<Member>())
-    [[nodiscard]] static constexpr auto get(const std::byte* src) noexcept ->
-        typename Member::ValueType {
+    [[nodiscard]] static constexpr auto get(const std::byte* src) noexcept -> Member::ValueType {
         return read_bits<Member>(src);
     }
 
     template <is_bitfield_member Member>
     requires(check_member<Member>())
-    static constexpr void set(typename Member::ValueType value, std::byte* dst) noexcept {
+    static constexpr void set(Member::ValueType value, std::byte* dst) noexcept {
         write_bits<Member>(value, dst);
     }
 
     template <is_bitfield_member Member>
     requires(check_member<Member>())
-    [[nodiscard]] constexpr auto get() const noexcept -> typename Member::ValueType {
+    [[nodiscard]] constexpr auto get() const noexcept -> Member::ValueType {
         return get<Member>(data);
     }
 
     template <is_bitfield_member Member>
-    requires(check_member<Member>()) constexpr void set(typename Member::ValueType value) noexcept {
+    requires(check_member<Member>()) constexpr void set(Member::ValueType value) noexcept {
         set<Member>(value, data);
     }
 
@@ -163,13 +162,12 @@ public:
 
         template <is_bitfield_member Member>
         requires(check_member<Member>())
-        [[nodiscard]] constexpr auto get() const noexcept -> typename Member::ValueType {
+        [[nodiscard]] constexpr auto get() const noexcept -> Member::ValueType {
             return Bitfield::template get<Member>(ptr_);
         }
 
         template <is_bitfield_member Member>
-        requires(check_member<Member>())
-        constexpr void set(typename Member::ValueType value) noexcept {
+        requires(check_member<Member>()) constexpr void set(Member::ValueType value) noexcept {
             Bitfield::template set<Member>(value, ptr_);
         }
 
@@ -183,7 +181,7 @@ public:
 
         template <is_bitfield_member Member>
         requires(check_member<Member>())
-        [[nodiscard]] constexpr auto get() const noexcept -> typename Member::ValueType {
+        [[nodiscard]] constexpr auto get() const noexcept -> Member::ValueType {
             return Bitfield::template get<Member>(ptr_);
         }
 
@@ -193,8 +191,8 @@ public:
 
 private:
     template <is_bitfield_member Member>
-    [[nodiscard]] static constexpr auto read_bits(const std::byte* src) noexcept ->
-        typename Member::ValueType {
+    [[nodiscard]] static constexpr auto read_bits(const std::byte* src) noexcept
+        -> Member::ValueType {
 
         constexpr std::size_t first_bit = Member::index;
         constexpr std::size_t bit_width = Member::bit_width;
@@ -212,14 +210,14 @@ private:
             accum |= (Word(b) << (8 * i));
         }
 
-        constexpr std::size_t inner_offset = first_bit - first_byte * 8;
+        constexpr std::size_t inner_offset = first_bit - (first_byte * 8);
 
         constexpr Word full_mask =
             (bit_width == sizeof(Word) * 8) ? ~Word(0) : ((Word(1) << bit_width) - 1);
 
-        Word value = (accum >> inner_offset) & full_mask;
+        const Word value = (accum >> inner_offset) & full_mask;
 
-        using ValueType = typename Member::ValueType;
+        using ValueType = Member::ValueType;
         if constexpr (std::is_integral_v<ValueType> && std::is_signed_v<ValueType>) {
             // Use the "shift-left-then-shift-right" idiom for sign extension.
             // This relies on C++20's mandatory arithmetic right shift and defined left-shift
@@ -228,7 +226,7 @@ private:
 
             using ComputeType =
                 std::conditional_t<(sizeof(Word) < sizeof(int)), int, std::make_signed_t<Word>>;
-            constexpr int shift_amount = sizeof(ComputeType) * 8 - bit_width;
+            constexpr int shift_amount = (sizeof(ComputeType) * 8) - bit_width;
             return static_cast<ValueType>(
                 (static_cast<ComputeType>(value) << shift_amount) >> shift_amount);
         } else {
@@ -237,7 +235,7 @@ private:
     }
 
     template <is_bitfield_member Member>
-    static constexpr void write_bits(typename Member::ValueType value, std::byte* dst) noexcept {
+    static constexpr void write_bits(Member::ValueType value, std::byte* dst) noexcept {
 
         constexpr std::size_t first_bit = Member::index;
         constexpr std::size_t bit_width = Member::bit_width;
@@ -255,14 +253,14 @@ private:
             accum |= (Word(b) << (8 * i));
         }
 
-        constexpr std::size_t inner_offset = first_bit - first_byte * 8;
+        constexpr std::size_t inner_offset = first_bit - (first_byte * 8);
 
         constexpr Word full_mask =
             (bit_width == sizeof(Word) * 8) ? ~Word(0) : ((Word(1) << bit_width) - 1);
 
         accum &= ~(full_mask << inner_offset);
 
-        Word v = (Word(value) & full_mask) << inner_offset;
+        const Word v = (Word(value) & full_mask) << inner_offset;
         accum |= v;
 
         for (std::size_t i = 0; i < span_bytes; ++i) {

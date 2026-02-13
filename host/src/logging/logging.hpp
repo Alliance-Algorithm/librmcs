@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <cstdio>
 #include <format>
 #include <iostream>
@@ -11,7 +12,7 @@
 
 namespace librmcs::host::logging {
 
-enum class Level : int {
+enum class Level : std::uint8_t {
     TRACE = 0,
     DEBUG = 1,
     INFO = 2,
@@ -33,6 +34,7 @@ public:
     Logger& operator=(const Logger&) = delete;
     Logger(Logger&&) = delete;
     Logger& operator=(Logger&&) = delete;
+    ~Logger() = default;
 
 public: // Singleton
     static Logger& get_instance() noexcept {
@@ -140,18 +142,17 @@ private:
         std::string_view level_text = [level]() constexpr -> std::string_view {
             if (level == Level::TRACE)
                 return "trace";
-            else if (level == Level::DEBUG)
+            if (level == Level::DEBUG)
                 return "debug";
-            else if (level == Level::INFO)
+            if (level == Level::INFO)
                 return "info";
-            else if (level == Level::WARN)
+            if (level == Level::WARN)
                 return "warn";
-            else if (level == Level::ERR)
+            if (level == Level::ERR)
                 return "error";
-            else if (level == Level::CRITICAL)
+            if (level == Level::CRITICAL)
                 return "critical";
-            else
-                core::utility::assert_failed_debug();
+            core::utility::assert_failed_debug();
         }();
         std::print(std::cerr, "[librmcs] [{}] ", level_text);
     }

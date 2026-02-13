@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstring>
 #include <span>
+#include <utility>
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/coroutine/lifo.hpp"
@@ -15,6 +16,11 @@ namespace librmcs::core::protocol {
 
 class IDeserializeCallback {
 public:
+    IDeserializeCallback() = default;
+    IDeserializeCallback(const IDeserializeCallback&) = delete;
+    IDeserializeCallback& operator=(const IDeserializeCallback&) = delete;
+    IDeserializeCallback(IDeserializeCallback&&) = delete;
+    IDeserializeCallback& operator=(IDeserializeCallback&&) = delete;
     virtual ~IDeserializeCallback() = default;
 
     virtual void can_deserialized_callback(FieldId id, const data::CanDataView& data) = 0;
@@ -37,6 +43,10 @@ public:
         , main_task_(process_stream()) {};
 
     ~Deserializer() { finish_transfer(); }
+    Deserializer(const Deserializer&) = delete;
+    Deserializer& operator=(const Deserializer&) = delete;
+    Deserializer(Deserializer&&) = delete;
+    Deserializer& operator=(Deserializer&&) = delete;
 
     // Feed a new chunk of input bytes to satisfy the current peek_bytes() request.
     // May resume the coroutine immediately if the request can be fully satisfied.
@@ -57,9 +67,9 @@ public:
         }
 
         auto required = static_cast<std::size_t>(requested_bytes_ - pending_bytes_);
-        bool sufficient = buffer.size() >= required;
+        const bool sufficient = buffer.size() >= required;
 
-        size_t copied = sufficient ? required : buffer.size();
+        const size_t copied = sufficient ? required : buffer.size();
         std::memcpy(pending_bytes_buffer_ + pending_bytes_, input_cursor_, copied);
 
         pending_bytes_ += copied;
@@ -156,17 +166,17 @@ private:
         constexpr const std::byte* await_resume() const noexcept {
             utility::assert_debug(owner_.requested_bytes_);
             // Discard mode cancels outstanding peeks by returning nullptr.
-            if (owner_.discard_mode_) [[unlikely]]
+            if (owner_.discard_mode_) [[unlikely]] {
                 return nullptr;
-            else if (owner_.pending_bytes_) {
+            } else if (owner_.pending_bytes_) {
                 utility::assert_debug(owner_.pending_bytes_ == owner_.requested_bytes_);
                 return owner_.pending_bytes_buffer_;
             } else {
                 utility::assert_debug(owner_.input_cursor_);
                 utility::assert_debug(owner_.input_end_ >= owner_.input_cursor_);
                 utility::assert_debug(
-                    static_cast<size_t>(owner_.input_end_ - owner_.input_cursor_)
-                    >= owner_.requested_bytes_);
+                    std::cmp_greater_equal(
+                        owner_.input_end_ - owner_.input_cursor_, owner_.requested_bytes_));
 
                 return owner_.input_cursor_;
             }
@@ -193,8 +203,9 @@ private:
         if (pending_bytes_) {
             utility::assert_debug(pending_bytes_ == requested_bytes_);
             pending_bytes_ = 0;
-        } else
+        } else {
             input_cursor_ += requested_bytes_;
+        }
         requested_bytes_ = 0;
     }
 
@@ -206,8 +217,9 @@ private:
             utility::assert_debug(pending_bytes_ == requested_bytes_);
             std::memmove(pending_bytes_buffer_, pending_bytes_buffer_ + n, requested_bytes_ - n);
             pending_bytes_ -= n;
-        } else
+        } else {
             input_cursor_ += n;
+        }
 
         requested_bytes_ -= n;
     }

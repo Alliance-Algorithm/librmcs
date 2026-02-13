@@ -16,6 +16,7 @@
 #include <vector>
 
 #include <libusb.h>
+#include <unistd.h>
 
 #include "core/src/protocol/constant.hpp"
 #include "core/src/utility/assert.hpp"
@@ -46,7 +47,7 @@ public:
 
     ~Usb() override {
         {
-            std::lock_guard guard{transmit_transfer_push_mutex_};
+            const std::scoped_lock guard{transmit_transfer_push_mutex_};
             stop_handling_events_.store(true, std::memory_order::relaxed);
         }
         free_transmit_transfers_.pop_front_n([](TransferWrapper* wrapper) noexcept {
@@ -69,9 +70,9 @@ public:
     std::unique_ptr<ITransportBuffer> acquire_transmit_buffer() noexcept override {
         TransferWrapper* transfer = nullptr;
         {
-            std::lock_guard guard{transmit_transfer_pop_mutex_};
+            const std::scoped_lock guard{transmit_transfer_pop_mutex_};
             free_transmit_transfers_.pop_front(
-                [&transfer](TransferWrapper*&& value) noexcept { transfer = value; });
+                [&transfer](TransferWrapper* value) noexcept { transfer = value; });
         }
         if (!transfer)
             return nullptr;
@@ -103,10 +104,10 @@ public:
     void release_transmit_buffer(std::unique_ptr<ITransportBuffer> buffer) override {
         core::utility::assert_debug(static_cast<bool>(buffer));
 
-        std::lock_guard guard{transmit_transfer_push_mutex_};
+        const std::scoped_lock guard{transmit_transfer_push_mutex_};
 
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-static-cast-downcast)
-        auto wrapper = static_cast<TransferWrapper*>(buffer.release());
+        auto* wrapper = static_cast<TransferWrapper*>(buffer.release());
         free_transmit_transfers_.emplace_back(wrapper);
     }
 
@@ -199,11 +200,11 @@ private:
             return false;
         }
 
-        utility::FinalAction free_device_list{
+        const utility::FinalAction free_device_list{
             [&device_list]() noexcept { libusb_free_device_list(device_list, 1); }};
 
-        auto device_descriptors = new libusb_device_descriptor[device_count];
-        utility::FinalAction free_device_descriptors{
+        auto* device_descriptors = new libusb_device_descriptor[device_count];
+        const utility::FinalAction free_device_descriptors{
             [&device_descriptors]() noexcept { delete[] device_descriptors; }};
 
         std::vector<libusb_device_handle*> devices_opened;
@@ -221,7 +222,7 @@ private:
                 continue;
             if (descriptors.iSerialNumber == 0)
                 continue;
-            if (product_id >= 0 && descriptors.idProduct != product_id)
+            if (product_id >= 0 && std::cmp_not_equal(descriptors.idProduct, product_id))
                 continue;
 
             libusb_device_handle* handle;
@@ -232,7 +233,7 @@ private:
 
             if (serial_number) {
                 unsigned char serial_buf[256];
-                int n = libusb_get_string_descriptor_ascii(
+                const int n = libusb_get_string_descriptor_ascii(
                     handle, descriptors.iSerialNumber, serial_buf, sizeof(serial_buf) - 1);
                 if (n < 0)
                     continue;
@@ -252,17 +253,17 @@ private:
 
             logger_.error(
                 "{} found with specified vendor id (0x{:04x}){}{}",
-                devices_opened.size() ? std::format("{} devices", devices_opened.size()).c_str()
-                                      : "No device",
+                !devices_opened.empty() ? std::format("{} devices", devices_opened.size()).c_str()
+                                        : "No device",
                 vendor_id,
                 product_id >= 0 ? std::format(", product id (0x{:04x})", product_id).c_str() : "",
                 serial_number ? std::format(", serial number ({})", serial_number).c_str() : "");
 
-            int relaxing_count = print_matched_unmatched_devices(
+            const int relaxing_count = print_matched_unmatched_devices(
                 device_list, device_count, device_descriptors, vendor_id, product_id,
                 serial_number);
 
-            if (devices_opened.size()) {
+            if (!devices_opened.empty()) {
                 if (!serial_number)
                     logger_.error(
                         "To ensure correct device selection, please specify the Serial Number");
@@ -287,7 +288,8 @@ private:
         libusb_device_descriptor* device_descriptors, uint16_t vendor_id, int32_t product_id,
         const char* serial_number) {
 
-        int j = 0, k = 0;
+        int j = 0;
+        int k = 0;
         for (ssize_t i = 0; i < device_count; i++) {
             auto& descriptors = device_descriptors[i];
             bool matched = true;
@@ -296,7 +298,7 @@ private:
                 continue;
             if (descriptors.iSerialNumber == 0)
                 continue;
-            if (product_id >= 0 && descriptors.idProduct != product_id)
+            if (product_id >= 0 && std::cmp_not_equal(descriptors.idProduct, product_id))
                 matched = false;
 
             const auto device_str = std::format(
@@ -310,7 +312,7 @@ private:
                     libusb_errname(ret));
                 continue;
             }
-            utility::FinalAction close_device{[&handle]() noexcept { libusb_close(handle); }};
+            const utility::FinalAction close_device{[&handle]() noexcept { libusb_close(handle); }};
 
             unsigned char serial_buf[256];
             int n = libusb_get_string_descriptor_ascii(
@@ -349,13 +351,13 @@ private:
         try {
             for (auto& wrapper : transmit_transfers) {
                 wrapper = new TransferWrapper{*this};
-                auto transfer = wrapper->transfer_;
+                auto* transfer = wrapper->transfer_;
 
                 libusb_fill_bulk_transfer(
                     transfer, libusb_device_handle_, out_endpoint_,
                     new unsigned char[core::protocol::kProtocolBufferSize], 0,
                     [](libusb_transfer* transfer) {
-                        auto wrapper = static_cast<TransferWrapper*>(transfer->user_data);
+                        auto* wrapper = static_cast<TransferWrapper*>(transfer->user_data);
                         wrapper->self_.usb_transmit_complete_callback(wrapper);
                     },
                     wrapper, 0);
@@ -371,14 +373,14 @@ private:
             throw;
         }
 
-        auto iter = transmit_transfers;
+        auto* iter = transmit_transfers;
         free_transmit_transfers_.push_back_n(
             [&iter]() noexcept { return *iter++; }, transmit_transfer_count_);
     }
 
     void init_receive_transfers() {
         for (size_t i = 0; i < receive_transfer_count_; i++) {
-            auto transfer = create_libusb_transfer();
+            auto* transfer = create_libusb_transfer();
 
             libusb_fill_bulk_transfer(
                 transfer, libusb_device_handle_, in_endpoint_,
@@ -402,7 +404,7 @@ private:
 
     void usb_transmit_complete_callback(TransferWrapper* wrapper) {
         // Share mutex with teardown so destructor can block callbacks before draining the queue
-        std::lock_guard guard{transmit_transfer_push_mutex_};
+        const std::scoped_lock guard{transmit_transfer_push_mutex_};
 
         if (stop_handling_events_.load(std::memory_order::relaxed)) [[unlikely]] {
             wrapper->destroy();
@@ -420,7 +422,7 @@ private:
         }
 
         if (transfer->actual_length > 0) {
-            const auto first = reinterpret_cast<std::byte*>(transfer->buffer);
+            const auto* first = reinterpret_cast<std::byte*>(transfer->buffer);
             const auto size = static_cast<std::size_t>(transfer->actual_length);
             receive_callback_({first, size});
         }
@@ -443,7 +445,7 @@ private:
     }
 
     libusb_transfer* create_libusb_transfer() {
-        auto transfer = libusb_alloc_transfer(0);
+        auto* transfer = libusb_alloc_transfer(0);
         if (!transfer)
             throw std::bad_alloc{};
         active_transfers_.fetch_add(1, std::memory_order::relaxed);

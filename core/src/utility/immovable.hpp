@@ -9,6 +9,7 @@ public:
     Immovable& operator=(const Immovable&) = delete;
     Immovable(Immovable&&) = delete;
     Immovable& operator=(Immovable&&) = delete;
+    ~Immovable() = default;
 };
 
 } // namespace librmcs::core::utility

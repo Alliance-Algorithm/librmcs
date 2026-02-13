@@ -125,13 +125,13 @@ public:
         if (!buffer_) {
             if (!init_buffer())
                 return {};
-        } else if (static_cast<std::size_t>(end_ - current_) < size) {
+        } else if (std::cmp_less(end_ - current_, size)) {
             finalize_buffer();
             if (!init_buffer())
                 return {};
         }
 
-        auto begin = current_;
+        auto* begin = current_;
         current_ += size;
         return {begin, size};
     }
@@ -178,13 +178,13 @@ public:
         if (!buffer_) {
             if (!init_buffer())
                 return {};
-        } else if (static_cast<std::size_t>(end_ - current_) < min_size) {
+        } else if (std::cmp_less(end_ - current_, min_size)) {
             finalize_buffer();
             if (!init_buffer())
                 return {};
         }
 
-        auto begin = current_;
+        auto* begin = current_;
         auto size = std::min(static_cast<std::size_t>(end_ - current_), max_size);
         current_ += size;
         return {begin, size};
@@ -209,8 +209,8 @@ private:
     void finalize_buffer() noexcept {
         core::utility::assert_debug(buffer_ && current_ && end_ && current_ <= end_);
 
-        std::byte* begin = buffer_->data().data();
-        std::size_t payload_size = current_ - begin;
+        const std::byte* begin = buffer_->data().data();
+        const std::size_t payload_size = current_ - begin;
         core::utility::assert_debug(payload_size > 0);
 
         transport_.transmit(std::move(buffer_), payload_size);

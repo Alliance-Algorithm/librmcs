@@ -12,7 +12,11 @@ public:
     RmcsBoard()
         : handler_(0xa11c, -1, nullptr, *this) {}
 
-    ~RmcsBoard() = default;
+    RmcsBoard(const RmcsBoard&) = delete;
+    RmcsBoard& operator=(const RmcsBoard&) = delete;
+    RmcsBoard(RmcsBoard&&) = delete;
+    RmcsBoard& operator=(RmcsBoard&&) = delete;
+    ~RmcsBoard() override = default;
 
     class PacketBuilder {
         friend class RmcsBoard;

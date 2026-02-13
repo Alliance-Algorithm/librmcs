@@ -32,7 +32,7 @@ public:
 
             auto readable = in - out;
             if (readable) {
-                if (auto result = batches_[(in - 1) & mask].allocate(size))
+                if (auto* result = batches_[(in - 1) & mask].allocate(size))
                     return {result, size};
             }
 
@@ -93,7 +93,10 @@ public:
         return &batch;
     }
 
-    static void release_batch(const Batch* batch) { const_cast<Batch*>(batch)->reset(); }
+    static void release_batch(const Batch* batch) {
+        const_cast<Batch*>(batch)->reset(); // NOLINT(cppcoreguidelines-pro-type-const-cast)
+                                            // Compromises made to maintain encapsulation.
+    }
 
     void clear() {
         auto in = in_.load(std::memory_order::relaxed);

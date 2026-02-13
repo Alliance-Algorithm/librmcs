@@ -2,9 +2,16 @@
 
 #include <cstdint>
 
-#include <board.h>
 #include <hpm_gpio_drv.h>
+#include <hpm_gpio_regs.h>
 #include <hpm_gpiom_drv.h>
+#include <hpm_gpiom_regs.h>
+#include <hpm_gpiom_soc_drv.h>
+#include <hpm_ioc_regs.h>
+#include <hpm_iomux.h>
+#include <hpm_pmic_iomux.h>
+#include <hpm_soc.h>
+#include <hpm_soc_irq.h>
 
 #include "firmware/rmcs_board/src/spi/bmi088/accel.hpp"
 #include "firmware/rmcs_board/src/spi/bmi088/gyro.hpp"

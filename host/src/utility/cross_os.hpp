@@ -8,7 +8,7 @@ namespace librmcs::host::utility {
 # define PACKED_STRUCT(...) struct __attribute__((packed)) __VA_ARGS__
 #endif
 
-constexpr static inline bool is_linux() {
+constexpr static bool is_linux() {
 #ifdef __linux__
     return true;
 #else
@@ -16,7 +16,7 @@ constexpr static inline bool is_linux() {
 #endif
 }
 
-constexpr static inline bool is_windows() {
+constexpr static bool is_windows() {
 #if defined(_WIN32) || defined(WIN32)
     return true;
 #else

@@ -8,12 +8,12 @@
 #include <limits>
 #include <type_traits>
 
-#include <board.h>
 #include <hpm_common.h>
 #include <hpm_dma_mgr.h>
 #include <hpm_dmav2_drv.h>
 #include <hpm_l1c_drv.h>
-#include <hpm_uart_drv.h>
+#include <hpm_soc_feature.h>
+#include <hpm_uart_regs.h>
 
 #include "core/src/protocol/constant.hpp"
 #include "core/src/protocol/protocol.hpp"
@@ -23,12 +23,9 @@ namespace librmcs::firmware::uart {
 
 template <typename T>
 class RxBuffer {
-public:
-    RxBuffer(UART_Type* uart_base, uint32_t dmamux_src)
-        : uart_base_(uart_base) {
-        init_dma(dmamux_src);
-    };
+    friend T;
 
+public:
     static constexpr size_t kBufferSize = 2048;
     static constexpr size_t kBufferMask = kBufferSize - 1;
     static_assert((kBufferSize & (kBufferSize - 1)) == 0);
@@ -50,6 +47,11 @@ public:
     void rx_idle_callback() { try_dequeue(true); }
 
 private:
+    RxBuffer(UART_Type* uart_base, uint32_t dmamux_src)
+        : uart_base_(uart_base) {
+        init_dma(dmamux_src);
+    };
+
     void dma_tc_half_tc_callback() { try_dequeue(false); }
 
     void init_dma(uint32_t dmamux_src) {
@@ -70,16 +72,16 @@ private:
         config.src_burst_size = DMA_MGR_NUM_TRANSFER_PER_BURST_1T;
         config.size_in_byte = kDmaTransSize;
         config.linked_ptr = reinterpret_cast<uintptr_t>(&dma_linked_descriptors[1]);
-        static_assert(dma_linked_descriptors.size() >= 2);
+        static_assert(kDmaDescriptorCount >= 2);
         config.interrupt_mask = DMA_INTERRUPT_MASK_ABORT | DMA_INTERRUPT_MASK_ERROR;
 
         core::utility::assert_always(
             dma_mgr_request_resource(&dma_) == status_success
             && dma_mgr_setup_channel(&dma_, &config) == status_success);
 
-        for (size_t i = 0; i < dma_linked_descriptors.size(); i++) {
-            config.linked_ptr = reinterpret_cast<uintptr_t>(
-                &dma_linked_descriptors[(i + 1) % dma_linked_descriptors.size()]);
+        for (size_t i = 0; i < kDmaDescriptorCount; i++) {
+            config.linked_ptr =
+                reinterpret_cast<uintptr_t>(&dma_linked_descriptors[(i + 1) % kDmaDescriptorCount]);
             core::utility::assert_always(
                 dma_mgr_config_linked_descriptor(&dma_, &config, &dma_linked_descriptors[i])
                 == status_success);
@@ -156,9 +158,9 @@ private:
     }
 
     static void l1c_dc_invalidate_cacheline_aligned(const std::byte* src, uint32_t size) {
-        uintptr_t aligned_start = HPM_L1C_CACHELINE_ALIGN_DOWN(src);
-        uintptr_t aligned_end = HPM_L1C_CACHELINE_ALIGN_UP(src + size);
-        size_t aligned_size = aligned_end - aligned_start;
+        const uintptr_t aligned_start = HPM_L1C_CACHELINE_ALIGN_DOWN(src);
+        const uintptr_t aligned_end = HPM_L1C_CACHELINE_ALIGN_UP(src + size);
+        const size_t aligned_size = aligned_end - aligned_start;
         l1c_dc_invalidate(aligned_start, aligned_size);
     }
 

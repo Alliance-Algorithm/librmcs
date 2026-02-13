@@ -6,7 +6,12 @@
 
 #include <board.h>
 #include <hpm_common.h>
+#include <hpm_dmamux_src.h>
+#include <hpm_soc.h>
+#include <hpm_soc_ip_feature.h>
+#include <hpm_soc_irq.h>
 #include <hpm_uart_drv.h>
+#include <hpm_uart_regs.h>
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/serializer.hpp"
@@ -52,7 +57,7 @@ public:
 private:
     void init_uart(uint32_t irq_num) {
         board_init_uart(uart_base_);
-        uint32_t uart_clock = board_init_uart_clock(uart_base_);
+        const uint32_t uart_clock = board_init_uart_clock(uart_base_);
 
         uart_config_t config{};
         uart_default_config(uart_base_, &config);

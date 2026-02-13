@@ -6,6 +6,8 @@
 #include <new>
 
 #include <board.h>
+#include <hpm_gpio_regs.h>
+#include <hpm_soc.h>
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/serializer.hpp"
@@ -32,7 +34,7 @@ public:
         _200 = 0x09,
         _400 = 0x0A,
         _800 = 0x0B,
-        _1600 = 0x0C
+        _1600 = 0x0C,
     };
 
     explicit Accelerometer(
@@ -130,7 +132,7 @@ private:
         ACC_X_LSB = 0x12,
         ACC_STATUS = 0x03,
         ACC_ERR_REG = 0x02,
-        ACC_CHIP_ID = 0x00
+        ACC_CHIP_ID = 0x00,
     };
 
     struct __attribute__((packed)) Data {
@@ -184,7 +186,7 @@ private:
     Spi& spi_;
 };
 
-inline Accelerometer::Lazy
-    accelerometer(&spi::spi2, ChipSelectPin{HPM_GPIO0_BASE, GPIO_DO_GPIOB, 14});
+inline Accelerometer::Lazy accelerometer(
+    &spi::spi2, ChipSelectPin{.gpio_base = HPM_GPIO0_BASE, .port = GPIO_DO_GPIOB, .pin = 14});
 
 } // namespace librmcs::firmware::spi::bmi088

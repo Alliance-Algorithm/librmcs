@@ -1,7 +1,7 @@
 #include "firmware/rmcs_board/src/uart/uart.hpp"
 
-#include <board.h>
-#include <hpm_uart_drv.h>
+#include <hpm_soc.h>
+#include <hpm_soc_irq.h>
 
 namespace librmcs::firmware::uart {
 

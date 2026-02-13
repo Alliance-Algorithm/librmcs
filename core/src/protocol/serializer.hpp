@@ -15,6 +15,11 @@ namespace librmcs::core::protocol {
 
 class ISerializeBuffer {
 public:
+    ISerializeBuffer() = default;
+    ISerializeBuffer(const ISerializeBuffer&) = delete;
+    ISerializeBuffer& operator=(const ISerializeBuffer&) = delete;
+    ISerializeBuffer(ISerializeBuffer&&) = delete;
+    ISerializeBuffer& operator=(ISerializeBuffer&&) = delete;
     virtual ~ISerializeBuffer() noexcept = default;
 
     virtual std::span<std::byte> allocate(std::size_t size) noexcept = 0;
@@ -22,7 +27,7 @@ public:
 
 class Serializer {
 public:
-    enum class SerializeResult { kSuccess = 0, kBadAlloc = 1, kInvalidArgument = 2 };
+    enum class SerializeResult : std::uint8_t { kSuccess = 0, kBadAlloc = 1, kInvalidArgument = 2 };
 
     explicit Serializer(ISerializeBuffer& buffer) noexcept
         : buffer_(buffer) {}

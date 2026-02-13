@@ -3,3 +3,10 @@ Documentation:
 Diagnostics:
   UnusedIncludes: Strict
   MissingIncludes: Strict
+  Includes:
+    IgnoreHeader:
+      - "bits/.+h" # https://github.com/llvm/llvm-project/issues/68213
+  ClangTidy:
+    FastCheckFilter: Loose
+    Remove:
+      - readability-inconsistent-declaration-parameter-name # Unable to be suppressed by NOLINT

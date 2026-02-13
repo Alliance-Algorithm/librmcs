@@ -6,6 +6,8 @@
 #include <new>
 
 #include <board.h>
+#include <hpm_gpio_regs.h>
+#include <hpm_soc.h>
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/serializer.hpp"
@@ -28,7 +30,7 @@ public:
         _1000 = 0x01,
         _500 = 0x02,
         _250 = 0x03,
-        _125 = 0x04
+        _125 = 0x04,
     };
     enum class DataRateAndBandwidth : uint8_t {
         _2000_532 = 0x00,
@@ -38,7 +40,7 @@ public:
         _200_23 = 0x04,
         _100_12 = 0x05,
         _200_64 = 0x06,
-        _100_32 = 0x07
+        _100_32 = 0x07,
     };
 
     explicit Gyroscope(
@@ -124,7 +126,7 @@ private:
         RATE_Y_LSB = 0x04,
         RATE_X_MSB = 0x03,
         RATE_X_LSB = 0x02,
-        GYRO_CHIP_ID = 0x00
+        GYRO_CHIP_ID = 0x00,
     };
 
     struct __attribute__((packed)) Data {
@@ -178,6 +180,7 @@ private:
     Spi& spi_;
 };
 
-inline Gyroscope::Lazy gyroscope(&spi::spi2, ChipSelectPin{HPM_GPIO0_BASE, GPIO_DO_GPIOB, 10});
+inline Gyroscope::Lazy gyroscope(
+    &spi::spi2, ChipSelectPin{.gpio_base = HPM_GPIO0_BASE, .port = GPIO_DO_GPIOB, .pin = 10});
 
 } // namespace librmcs::firmware::spi::bmi088

@@ -35,7 +35,7 @@ public:
         usb::usb_descriptors.init();
 
         board_init_user_sw();
-        tusb_rhport_init_t init_config{
+        const tusb_rhport_init_t init_config{
             .role = TUSB_ROLE_DEVICE,
             .speed = board_get_user_sw_status() ? TUSB_SPEED_FULL : TUSB_SPEED_HIGH,
         };
@@ -50,6 +50,38 @@ public:
             deserializer_.finish_transfer();
     }
 
+    bool try_transmit() {
+        if (!device_ready())
+            return false;
+
+        if (!transmitting_batch_)
+            transmitting_batch_ = transmit_buffer_.pop_batch();
+        if (!transmitting_batch_)
+            return false;
+
+        const auto data = transmitting_batch_->data();
+
+        const std::size_t max_packet_size = (tud_speed_get() == TUSB_SPEED_HIGH) ? 512 : 64;
+        const auto target_size = std::min(data.size() - transmitted_size_, max_packet_size);
+
+        if (target_size) {
+            const auto* src = reinterpret_cast<const uint8_t*>(data.data() + transmitted_size_);
+            core::utility::assert_debug(tud_vendor_n_write(0, src, target_size) == target_size);
+        } else {
+            core::utility::assert_debug(tud_vendor_n_write_zlp(0));
+        }
+
+        transmitted_size_ += target_size;
+        if (transmitted_size_ == data.size() && target_size < max_packet_size) {
+            transmit_buffer_.release_batch(transmitting_batch_);
+            transmitting_batch_ = nullptr;
+            transmitted_size_ = 0;
+        }
+
+        return true;
+    }
+
+private:
     void can_deserialized_callback(
         core::protocol::FieldId id, const data::CanDataView& data) override {
         switch (id) {
@@ -80,43 +112,11 @@ public:
 
     void error_callback() override { core::utility::assert_failed_always(); };
 
-    bool try_transmit() {
-        if (!device_ready())
-            return false;
-
-        if (!transmitting_batch_)
-            transmitting_batch_ = transmit_buffer_.pop_batch();
-        if (!transmitting_batch_)
-            return false;
-
-        const auto data = transmitting_batch_->data();
-
-        const std::size_t max_packet_size = (tud_speed_get() == TUSB_SPEED_HIGH) ? 512 : 64;
-        const auto target_size = std::min(data.size() - transmitted_size_, max_packet_size);
-
-        if (target_size) {
-            const auto src = reinterpret_cast<const uint8_t*>(data.data() + transmitted_size_);
-            core::utility::assert_debug(tud_vendor_n_write(0, src, target_size) == target_size);
-        } else {
-            core::utility::assert_debug(tud_vendor_n_write_zlp(0));
-        }
-
-        transmitted_size_ += target_size;
-        if (transmitted_size_ == data.size() && target_size < max_packet_size) {
-            transmit_buffer_.release_batch(transmitting_batch_);
-            transmitting_batch_ = nullptr;
-            transmitted_size_ = 0;
-        }
-
-        return true;
-    }
-
-private:
     static bool device_ready() { return tud_ready() && tud_vendor_n_write_available(0); }
 
     core::protocol::Deserializer deserializer_{*this};
 
-    InterruptSafeBuffer transmit_buffer_{};
+    InterruptSafeBuffer transmit_buffer_;
     core::protocol::Serializer serializer_{transmit_buffer_};
 
     const InterruptSafeBuffer::Batch* transmitting_batch_ = nullptr;
