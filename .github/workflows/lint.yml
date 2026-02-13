@@ -20,6 +20,10 @@ jobs:
           fetch-tags: true
           submodules: recursive
 
+      - name: Configure git safe.directory
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
       - name: Run clang-format check
         run: .scripts/clang-format-check
 
