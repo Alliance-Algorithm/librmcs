@@ -34,8 +34,7 @@ public:
     };
 
     Handler(
-        uint16_t usb_vid, int32_t usb_pid, const char* serial_number,
-        data::DataCallback& callback);
+        uint16_t usb_vid, int32_t usb_pid, const char* serial_number, data::DataCallback& callback);
 
     Handler(const Handler&) = delete;
     Handler& operator=(const Handler&) = delete;

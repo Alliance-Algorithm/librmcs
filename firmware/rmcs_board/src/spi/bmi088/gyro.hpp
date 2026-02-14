@@ -89,8 +89,7 @@ public:
         core::utility::assert_always(write_with_confirm(RegisterAddress::kGyroIntCtrl, 0x80));
 
         // Set both INT3 and INT4 as push-pull, active-low, even though only INT3 is used.
-        core::utility::assert_always(
-            write_with_confirm(RegisterAddress::kInT3InT4IoConf, 0b0000));
+        core::utility::assert_always(write_with_confirm(RegisterAddress::kInT3InT4IoConf, 0b0000));
         // Map data ready interrupt to INT3 pin.
         core::utility::assert_always(write_with_confirm(RegisterAddress::kInT3InT4IoMap, 0x01));
 

@@ -80,8 +80,8 @@ private:
             && dma_mgr_setup_channel(&dma_, &config) == status_success);
 
         for (size_t i = 0; i < kDmaDescriptorCount; i++) {
-            config.linked_ptr =
-                reinterpret_cast<uintptr_t>(&dma_linked_descriptors_[(i + 1) % kDmaDescriptorCount]);
+            config.linked_ptr = reinterpret_cast<uintptr_t>(
+                &dma_linked_descriptors_[(i + 1) % kDmaDescriptorCount]);
             core::utility::assert_always(
                 dma_mgr_config_linked_descriptor(&dma_, &config, &dma_linked_descriptors_[i])
                 == status_success);
