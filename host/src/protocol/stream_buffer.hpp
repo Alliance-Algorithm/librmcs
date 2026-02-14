@@ -17,7 +17,7 @@ namespace librmcs::host::protocol {
 /**
  * @brief A buffered stream writer for efficient sequential data transmission.
  *
- * StreamBuffer manages a buffer pool from an Transport and provides a
+ * StreamBuffer manages a buffer pool from a Transport and provides a
  * streaming interface for writing data. It automatically handles buffer
  * allocation, switching, and transmission, allowing users to focus on
  * writing data without managing buffer lifecycle.

@@ -84,7 +84,7 @@ public:
         core::utility::assert_always(read_with_confirm(RegisterAddress::kAccChipId, 0x1E));
 
         // Enable INT1 as output pin, push-pull, active-low.
-        core::utility::assert_always(write_with_confirm(RegisterAddress::kInT1IoCtrl, 0b00001000));
+        core::utility::assert_always(write_with_confirm(RegisterAddress::kInt1IoCtrl, 0b00001000));
         // Map data ready interrupt to pin INT1.
         core::utility::assert_always(write_with_confirm(RegisterAddress::kIntMapData, 0b00000100));
 
@@ -114,8 +114,8 @@ private:
         kAccPwrConf = 0x7C,
         kAccSelfTest = 0x6D,
         kIntMapData = 0x58,
-        kInT2IoCtrl = 0x54,
-        kInT1IoCtrl = 0x53,
+        kInt2IoCtrl = 0x54,
+        kInt1IoCtrl = 0x53,
         kAccRange = 0x41,
         kAccConf = 0x40,
         kTempLsb = 0x23,
