@@ -16,7 +16,7 @@ class Lazy {
 public:
     consteval explicit Lazy(Args... args)
         : init_status_(InitStatus::kUninitialized)
-        , construction_arguments{std::move(args)...} {}
+        , construction_arguments_{std::move(args)...} {}
 
     constexpr ~Lazy() {}; // No need to deconstruct
     Lazy(const Lazy&) = delete;
@@ -32,30 +32,30 @@ public:
             core::utility::assert_always(init_status == InitStatus::kUninitialized);
             init_status_.store(InitStatus::kInitializing, std::memory_order::relaxed);
 
-            auto moved_args = std::move(construction_arguments);
-            std::destroy_at(std::addressof(construction_arguments));
+            auto moved_args = std::move(construction_arguments_);
+            std::destroy_at(std::addressof(construction_arguments_));
 
             construct_object(std::move(moved_args));
 
             init_status_.store(InitStatus::kInitialized, std::memory_order::relaxed);
         }
 
-        return object;
+        return object_;
     }
 
     constexpr T* get() {
         core::utility::assert_debug(static_cast<bool>(*this));
-        return std::addressof(object);
+        return std::addressof(object_);
     }
 
     constexpr T* operator->() {
         core::utility::assert_debug(static_cast<bool>(*this));
-        return std::addressof(object);
+        return std::addressof(object_);
     }
 
     constexpr T& operator*() {
         core::utility::assert_debug(static_cast<bool>(*this));
-        return object;
+        return object_;
     }
 
     constexpr explicit operator bool() const noexcept {
@@ -69,7 +69,7 @@ private:
     constexpr void construct_object(TupleT&& t) {
         std::apply(
             [this](auto&&... args) {
-                std::construct_at(std::addressof(object), std::forward<decltype(args)>(args)...);
+                std::construct_at(std::addressof(object_), std::forward<decltype(args)>(args)...);
             },
             std::forward<TupleT>(t));
     }
@@ -78,8 +78,8 @@ private:
     std::atomic<InitStatus> init_status_;
 
     union {
-        T object;
-        ArgTupleT construction_arguments;
+        T object_;
+        ArgTupleT construction_arguments_;
     };
 };
 

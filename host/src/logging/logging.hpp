@@ -15,7 +15,7 @@ namespace librmcs::host::logging {
 enum class Level : std::uint8_t {
     kTrace = 0,
     kDebug = 1,
-    INFO = 2,
+    kInfo = 2,
     kWarn = 3,
     kErr = 4,
     kCritical = 5,
@@ -23,7 +23,7 @@ enum class Level : std::uint8_t {
 };
 
 #ifndef LIBRMCS_LOGGING_LEVEL
-# define LIBRMCS_LOGGING_LEVEL INFO
+# define LIBRMCS_LOGGING_LEVEL kInfo
 #endif
 
 class Logger {
@@ -58,7 +58,7 @@ public: // Logging.Formatted
 
     template <typename... Args>
     void info(std::format_string<Args...> fmt, Args&&... args) {
-        log_internal(Level::INFO, fmt, std::forward<Args>(args)...);
+        log_internal(Level::kInfo, fmt, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
@@ -94,7 +94,7 @@ public: // Logging.Raw
 
     template <typename T>
     void info(const T& msg) {
-        log_internal(Level::INFO, msg);
+        log_internal(Level::kInfo, msg);
     }
 
     template <typename T>
@@ -144,7 +144,7 @@ private:
                 return "trace";
             if (level == Level::kDebug)
                 return "debug";
-            if (level == Level::INFO)
+            if (level == Level::kInfo)
                 return "info";
             if (level == Level::kWarn)
                 return "warn";

@@ -21,7 +21,7 @@ namespace librmcs::host::protocol {
 
 class Handler::Impl : public core::protocol::DeserializeCallback {
 public:
-    explicit Impl(std::unique_ptr<transport::ITransport> transport, data::DataCallback& callback)
+    explicit Impl(std::unique_ptr<transport::Transport> transport, data::DataCallback& callback)
         : transport_(std::move(transport))
         , callback_(callback)
         , deserializer_(*this) {
@@ -59,7 +59,7 @@ public:
     }
 
 private:
-    std::unique_ptr<transport::ITransport> transport_;
+    std::unique_ptr<transport::Transport> transport_;
     data::DataCallback& callback_;
     core::protocol::Deserializer deserializer_;
 };
@@ -67,7 +67,7 @@ private:
 namespace {
 
 struct PacketBuilderImpl {
-    explicit PacketBuilderImpl(transport::ITransport& transport) noexcept
+    explicit PacketBuilderImpl(transport::Transport& transport) noexcept
         : buffer_(transport)
         , serializer_(buffer_) {}
 
@@ -124,7 +124,7 @@ Handler::PacketBuilder::PacketBuilder(void* transport_ptr) noexcept {
     static_assert(sizeof(PacketBuilderImpl) <= sizeof(storage_));
     static_assert(alignof(PacketBuilderImpl) <= alignof(std::uintptr_t));
 
-    auto& transport_ref = *static_cast<transport::ITransport*>(transport_ptr);
+    auto& transport_ref = *static_cast<transport::Transport*>(transport_ptr);
     std::construct_at(reinterpret_cast<PacketBuilderImpl*>(storage_), transport_ref);
 }
 

@@ -165,10 +165,10 @@ private:
         core::utility::assert_always(
             dma_mgr_request_resource(&dma_) == status_success
             && dma_mgr_setup_channel(&dma_, &config) == status_success
-            && dma_mgr_config_linked_descriptor(&dma_, &config, &dma_linked_descriptor_mgr)
+            && dma_mgr_config_linked_descriptor(&dma_, &config, &dma_linked_descriptor_mgr_)
                    == status_success);
         l1c_dc_flush(
-            reinterpret_cast<size_t>(&dma_linked_descriptor), sizeof(dma_linked_descriptor));
+            reinterpret_cast<size_t>(&dma_linked_descriptor_), sizeof(dma_linked_descriptor_));
     }
 
     void trigger_dma(const std::byte* src, size_t size, const std::byte* src2, size_t size2) {
@@ -180,11 +180,11 @@ private:
 
         if (src2) {
             l1c_dc_flush_cacheline_aligned(src2, size2);
-            dma_linked_descriptor.src_addr = reinterpret_cast<uintptr_t>(src2);
-            dma_linked_descriptor.trans_size = size2;
+            dma_linked_descriptor_.src_addr = reinterpret_cast<uintptr_t>(src2);
+            dma_linked_descriptor_.trans_size = size2;
             l1c_dc_flush(
-                reinterpret_cast<size_t>(&dma_linked_descriptor), sizeof(dma_linked_descriptor));
-            ctrl.LLPOINTER = reinterpret_cast<uintptr_t>(&dma_linked_descriptor);
+                reinterpret_cast<size_t>(&dma_linked_descriptor_), sizeof(dma_linked_descriptor_));
+            ctrl.LLPOINTER = reinterpret_cast<uintptr_t>(&dma_linked_descriptor_);
         } else {
             ctrl.LLPOINTER = 0;
         }
@@ -202,8 +202,8 @@ private:
     alignas(HPM_L1C_CACHELINE_SIZE) std::array<std::byte, kBufferSize> data_buffer_;
 
     union alignas(HPM_L1C_CACHELINE_SIZE) {
-        dma_linked_descriptor_t dma_linked_descriptor;
-        dma_mgr_linked_descriptor_t dma_linked_descriptor_mgr;
+        dma_linked_descriptor_t dma_linked_descriptor_;
+        dma_mgr_linked_descriptor_t dma_linked_descriptor_mgr_;
     };
     static_assert(std::is_standard_layout_v<dma_mgr_linked_descriptor_t>);
     static_assert(std::is_standard_layout_v<dma_linked_descriptor_t>);

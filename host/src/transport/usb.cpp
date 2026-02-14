@@ -27,7 +27,7 @@
 
 namespace librmcs::host::transport {
 
-class Usb : public ITransport {
+class Usb : public Transport {
 public:
     explicit Usb(uint16_t usb_vid, int32_t usb_pid, const char* serial_number)
         : logger_(logging::get_logger())
@@ -500,7 +500,7 @@ private:
     std::function<void(std::span<const std::byte>)> receive_callback_;
 };
 
-std::unique_ptr<ITransport>
+std::unique_ptr<Transport>
     create_usb_transport(uint16_t usb_vid, int32_t usb_pid, const char* serial_number) {
     return std::make_unique<Usb>(usb_vid, usb_pid, serial_number);
 }

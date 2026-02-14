@@ -79,6 +79,9 @@ Checks: >
   -readability-use-concise-preprocessor-directives,
 
 CheckOptions:
+  readability-identifier-naming.AggressiveDependentMemberLookup: true
+  readability-identifier-naming.CheckAnonFieldInParent: true
+
   readability-identifier-naming.NamespaceCase: lower_case
 
   readability-identifier-naming.ClassCase: CamelCase

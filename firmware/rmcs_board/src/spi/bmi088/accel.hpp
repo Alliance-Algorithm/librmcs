@@ -27,19 +27,19 @@ public:
 
     enum class Range : uint8_t { k3G = 0x00, k6G = 0x01, k12G = 0x02, k24G = 0x03 };
     enum class DataRate : uint8_t {
-        k12 = 0x05,
-        k25 = 0x06,
-        k50 = 0x07,
-        k100 = 0x08,
-        k200 = 0x09,
-        k400 = 0x0A,
-        k800 = 0x0B,
-        k1600 = 0x0C,
+        k12Hz = 0x05,
+        k25Hz = 0x06,
+        k50Hz = 0x07,
+        k100Hz = 0x08,
+        k200Hz = 0x09,
+        k400Hz = 0x0A,
+        k800Hz = 0x0B,
+        k1600Hz = 0x0C,
     };
 
     explicit Accelerometer(
         Spi::Lazy* spi, ChipSelectPin chip_select, Range range = Range::k6G,
-        DataRate data_rate = DataRate::k1600)
+        DataRate data_rate = DataRate::k1600Hz)
         : SpiModule(chip_select)
         , spi_(spi->init()) {
 

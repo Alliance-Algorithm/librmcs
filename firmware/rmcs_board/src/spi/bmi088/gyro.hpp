@@ -33,19 +33,19 @@ public:
         k125 = 0x04,
     };
     enum class DataRateAndBandwidth : uint8_t {
-        k2000532 = 0x00,
-        k2000230 = 0x01,
-        k1000116 = 0x02,
-        k40047 = 0x03,
-        k20023 = 0x04,
-        k10012 = 0x05,
-        k20064 = 0x06,
-        k10032 = 0x07,
+        k2000And532 = 0x00,
+        k2000And230 = 0x01,
+        k1000And116 = 0x02,
+        k400And47 = 0x03,
+        k200And23 = 0x04,
+        k100And12 = 0x05,
+        k200And64 = 0x06,
+        k100And32 = 0x07,
     };
 
     explicit Gyroscope(
         Spi::Lazy* spi, ChipSelectPin chip_select, DataRange range = DataRange::k2000,
-        DataRateAndBandwidth rate = DataRateAndBandwidth::k2000230)
+        DataRateAndBandwidth rate = DataRateAndBandwidth::k2000And230)
         : SpiModule(chip_select)
         , spi_(spi->init()) {
 
