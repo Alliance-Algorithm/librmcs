@@ -13,14 +13,14 @@
 
 namespace librmcs::core::protocol {
 
-class ISerializeBuffer {
+class SerializeBuffer {
 public:
-    ISerializeBuffer() = default;
-    ISerializeBuffer(const ISerializeBuffer&) = delete;
-    ISerializeBuffer& operator=(const ISerializeBuffer&) = delete;
-    ISerializeBuffer(ISerializeBuffer&&) = delete;
-    ISerializeBuffer& operator=(ISerializeBuffer&&) = delete;
-    virtual ~ISerializeBuffer() noexcept = default;
+    SerializeBuffer() = default;
+    SerializeBuffer(const SerializeBuffer&) = delete;
+    SerializeBuffer& operator=(const SerializeBuffer&) = delete;
+    SerializeBuffer(SerializeBuffer&&) = delete;
+    SerializeBuffer& operator=(SerializeBuffer&&) = delete;
+    virtual ~SerializeBuffer() noexcept = default;
 
     virtual std::span<std::byte> allocate(std::size_t size) noexcept = 0;
 };
@@ -29,7 +29,7 @@ class Serializer {
 public:
     enum class SerializeResult : std::uint8_t { kSuccess = 0, kBadAlloc = 1, kInvalidArgument = 2 };
 
-    explicit Serializer(ISerializeBuffer& buffer) noexcept
+    explicit Serializer(SerializeBuffer& buffer) noexcept
         : buffer_(buffer) {}
 
     SerializeResult write_can(FieldId field_id, const data::CanDataView& view) noexcept {
@@ -121,7 +121,7 @@ public:
     }
 
     SerializeResult write_imu_accelerometer(const data::AccelerometerDataView& view) noexcept {
-        const std::size_t required = required_imu_size(FieldId::IMU, ImuPayload::kAccelerometer);
+        const std::size_t required = required_imu_size(FieldId::kImu, ImuPayload::kAccelerometer);
         LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
 
         auto dst = buffer_.allocate(required);
@@ -129,11 +129,11 @@ public:
         utility::assert_debug(dst.size() == required);
         std::byte* cursor = dst.data();
 
-        write_field_header(cursor, FieldId::IMU);
+        write_field_header(cursor, FieldId::kImu);
 
         auto header = ImuHeader::Ref(cursor);
         cursor += sizeof(ImuHeader);
-        header.set<ImuHeader::PayloadType>(ImuHeader::PayloadEnum::ACCELEROMETER);
+        header.set<ImuHeader::PayloadType>(ImuHeader::PayloadEnum::kAccelerometer);
 
         auto payload = ImuAccelerometerPayload::Ref(cursor);
         cursor += sizeof(ImuAccelerometerPayload);
@@ -146,7 +146,7 @@ public:
     }
 
     SerializeResult write_imu_gyroscope(const data::GyroscopeDataView& view) noexcept {
-        const std::size_t required = required_imu_size(FieldId::IMU, ImuPayload::kGyroscope);
+        const std::size_t required = required_imu_size(FieldId::kImu, ImuPayload::kGyroscope);
         LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
 
         auto dst = buffer_.allocate(required);
@@ -154,11 +154,11 @@ public:
         utility::assert_debug(dst.size() == required);
         std::byte* cursor = dst.data();
 
-        write_field_header(cursor, FieldId::IMU);
+        write_field_header(cursor, FieldId::kImu);
 
         auto header = ImuHeader::Ref(cursor);
         cursor += sizeof(ImuHeader);
-        header.set<ImuHeader::PayloadType>(ImuHeader::PayloadEnum::GYROSCOPE);
+        header.set<ImuHeader::PayloadType>(ImuHeader::PayloadEnum::kGyroscope);
 
         auto payload = ImuGyroscopePayload::Ref(cursor);
         cursor += sizeof(ImuGyroscopePayload);
@@ -172,7 +172,7 @@ public:
 
 private:
     static constexpr bool use_extended_field_header(FieldId field_id) {
-        utility::assert_debug(field_id != FieldId::EXTEND);
+        utility::assert_debug(field_id != FieldId::kExtend);
         return static_cast<std::uint8_t>(field_id) > 0xF;
     }
 
@@ -186,7 +186,7 @@ private:
             auto header = FieldHeaderExtended::Ref(cursor);
             cursor += 1;
             static_assert(sizeof(FieldHeaderExtended) == sizeof(FieldHeader) + 1);
-            header.set<FieldHeaderExtended::Id>(FieldId::EXTEND);
+            header.set<FieldHeaderExtended::Id>(FieldId::kExtend);
             header.set<FieldHeaderExtended::IdExtended>(field_id);
         } else {
             auto header = FieldHeader::Ref(cursor);
@@ -246,7 +246,7 @@ private:
         return total;
     }
 
-    ISerializeBuffer& buffer_;
+    SerializeBuffer& buffer_;
 };
 
 } // namespace librmcs::core::protocol

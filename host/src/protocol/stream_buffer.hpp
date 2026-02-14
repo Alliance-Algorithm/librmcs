@@ -58,7 +58,7 @@ namespace librmcs::host::protocol {
  *   // Destructor automatically transmits all written data
  * @endcode
  */
-class StreamBuffer : public core::protocol::ISerializeBuffer {
+class StreamBuffer : public core::protocol::SerializeBuffer {
 public:
     /**
      * @brief Constructs a StreamBuffer bound to the specified transport.
@@ -220,7 +220,7 @@ private:
 
     transport::ITransport& transport_;
 
-    std::unique_ptr<transport::ITransportBuffer> buffer_ = nullptr;
+    std::unique_ptr<transport::TransportBuffer> buffer_ = nullptr;
     std::byte *current_ = nullptr, *end_ = nullptr;
 };
 

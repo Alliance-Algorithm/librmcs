@@ -13,13 +13,13 @@
 namespace librmcs::host::logging {
 
 enum class Level : std::uint8_t {
-    TRACE = 0,
-    DEBUG = 1,
+    kTrace = 0,
+    kDebug = 1,
     INFO = 2,
-    WARN = 3,
-    ERR = 4,
-    CRITICAL = 5,
-    OFF = 6,
+    kWarn = 3,
+    kErr = 4,
+    kCritical = 5,
+    kOff = 6,
 };
 
 #ifndef LIBRMCS_LOGGING_LEVEL
@@ -28,7 +28,7 @@ enum class Level : std::uint8_t {
 
 class Logger {
 public:
-    static constexpr Level logging_level = Level::LIBRMCS_LOGGING_LEVEL;
+    static constexpr Level kLoggingLevel = Level::LIBRMCS_LOGGING_LEVEL;
 
     Logger(const Logger&) = delete;
     Logger& operator=(const Logger&) = delete;
@@ -43,17 +43,17 @@ public: // Singleton
     }
 
 public: // Logging
-    static constexpr bool should_log(Level level) { return level >= logging_level; }
+    static constexpr bool should_log(Level level) { return level >= kLoggingLevel; }
 
 public: // Logging.Formatted
     template <typename... Args>
     void trace(std::format_string<Args...> fmt, Args&&... args) {
-        log_internal(Level::TRACE, fmt, std::forward<Args>(args)...);
+        log_internal(Level::kTrace, fmt, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     void debug(std::format_string<Args...> fmt, Args&&... args) {
-        log_internal(Level::DEBUG, fmt, std::forward<Args>(args)...);
+        log_internal(Level::kDebug, fmt, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
@@ -63,17 +63,17 @@ public: // Logging.Formatted
 
     template <typename... Args>
     void warn(std::format_string<Args...> fmt, Args&&... args) {
-        log_internal(Level::WARN, fmt, std::forward<Args>(args)...);
+        log_internal(Level::kWarn, fmt, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     void error(std::format_string<Args...> fmt, Args&&... args) {
-        log_internal(Level::ERR, fmt, std::forward<Args>(args)...);
+        log_internal(Level::kErr, fmt, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     void critical(std::format_string<Args...> fmt, Args&&... args) {
-        log_internal(Level::CRITICAL, fmt, std::forward<Args>(args)...);
+        log_internal(Level::kCritical, fmt, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
@@ -84,12 +84,12 @@ public: // Logging.Formatted
 public: // Logging.Raw
     template <typename T>
     void trace(const T& msg) {
-        log_internal(Level::TRACE, msg);
+        log_internal(Level::kTrace, msg);
     }
 
     template <typename T>
     void debug(const T& msg) {
-        log_internal(Level::DEBUG, msg);
+        log_internal(Level::kDebug, msg);
     }
 
     template <typename T>
@@ -99,17 +99,17 @@ public: // Logging.Raw
 
     template <typename T>
     void warn(const T& msg) {
-        log_internal(Level::WARN, msg);
+        log_internal(Level::kWarn, msg);
     }
 
     template <typename T>
     void error(const T& msg) {
-        log_internal(Level::ERR, msg);
+        log_internal(Level::kErr, msg);
     }
 
     template <typename T>
     void critical(const T& msg) {
-        log_internal(Level::CRITICAL, msg);
+        log_internal(Level::kCritical, msg);
     }
 
     template <typename T>
@@ -140,17 +140,17 @@ private:
 
     static void print_prefix(Level level) {
         std::string_view level_text = [level]() constexpr -> std::string_view {
-            if (level == Level::TRACE)
+            if (level == Level::kTrace)
                 return "trace";
-            if (level == Level::DEBUG)
+            if (level == Level::kDebug)
                 return "debug";
             if (level == Level::INFO)
                 return "info";
-            if (level == Level::WARN)
+            if (level == Level::kWarn)
                 return "warn";
-            if (level == Level::ERR)
+            if (level == Level::kErr)
                 return "error";
-            if (level == Level::CRITICAL)
+            if (level == Level::kCritical)
                 return "critical";
             core::utility::assert_failed_debug();
         }();

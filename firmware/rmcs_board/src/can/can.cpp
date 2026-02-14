@@ -21,7 +21,7 @@ void can0_isr() {
         return;
 
     if (flags & MCAN_INT_RXFIFO0_NEW_MSG) [[likely]]
-        can0->handle_uplink(data::DataId::CAN0, usb::vendor->serializer());
+        can0->handle_uplink(data::DataId::kCan0, usb::vendor->serializer());
 
     mcan_clear_interrupt_flags(base, flags);
 }
@@ -35,7 +35,7 @@ void can1_isr() {
         return;
 
     if (flags & MCAN_INT_RXFIFO0_NEW_MSG) [[likely]]
-        can1->handle_uplink(data::DataId::CAN1, usb::vendor->serializer());
+        can1->handle_uplink(data::DataId::kCan1, usb::vendor->serializer());
 
     mcan_clear_interrupt_flags(base, flags);
 }
@@ -49,7 +49,7 @@ void can2_isr() {
         return;
 
     if (flags & MCAN_INT_RXFIFO0_NEW_MSG) [[likely]]
-        can2->handle_uplink(data::DataId::CAN2, usb::vendor->serializer());
+        can2->handle_uplink(data::DataId::kCan2, usb::vendor->serializer());
 
     mcan_clear_interrupt_flags(base, flags);
 }
@@ -63,7 +63,7 @@ void can3_isr() {
         return;
 
     if (flags & MCAN_INT_RXFIFO0_NEW_MSG) [[likely]]
-        can3->handle_uplink(data::DataId::CAN3, usb::vendor->serializer());
+        can3->handle_uplink(data::DataId::kCan3, usb::vendor->serializer());
 
     mcan_clear_interrupt_flags(base, flags);
 }

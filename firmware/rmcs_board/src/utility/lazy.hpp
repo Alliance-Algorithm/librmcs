@@ -15,7 +15,7 @@ template <typename T, typename... Args>
 class Lazy {
 public:
     consteval explicit Lazy(Args... args)
-        : init_status_(InitStatus::UNINITIALIZED)
+        : init_status_(InitStatus::kUninitialized)
         , construction_arguments{std::move(args)...} {}
 
     constexpr ~Lazy() {}; // No need to deconstruct
@@ -28,16 +28,16 @@ public:
         const InterruptLockGuard guard;
 
         auto init_status = init_status_.load(std::memory_order::relaxed);
-        if (init_status != InitStatus::INITIALIZED) {
-            core::utility::assert_always(init_status == InitStatus::UNINITIALIZED);
-            init_status_.store(InitStatus::INITIALIZING, std::memory_order::relaxed);
+        if (init_status != InitStatus::kInitialized) {
+            core::utility::assert_always(init_status == InitStatus::kUninitialized);
+            init_status_.store(InitStatus::kInitializing, std::memory_order::relaxed);
 
             auto moved_args = std::move(construction_arguments);
             std::destroy_at(std::addressof(construction_arguments));
 
             construct_object(std::move(moved_args));
 
-            init_status_.store(InitStatus::INITIALIZED, std::memory_order::relaxed);
+            init_status_.store(InitStatus::kInitialized, std::memory_order::relaxed);
         }
 
         return object;
@@ -59,7 +59,7 @@ public:
     }
 
     constexpr explicit operator bool() const noexcept {
-        return init_status_.load(std::memory_order::relaxed) == InitStatus::INITIALIZED;
+        return init_status_.load(std::memory_order::relaxed) == InitStatus::kInitialized;
     }
 
 private:
@@ -74,7 +74,7 @@ private:
             std::forward<TupleT>(t));
     }
 
-    enum class InitStatus : uint8_t { UNINITIALIZED = 2, INITIALIZING = 1, INITIALIZED = 0 };
+    enum class InitStatus : uint8_t { kUninitialized = 2, kInitializing = 1, kInitialized = 0 };
     std::atomic<InitStatus> init_status_;
 
     union {

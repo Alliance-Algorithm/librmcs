@@ -161,17 +161,17 @@ public:
     ~LifoTask() noexcept { handle_.destroy(); }
 
     struct TaskAwaiter {
-        const std::coroutine_handle<promise_type> handle_;
+        const std::coroutine_handle<promise_type> handle;
 
-        constexpr bool await_ready() const noexcept { return handle_.done(); }
+        constexpr bool await_ready() const noexcept { return handle.done(); }
 
         constexpr void await_suspend(std::coroutine_handle<> awaiting_coroutine) const noexcept {
-            handle_.promise().continuation_ = awaiting_coroutine;
+            handle.promise().continuation_ = awaiting_coroutine;
         }
 
         T await_resume() noexcept(std::is_nothrow_move_constructible_v<T>) {
-            utility::assert_debug(handle_.done());
-            return std::move(handle_.promise().result_);
+            utility::assert_debug(handle.done());
+            return std::move(handle.promise().result_);
         }
     };
     constexpr TaskAwaiter operator co_await() && noexcept { return TaskAwaiter{handle_}; }
@@ -246,15 +246,15 @@ public:
     ~LifoTask() noexcept { handle_.destroy(); }
 
     struct TaskAwaiter {
-        const std::coroutine_handle<promise_type> handle_;
+        const std::coroutine_handle<promise_type> handle;
 
-        constexpr bool await_ready() const noexcept { return handle_.done(); }
+        constexpr bool await_ready() const noexcept { return handle.done(); }
 
         constexpr void await_suspend(std::coroutine_handle<> awaiting_coroutine) const noexcept {
-            handle_.promise().continuation_ = awaiting_coroutine;
+            handle.promise().continuation_ = awaiting_coroutine;
         }
 
-        constexpr void await_resume() noexcept { utility::assert_debug(handle_.done()); }
+        constexpr void await_resume() noexcept { utility::assert_debug(handle.done()); }
     };
     constexpr TaskAwaiter operator co_await() && noexcept { return TaskAwaiter{handle_}; }
 

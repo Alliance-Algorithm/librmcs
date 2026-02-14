@@ -19,8 +19,9 @@
 
 namespace librmcs::host::protocol {
 
-struct Handler::Impl : public core::protocol::IDeserializeCallback {
-    explicit Impl(std::unique_ptr<transport::ITransport> transport, data::IDataCallback& callback)
+class Handler::Impl : public core::protocol::DeserializeCallback {
+public:
+    explicit Impl(std::unique_ptr<transport::ITransport> transport, data::DataCallback& callback)
         : transport_(std::move(transport))
         , callback_(callback)
         , deserializer_(*this) {
@@ -30,6 +31,8 @@ struct Handler::Impl : public core::protocol::IDeserializeCallback {
             deserializer_.finish_transfer();
         });
     }
+
+    PacketBuilder start_transmit() { return PacketBuilder{transport_.get()}; }
 
     void can_deserialized_callback(
         core::protocol::FieldId id, const data::CanDataView& data) override {
@@ -55,8 +58,9 @@ struct Handler::Impl : public core::protocol::IDeserializeCallback {
         logging::get_logger().error("Deserializer encountered an error while parsing input");
     }
 
+private:
     std::unique_ptr<transport::ITransport> transport_;
-    data::IDataCallback& callback_;
+    data::DataCallback& callback_;
     core::protocol::Deserializer deserializer_;
 };
 
@@ -149,7 +153,7 @@ bool Handler::PacketBuilder::write_imu_gyroscope(const data::GyroscopeDataView& 
 }
 
 Handler::Handler(
-    uint16_t usb_vid, int32_t usb_pid, const char* serial_number, data::IDataCallback& callback)
+    uint16_t usb_vid, int32_t usb_pid, const char* serial_number, data::DataCallback& callback)
     : impl_(new Impl(transport::create_usb_transport(usb_vid, usb_pid, serial_number), callback)) {}
 
 Handler::Handler(Handler&& other) noexcept
@@ -167,7 +171,7 @@ Handler::~Handler() noexcept { delete impl_; }
 
 Handler::PacketBuilder Handler::start_transmit() noexcept {
     core::utility::assert_debug(impl_);
-    return PacketBuilder{impl_->transport_.get()};
+    return impl_->start_transmit();
 }
 
 } // namespace librmcs::host::protocol

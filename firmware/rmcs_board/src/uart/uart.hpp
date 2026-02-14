@@ -97,6 +97,6 @@ private:
 };
 
 inline constinit Uart::Lazy uart3{
-    data::DataId::UART3, HPM_UART3_BASE, IRQn_UART3, HPM_DMA_SRC_UART3_TX, HPM_DMA_SRC_UART3_RX};
+    data::DataId::kUart3, HPM_UART3_BASE, IRQn_UART3, HPM_DMA_SRC_UART3_TX, HPM_DMA_SRC_UART3_RX};
 
 } // namespace librmcs::firmware::uart

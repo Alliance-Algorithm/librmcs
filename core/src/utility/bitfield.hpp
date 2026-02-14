@@ -10,32 +10,32 @@ namespace librmcs::core::utility {
 
 struct BitfieldMemberTag {};
 
-template <std::size_t BitWidth>
+template <std::size_t bit_width>
 using DefaultValueTypeT = std::conditional_t<
-    (BitWidth == 1), bool,
+    (bit_width == 1), bool,
     std::conditional_t<
-        (BitWidth <= 8), std::uint8_t,
+        (bit_width <= 8), std::uint8_t,
         std::conditional_t<
-            (BitWidth <= 16), std::uint16_t,
+            (bit_width <= 16), std::uint16_t,
             std::conditional_t<
-                (BitWidth <= 32), std::uint32_t,
-                std::conditional_t<(BitWidth <= 64), std::uint64_t, void>>>>>;
+                (bit_width <= 32), std::uint32_t,
+                std::conditional_t<(bit_width <= 64), std::uint64_t, void>>>>>;
 
 /**
  * @brief Describes a single field within a Bitfield buffer.
  *
- * If ValueT is a signed integral type and BitWidth is smaller than sizeof(ValueT) * 8,
+ * If ValueT is a signed integral type and bit_width is smaller than sizeof(ValueT) * 8,
  * Bitfield::get performs two's-complement sign extension after extraction.
  */
-template <std::size_t Index, std::size_t BitWidth, typename ValueT = DefaultValueTypeT<BitWidth>>
+template <std::size_t index, std::size_t bit_width, typename ValueT = DefaultValueTypeT<bit_width>>
 requires(
     std::is_trivial_v<ValueT> && sizeof(ValueT) <= sizeof(std::uint64_t)
-    && (std::is_integral_v<ValueT> || std::is_enum_v<ValueT>) && (sizeof(ValueT) * 8) >= BitWidth)
+    && (std::is_integral_v<ValueT> || std::is_enum_v<ValueT>) && (sizeof(ValueT) * 8) >= bit_width)
 struct BitfieldMember : BitfieldMemberTag {
-    static_assert(BitWidth > 0 && BitWidth <= 64);
+    static_assert(bit_width > 0 && bit_width <= 64);
 
-    static constexpr std::size_t index = Index;
-    static constexpr std::size_t bit_width = BitWidth;
+    static constexpr std::size_t kIndex = index;
+    static constexpr std::size_t kBitWidth = bit_width;
 
     using ValueType = ValueT;
 };
@@ -59,10 +59,10 @@ concept is_bitfield_member = std::derived_from<T, BitfieldMemberTag>;
  * This mapping is the same on all architectures, regardless of whether
  * the target CPU is little-endian or big-endian.
  *
- * Fields are described by BitfieldMember<Index, BitCount> types, which
+ * Fields are described by BitfieldMember<index, bit_width> types, which
  * define the starting bit index and width. Access is performed via:
- *   - Bitfield<SizeInBytes>::get<Member>(...) to read a field
- *   - Bitfield<SizeInBytes>::set<Member>(...) to write a field
+ *   - Bitfield<size_in_bytes>::get<Member>(...) to read a field
+ *   - Bitfield<size_in_bytes>::set<Member>(...) to write a field
  *
  * The implementation:
  *   - operates only on std::byte and integer/enum types (bitwise extraction)
@@ -76,7 +76,7 @@ concept is_bitfield_member = std::derived_from<T, BitfieldMemberTag>;
  *     intentionally left uninitialized; the user is responsible for
  *     initializing it (e.g. `Bitfield<...> bf{};`) before reading.
  *   - Pointer‑based `get`/`set` overloads assume that the caller provides
- *     a buffer of at least `SizeInBytes` bytes. No runtime bounds checking
+ *     a buffer of at least `size_in_bytes` bytes. No runtime bounds checking
  *     is performed; out‑of‑bounds access is a caller ub.
  *
  * This type is intended for protocol headers, binary payloads, and other
@@ -95,40 +95,40 @@ concept is_bitfield_member = std::derived_from<T, BitfieldMemberTag>;
  *     assert(bf.get<MyBitfield::Flag>() == true);
  *     assert(bf.get<MyBitfield::Length>() == 512);
  *
- * @tparam SizeInBytes size of the underlying buffer in bytes
+ * @tparam size_in_bytes size of the underlying buffer in bytes
  */
-template <std::size_t SizeInBytes>
+template <std::size_t size_in_bytes>
 struct Bitfield {
 private:
     template <is_bitfield_member Member>
     static consteval bool check_member() {
-        constexpr std::size_t first_bit = Member::index;
-        constexpr std::size_t bit_width = Member::bit_width;
+        constexpr std::size_t first_bit = Member::kIndex;
+        constexpr std::size_t bit_width = Member::kBitWidth;
         constexpr std::size_t last_bit = first_bit + bit_width;
         constexpr std::size_t first_byte = first_bit / 8;
         constexpr std::size_t last_byte = (last_bit + 7) / 8;
         constexpr std::size_t span_bytes = last_byte - first_byte;
 
-        return bit_width > 0                         //
-            && first_bit < size_in_bits              //
-            && bit_width <= size_in_bits - first_bit //
-            && span_bytes > 0                        //
-            && span_bytes <= sizeof(std::uint64_t);  //
+        return bit_width > 0                        //
+            && first_bit < kSizeInBits              //
+            && bit_width <= kSizeInBits - first_bit //
+            && span_bytes > 0                       //
+            && span_bytes <= sizeof(std::uint64_t); //
     }
 
-    template <std::size_t SpanBytes>
+    template <std::size_t span_bytes>
     using BestWordForSpan = std::conditional_t<
-        (SpanBytes <= 1), std::uint8_t,
+        (span_bytes <= 1), std::uint8_t,
         std::conditional_t<
-            (SpanBytes <= 2), std::uint16_t,
-            std::conditional_t<(SpanBytes <= 4), std::uint32_t, std::uint64_t>>>;
+            (span_bytes <= 2), std::uint16_t,
+            std::conditional_t<(span_bytes <= 4), std::uint32_t, std::uint64_t>>>;
 
 public:
-    static_assert(SizeInBytes > 0);
-    static_assert(SizeInBytes <= std::numeric_limits<std::size_t>::max() / 8);
+    static_assert(size_in_bytes > 0);
+    static_assert(size_in_bytes <= std::numeric_limits<std::size_t>::max() / 8);
 
-    static constexpr std::size_t size_in_bytes = SizeInBytes;
-    static constexpr std::size_t size_in_bits = SizeInBytes * 8;
+    static constexpr std::size_t kSizeInBytes = size_in_bytes;
+    static constexpr std::size_t kSizeInBits = size_in_bytes * 8;
 
     template <is_bitfield_member Member>
     requires(check_member<Member>())
@@ -154,7 +154,7 @@ public:
     }
 
     // Buffer is intentionally left uninitialized for zero-cost construction
-    std::byte data[size_in_bytes];
+    std::byte data[kSizeInBytes];
 
     struct Ref {
         constexpr explicit Ref(std::byte* ptr) noexcept
@@ -194,8 +194,8 @@ private:
     [[nodiscard]] static constexpr auto read_bits(const std::byte* src) noexcept
         -> Member::ValueType {
 
-        constexpr std::size_t first_bit = Member::index;
-        constexpr std::size_t bit_width = Member::bit_width;
+        constexpr std::size_t first_bit = Member::kIndex;
+        constexpr std::size_t bit_width = Member::kBitWidth;
         constexpr std::size_t last_bit = first_bit + bit_width;
         constexpr std::size_t first_byte = first_bit / 8;
         constexpr std::size_t last_byte = (last_bit + 7) / 8;
@@ -237,8 +237,8 @@ private:
     template <is_bitfield_member Member>
     static constexpr void write_bits(Member::ValueType value, std::byte* dst) noexcept {
 
-        constexpr std::size_t first_bit = Member::index;
-        constexpr std::size_t bit_width = Member::bit_width;
+        constexpr std::size_t first_bit = Member::kIndex;
+        constexpr std::size_t bit_width = Member::kBitWidth;
         constexpr std::size_t last_bit = first_bit + bit_width;
         constexpr std::size_t first_byte = first_bit / 8;
         constexpr std::size_t last_byte = (last_bit + 7) / 8;

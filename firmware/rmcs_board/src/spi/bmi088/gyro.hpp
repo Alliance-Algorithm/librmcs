@@ -20,33 +20,33 @@
 namespace librmcs::firmware::spi::bmi088 {
 
 class Gyroscope final
-    : private ISpiModule
+    : private SpiModule
     , private core::utility::Immovable {
 public:
     using Lazy = utility::Lazy<Gyroscope, Spi::Lazy*, ChipSelectPin>;
 
     enum class DataRange : uint8_t {
-        _2000 = 0x00,
-        _1000 = 0x01,
-        _500 = 0x02,
-        _250 = 0x03,
-        _125 = 0x04,
+        k2000 = 0x00,
+        k1000 = 0x01,
+        k500 = 0x02,
+        k250 = 0x03,
+        k125 = 0x04,
     };
     enum class DataRateAndBandwidth : uint8_t {
-        _2000_532 = 0x00,
-        _2000_230 = 0x01,
-        _1000_116 = 0x02,
-        _400_47 = 0x03,
-        _200_23 = 0x04,
-        _100_12 = 0x05,
-        _200_64 = 0x06,
-        _100_32 = 0x07,
+        k2000532 = 0x00,
+        k2000230 = 0x01,
+        k1000116 = 0x02,
+        k40047 = 0x03,
+        k20023 = 0x04,
+        k10012 = 0x05,
+        k20064 = 0x06,
+        k10032 = 0x07,
     };
 
     explicit Gyroscope(
-        Spi::Lazy* spi, ChipSelectPin chip_select, DataRange range = DataRange::_2000,
-        DataRateAndBandwidth rate = DataRateAndBandwidth::_2000_230)
-        : ISpiModule(chip_select)
+        Spi::Lazy* spi, ChipSelectPin chip_select, DataRange range = DataRange::k2000,
+        DataRateAndBandwidth rate = DataRateAndBandwidth::k2000230)
+        : SpiModule(chip_select)
         , spi_(spi->init()) {
 
         core::utility::assert_debug(spi_.try_lock());
@@ -79,54 +79,54 @@ public:
         };
 
         // Reset all registers to reset value.
-        write_blocked(RegisterAddress::GYRO_SOFTRESET, 0xB6);
+        write_blocked(RegisterAddress::kGyroSoftreset, 0xB6);
         board_delay_ms(30);
 
         // "Who am I" check.
-        core::utility::assert_always(read_with_confirm(RegisterAddress::GYRO_CHIP_ID, 0x0F));
+        core::utility::assert_always(read_with_confirm(RegisterAddress::kGyroChipId, 0x0F));
 
         // Enable the new data interrupt.
-        core::utility::assert_always(write_with_confirm(RegisterAddress::GYRO_INT_CTRL, 0x80));
+        core::utility::assert_always(write_with_confirm(RegisterAddress::kGyroIntCtrl, 0x80));
 
         // Set both INT3 and INT4 as push-pull, active-low, even though only INT3 is used.
         core::utility::assert_always(
-            write_with_confirm(RegisterAddress::INT3_INT4_IO_CONF, 0b0000));
+            write_with_confirm(RegisterAddress::kInT3InT4IoConf, 0b0000));
         // Map data ready interrupt to INT3 pin.
-        core::utility::assert_always(write_with_confirm(RegisterAddress::INT3_INT4_IO_MAP, 0x01));
+        core::utility::assert_always(write_with_confirm(RegisterAddress::kInT3InT4IoMap, 0x01));
 
         // Set ODR (output data rate, Hz) and filter bandwidth (Hz).
         core::utility::assert_always(
-            write_with_confirm(RegisterAddress::GYRO_BANDWIDTH, 0x80 | static_cast<uint8_t>(rate)));
+            write_with_confirm(RegisterAddress::kGyroBandwidth, 0x80 | static_cast<uint8_t>(rate)));
         // Set data range.
         core::utility::assert_always(
-            write_with_confirm(RegisterAddress::GYRO_RANGE, static_cast<uint8_t>(range)));
+            write_with_confirm(RegisterAddress::kGyroRange, static_cast<uint8_t>(range)));
 
         // Switch the main power mode into normal mode.
-        core::utility::assert_always(write_with_confirm(RegisterAddress::GYRO_LPM1, 0x00));
+        core::utility::assert_always(write_with_confirm(RegisterAddress::kGyroLpM1, 0x00));
 
         spi_.unlock();
     }
 
-    void data_ready_callback() { read(RegisterAddress::RATE_X_LSB, 6); }
+    void data_ready_callback() { read(RegisterAddress::kRateXLsb, 6); }
 
 private:
     enum class RegisterAddress : uint8_t {
-        GYRO_SELF_TEST = 0x3C,
-        INT3_INT4_IO_MAP = 0x18,
-        INT3_INT4_IO_CONF = 0x16,
-        GYRO_INT_CTRL = 0x15,
-        GYRO_SOFTRESET = 0x14,
-        GYRO_LPM1 = 0x11,
-        GYRO_BANDWIDTH = 0x10,
-        GYRO_RANGE = 0x0F,
-        GYRO_INT_STAT_1 = 0x0A,
-        RATE_Z_MSB = 0x07,
-        RATE_Z_LSB = 0x06,
-        RATE_Y_MSB = 0x05,
-        RATE_Y_LSB = 0x04,
-        RATE_X_MSB = 0x03,
-        RATE_X_LSB = 0x02,
-        GYRO_CHIP_ID = 0x00,
+        kGyroSelfTest = 0x3C,
+        kInT3InT4IoMap = 0x18,
+        kInT3InT4IoConf = 0x16,
+        kGyroIntCtrl = 0x15,
+        kGyroSoftreset = 0x14,
+        kGyroLpM1 = 0x11,
+        kGyroBandwidth = 0x10,
+        kGyroRange = 0x0F,
+        kGyroIntStat1 = 0x0A,
+        kRateZMsb = 0x07,
+        kRateZLsb = 0x06,
+        kRateYMsb = 0x05,
+        kRateYLsb = 0x04,
+        kRateXMsb = 0x03,
+        kRateXLsb = 0x02,
+        kGyroChipId = 0x00,
     };
 
     struct __attribute__((packed)) Data {

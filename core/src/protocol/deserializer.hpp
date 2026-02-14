@@ -14,14 +14,14 @@
 
 namespace librmcs::core::protocol {
 
-class IDeserializeCallback {
+class DeserializeCallback {
 public:
-    IDeserializeCallback() = default;
-    IDeserializeCallback(const IDeserializeCallback&) = delete;
-    IDeserializeCallback& operator=(const IDeserializeCallback&) = delete;
-    IDeserializeCallback(IDeserializeCallback&&) = delete;
-    IDeserializeCallback& operator=(IDeserializeCallback&&) = delete;
-    virtual ~IDeserializeCallback() = default;
+    DeserializeCallback() = default;
+    DeserializeCallback(const DeserializeCallback&) = delete;
+    DeserializeCallback& operator=(const DeserializeCallback&) = delete;
+    DeserializeCallback(DeserializeCallback&&) = delete;
+    DeserializeCallback& operator=(DeserializeCallback&&) = delete;
+    virtual ~DeserializeCallback() = default;
 
     virtual void can_deserialized_callback(FieldId id, const data::CanDataView& data) = 0;
 
@@ -38,7 +38,7 @@ class Deserializer : private coroutine::InlineLifoContext<1024> {
     friend coroutine::LifoStackedPromise<>;
 
 public:
-    constexpr explicit Deserializer(IDeserializeCallback& callback)
+    constexpr explicit Deserializer(DeserializeCallback& callback)
         : callback_(callback)
         , main_task_(process_stream()) {};
 
@@ -240,7 +240,7 @@ private:
 
     bool discard_mode_ = false;
     bool awaiting_field_first_byte_ = false;
-    IDeserializeCallback& callback_;
+    DeserializeCallback& callback_;
 
     size_t pending_bytes_ = 0, requested_bytes_ = 0;
     alignas(std::max_align_t) std::byte pending_bytes_buffer_[kProtocolBufferSize];

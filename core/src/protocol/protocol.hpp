@@ -84,8 +84,8 @@ struct UartHeaderExtended
 
 struct ImuHeader : utility::Bitfield<1> {
     enum class PayloadEnum : uint8_t {
-        ACCELEROMETER = 0,
-        GYROSCOPE = 1,
+        kAccelerometer = 0,
+        kGyroscope = 1,
     };
     using PayloadType = utility::BitfieldMember<4, 4, PayloadEnum>;
 };

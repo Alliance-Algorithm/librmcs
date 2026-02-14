@@ -25,7 +25,7 @@ coroutine::LifoTask<void> Deserializer::process_stream() {
             id = header.get<FieldHeader::Id>();
             awaiting_field_first_byte_ = false;
         }
-        if (id == FieldId::EXTEND) {
+        if (id == FieldId::kExtend) {
             const auto* header_bytes = co_await peek_bytes(sizeof(FieldHeaderExtended));
             if (!header_bytes) [[unlikely]] {
                 enter_discard_mode();
@@ -38,20 +38,20 @@ coroutine::LifoTask<void> Deserializer::process_stream() {
 
         bool success = false;
         switch (id) {
-        case FieldId::CAN0:
-        case FieldId::CAN1:
-        case FieldId::CAN2:
-        case FieldId::CAN3:
-        case FieldId::CAN4:
-        case FieldId::CAN5:
-        case FieldId::CAN6:
-        case FieldId::CAN7: success = co_await process_can_field(id); break;
-        case FieldId::UART_DBUS:
-        case FieldId::UART0:
-        case FieldId::UART1:
-        case FieldId::UART2:
-        case FieldId::UART3: success = co_await process_uart_field(id); break;
-        case FieldId::IMU: success = co_await process_imu_field(id); break;
+        case FieldId::kCan0:
+        case FieldId::kCan1:
+        case FieldId::kCan2:
+        case FieldId::kCan3:
+        case FieldId::kCan4:
+        case FieldId::kCan5:
+        case FieldId::kCan6:
+        case FieldId::kCan7: success = co_await process_can_field(id); break;
+        case FieldId::kUartDbus:
+        case FieldId::kUart0:
+        case FieldId::kUart1:
+        case FieldId::kUart2:
+        case FieldId::kUart3: success = co_await process_uart_field(id); break;
+        case FieldId::kImu: success = co_await process_imu_field(id); break;
         default: break;
         }
         if (!success)
@@ -163,7 +163,7 @@ coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
     }
 
     switch (payload_type) {
-    case ImuHeader::PayloadEnum::ACCELEROMETER: {
+    case ImuHeader::PayloadEnum::kAccelerometer: {
         data::AccelerometerDataView data_view{};
         const auto* payload_bytes = co_await peek_bytes(sizeof(ImuAccelerometerPayload));
         if (!payload_bytes) [[unlikely]]
@@ -176,7 +176,7 @@ coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
         callback_.accelerometer_deserialized_callback(data_view);
         break;
     }
-    case ImuHeader::PayloadEnum::GYROSCOPE: {
+    case ImuHeader::PayloadEnum::kGyroscope: {
         data::GyroscopeDataView data_view{};
         const auto* payload_bytes = co_await peek_bytes(sizeof(ImuGyroscopePayload));
         if (!payload_bytes) [[unlikely]]
