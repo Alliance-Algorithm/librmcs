@@ -89,9 +89,9 @@ public:
         core::utility::assert_always(write_with_confirm(RegisterAddress::kGyroIntCtrl, 0x80));
 
         // Set both INT3 and INT4 as push-pull, active-low, even though only INT3 is used.
-        core::utility::assert_always(write_with_confirm(RegisterAddress::kInt3InT4IoConf, 0b0000));
+        core::utility::assert_always(write_with_confirm(RegisterAddress::kInt3Int4IoConf, 0b0000));
         // Map data ready interrupt to INT3 pin.
-        core::utility::assert_always(write_with_confirm(RegisterAddress::kInt3InT4IoMap, 0x01));
+        core::utility::assert_always(write_with_confirm(RegisterAddress::kInt3Int4IoMap, 0x01));
 
         // Set ODR (output data rate, Hz) and filter bandwidth (Hz).
         core::utility::assert_always(
@@ -111,8 +111,8 @@ public:
 private:
     enum class RegisterAddress : uint8_t {
         kGyroSelfTest = 0x3C,
-        kInt3InT4IoMap = 0x18,
-        kInt3InT4IoConf = 0x16,
+        kInt3Int4IoMap = 0x18,
+        kInt3Int4IoConf = 0x16,
         kGyroIntCtrl = 0x15,
         kGyroSoftreset = 0x14,
         kGyroLpM1 = 0x11,
