@@ -20,27 +20,27 @@
 namespace librmcs::firmware::spi::bmi088 {
 
 class Accelerometer final
-    : private ISpiModule
+    : private SpiModule
     , private core::utility::Immovable {
 public:
     using Lazy = utility::Lazy<Accelerometer, Spi::Lazy*, ChipSelectPin>;
 
-    enum class Range : uint8_t { _3G = 0x00, _6G = 0x01, _12G = 0x02, _24G = 0x03 };
+    enum class Range : uint8_t { k3G = 0x00, k6G = 0x01, k12G = 0x02, k24G = 0x03 };
     enum class DataRate : uint8_t {
-        _12 = 0x05,
-        _25 = 0x06,
-        _50 = 0x07,
-        _100 = 0x08,
-        _200 = 0x09,
-        _400 = 0x0A,
-        _800 = 0x0B,
-        _1600 = 0x0C,
+        k12Hz = 0x05,
+        k25Hz = 0x06,
+        k50Hz = 0x07,
+        k100Hz = 0x08,
+        k200Hz = 0x09,
+        k400Hz = 0x0A,
+        k800Hz = 0x0B,
+        k1600Hz = 0x0C,
     };
 
     explicit Accelerometer(
-        Spi::Lazy* spi, ChipSelectPin chip_select, Range range = Range::_6G,
-        DataRate data_rate = DataRate::_1600)
-        : ISpiModule(chip_select)
+        Spi::Lazy* spi, ChipSelectPin chip_select, Range range = Range::k6G,
+        DataRate data_rate = DataRate::k1600Hz)
+        : SpiModule(chip_select)
         , spi_(spi->init()) {
 
         core::utility::assert_debug(spi_.try_lock());
@@ -73,66 +73,66 @@ public:
         };
 
         // Dummy read to switch accelerometer to SPI mode.
-        read_blocked(RegisterAddress::ACC_CHIP_ID);
+        read_blocked(RegisterAddress::kAccChipId);
         board_delay_ms(1);
 
         // Reset all registers to reset value.
-        write_blocked(RegisterAddress::ACC_SOFTRESET, 0xB6);
+        write_blocked(RegisterAddress::kAccSoftreset, 0xB6);
         board_delay_ms(1);
 
         // "Who am I" check.
-        core::utility::assert_always(read_with_confirm(RegisterAddress::ACC_CHIP_ID, 0x1E));
+        core::utility::assert_always(read_with_confirm(RegisterAddress::kAccChipId, 0x1E));
 
         // Enable INT1 as output pin, push-pull, active-low.
-        core::utility::assert_always(write_with_confirm(RegisterAddress::INT1_IO_CTRL, 0b00001000));
+        core::utility::assert_always(write_with_confirm(RegisterAddress::kInt1IoCtrl, 0b00001000));
         // Map data ready interrupt to pin INT1.
-        core::utility::assert_always(write_with_confirm(RegisterAddress::INT_MAP_DATA, 0b00000100));
+        core::utility::assert_always(write_with_confirm(RegisterAddress::kIntMapData, 0b00000100));
 
         // Set ODR (output data rate) = data_rate and OSR (over-sampling-ratio) = 1.
         core::utility::assert_always(write_with_confirm(
-            RegisterAddress::ACC_CONF,
+            RegisterAddress::kAccConf,
             0x80 | (0x02 << 4) | (static_cast<uint8_t>(data_rate) << 0)));
         // Set accelerometer range.
         core::utility::assert_always(
-            write_with_confirm(RegisterAddress::ACC_RANGE, static_cast<uint8_t>(range)));
+            write_with_confirm(RegisterAddress::kAccRange, static_cast<uint8_t>(range)));
 
         // Switch the accelerometer into active mode.
-        core::utility::assert_always(write_with_confirm(RegisterAddress::ACC_PWR_CONF, 0x00));
+        core::utility::assert_always(write_with_confirm(RegisterAddress::kAccPwrConf, 0x00));
         // Turn on the accelerometer.
-        core::utility::assert_always(write_with_confirm(RegisterAddress::ACC_PWR_CTRL, 0x04));
+        core::utility::assert_always(write_with_confirm(RegisterAddress::kAccPwrCtrl, 0x04));
         board_delay_ms(1); // Datasheet: wait >=450us after entering normal mode
 
         spi_.unlock();
     }
 
-    void data_ready_callback() { read(RegisterAddress::ACC_X_LSB, 6); }
+    void data_ready_callback() { read(RegisterAddress::kAccXLsb, 6); }
 
 private:
     enum class RegisterAddress : uint8_t {
-        ACC_SOFTRESET = 0x7E,
-        ACC_PWR_CTRL = 0x7D,
-        ACC_PWR_CONF = 0x7C,
-        ACC_SELF_TEST = 0x6D,
-        INT_MAP_DATA = 0x58,
-        INT2_IO_CTRL = 0x54,
-        INT1_IO_CTRL = 0x53,
-        ACC_RANGE = 0x41,
-        ACC_CONF = 0x40,
-        TEMP_LSB = 0x23,
-        TEMP_MSB = 0x22,
-        ACC_INT_STAT_1 = 0x1D,
-        SENSORTIME_2 = 0x1A,
-        SENSORTIME_1 = 0x19,
-        SENSORTIME_0 = 0x18,
-        ACC_Z_MSB = 0x17,
-        ACC_Z_LSB = 0x16,
-        ACC_Y_MSB = 0x15,
-        ACC_Y_LSB = 0x14,
-        ACC_X_MSB = 0x13,
-        ACC_X_LSB = 0x12,
-        ACC_STATUS = 0x03,
-        ACC_ERR_REG = 0x02,
-        ACC_CHIP_ID = 0x00,
+        kAccSoftreset = 0x7E,
+        kAccPwrCtrl = 0x7D,
+        kAccPwrConf = 0x7C,
+        kAccSelfTest = 0x6D,
+        kIntMapData = 0x58,
+        kInt2IoCtrl = 0x54,
+        kInt1IoCtrl = 0x53,
+        kAccRange = 0x41,
+        kAccConf = 0x40,
+        kTempLsb = 0x23,
+        kTempMsb = 0x22,
+        kAccIntStat1 = 0x1D,
+        kSensortime2 = 0x1A,
+        kSensortime1 = 0x19,
+        kSensortime0 = 0x18,
+        kAccZMsb = 0x17,
+        kAccZLsb = 0x16,
+        kAccYMsb = 0x15,
+        kAccYLsb = 0x14,
+        kAccXMsb = 0x13,
+        kAccXLsb = 0x12,
+        kAccStatus = 0x03,
+        kAccErrReg = 0x02,
+        kAccChipId = 0x00,
     };
 
     struct __attribute__((packed)) Data {

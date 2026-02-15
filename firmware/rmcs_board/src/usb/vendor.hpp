@@ -26,7 +26,7 @@
 namespace librmcs::firmware::usb {
 
 class Vendor
-    : private core::protocol::IDeserializeCallback
+    : private core::protocol::DeserializeCallback
     , private core::utility::Immovable {
 public:
     using Lazy = utility::Lazy<Vendor>;
@@ -85,10 +85,10 @@ private:
     void can_deserialized_callback(
         core::protocol::FieldId id, const data::CanDataView& data) override {
         switch (id) {
-        case data::DataId::CAN0: can::can0->handle_downlink(data); break;
-        case data::DataId::CAN1: can::can1->handle_downlink(data); break;
-        case data::DataId::CAN2: can::can2->handle_downlink(data); break;
-        case data::DataId::CAN3: can::can3->handle_downlink(data); break;
+        case data::DataId::kCan0: can::can0->handle_downlink(data); break;
+        case data::DataId::kCan1: can::can1->handle_downlink(data); break;
+        case data::DataId::kCan2: can::can2->handle_downlink(data); break;
+        case data::DataId::kCan3: can::can3->handle_downlink(data); break;
         default: core::utility::assert_failed_always();
         }
     };
@@ -96,7 +96,7 @@ private:
     void uart_deserialized_callback(
         core::protocol::FieldId id, const data::UartDataView& data) override {
         switch (id) {
-        case data::DataId::UART3: uart::uart3->handle_downlink(data); break;
+        case data::DataId::kUart3: uart::uart3->handle_downlink(data); break;
         // TODO: Handle other UART events
         default: core::utility::assert_failed_always();
         }

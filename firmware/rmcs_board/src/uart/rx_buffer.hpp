@@ -71,7 +71,7 @@ private:
         config.dst_mode = DMA_MGR_HANDSHAKE_MODE_NORMAL;
         config.src_burst_size = DMA_MGR_NUM_TRANSFER_PER_BURST_1T;
         config.size_in_byte = kDmaTransSize;
-        config.linked_ptr = reinterpret_cast<uintptr_t>(&dma_linked_descriptors[1]);
+        config.linked_ptr = reinterpret_cast<uintptr_t>(&dma_linked_descriptors_[1]);
         static_assert(kDmaDescriptorCount >= 2);
         config.interrupt_mask = DMA_INTERRUPT_MASK_ABORT | DMA_INTERRUPT_MASK_ERROR;
 
@@ -80,16 +80,16 @@ private:
             && dma_mgr_setup_channel(&dma_, &config) == status_success);
 
         for (size_t i = 0; i < kDmaDescriptorCount; i++) {
-            config.linked_ptr =
-                reinterpret_cast<uintptr_t>(&dma_linked_descriptors[(i + 1) % kDmaDescriptorCount]);
+            config.linked_ptr = reinterpret_cast<uintptr_t>(
+                &dma_linked_descriptors_[(i + 1) % kDmaDescriptorCount]);
             core::utility::assert_always(
-                dma_mgr_config_linked_descriptor(&dma_, &config, &dma_linked_descriptors[i])
+                dma_mgr_config_linked_descriptor(&dma_, &config, &dma_linked_descriptors_[i])
                 == status_success);
             config.dst_addr += kDmaTransSize;
         }
         l1c_dc_flush(
-            reinterpret_cast<size_t>(dma_linked_descriptors.data()),
-            sizeof(dma_linked_descriptors));
+            reinterpret_cast<size_t>(dma_linked_descriptors_.data()),
+            sizeof(dma_linked_descriptors_));
 
         auto callback = [](DMA_Type* /*base*/, uint32_t /*channel*/, void* user_data) {
             static_cast<RxBuffer*>(user_data)->dma_tc_half_tc_callback();
@@ -167,7 +167,7 @@ private:
     alignas(HPM_L1C_CACHELINE_SIZE) std::array<std::byte, kBufferSize> data_buffer_;
 
     alignas(HPM_L1C_CACHELINE_SIZE)
-        std::array<dma_mgr_linked_descriptor_t, kDmaDescriptorCount> dma_linked_descriptors;
+        std::array<dma_mgr_linked_descriptor_t, kDmaDescriptorCount> dma_linked_descriptors_;
     static_assert(std::is_standard_layout_v<dma_mgr_linked_descriptor_t>);
     static_assert(std::is_standard_layout_v<dma_linked_descriptor_t>);
     static_assert(sizeof(dma_mgr_linked_descriptor_t) == sizeof(dma_linked_descriptor_t));

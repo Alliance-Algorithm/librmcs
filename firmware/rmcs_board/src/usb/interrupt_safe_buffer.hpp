@@ -14,7 +14,7 @@
 namespace librmcs::firmware::usb {
 
 class InterruptSafeBuffer final
-    : public core::protocol::ISerializeBuffer
+    : public core::protocol::SerializeBuffer
     , private core::utility::Immovable {
 public:
     static constexpr size_t kBatchCount = 8;
@@ -32,7 +32,7 @@ public:
 
             auto readable = in - out;
             if (readable) {
-                if (auto* result = batches_[(in - 1) & mask].allocate(size))
+                if (auto* result = batches_[(in - 1) & kMask].allocate(size))
                     return {result, size};
             }
 
@@ -46,7 +46,7 @@ public:
         }
     }
 
-    static constexpr size_t mask = kBatchCount - 1;
+    static constexpr size_t kMask = kBatchCount - 1;
 
     class Batch {
     public:
@@ -83,7 +83,7 @@ public:
         auto readable = in - out;
         if (!readable)
             return nullptr;
-        auto& batch = batches_[out & mask];
+        auto& batch = batches_[out & kMask];
         if (batch.empty())
             return nullptr;
 
@@ -106,7 +106,7 @@ public:
         if (!readable)
             return;
 
-        auto offset = out & mask;
+        auto offset = out & kMask;
         auto slice = std::min(readable, kBatchCount - offset);
 
         for (size_t i = 0; i < slice; i++)

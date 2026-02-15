@@ -27,17 +27,17 @@ struct ChipSelectPin {
     bool active_low = true;
 };
 
-class ISpiModule {
+class SpiModule {
 public:
     friend class Spi;
-    explicit ISpiModule(ChipSelectPin chip_select_pin)
+    explicit SpiModule(ChipSelectPin chip_select_pin)
         : chip_select_pin_(chip_select_pin) {}
 
-    ISpiModule(const ISpiModule&) = delete;
-    ISpiModule& operator=(const ISpiModule&) = delete;
-    ISpiModule(ISpiModule&&) = delete;
-    ISpiModule& operator=(ISpiModule&&) = delete;
-    virtual ~ISpiModule() = default;
+    SpiModule(const SpiModule&) = delete;
+    SpiModule& operator=(const SpiModule&) = delete;
+    SpiModule(SpiModule&&) = delete;
+    SpiModule& operator=(SpiModule&&) = delete;
+    virtual ~SpiModule() = default;
 
 protected:
     virtual void transmit_receive_completed_callback(std::size_t size) = 0;
@@ -98,7 +98,7 @@ public:
 
     bool try_lock() { return !locking_.test_and_set(std::memory_order::relaxed); }
 
-    void transmit_receive(ISpiModule& module, std::size_t size) {
+    void transmit_receive(SpiModule& module, std::size_t size) {
         core::utility::assert_debug(size <= kMaxTransferSize);
         core::utility::assert_debug_lazy(
             [&]() noexcept { return locking() && !spi_is_active(spi_base_); });
@@ -119,7 +119,7 @@ public:
         }
     }
 
-    void transmit_receive_blocked(ISpiModule& module, std::size_t size) {
+    void transmit_receive_blocked(SpiModule& module, std::size_t size) {
         intc_m_disable_irq(irq_num_);
 
         transmit_receive(module, size);
@@ -148,7 +148,7 @@ public:
     alignas(HPM_L1C_CACHELINE_SIZE) std::byte rx_buffer[HPM_L1C_CACHELINE_SIZE];
 
 private:
-    void begin_transfer(ISpiModule& module, std::size_t size) {
+    void begin_transfer(SpiModule& module, std::size_t size) {
         module_ = &module;
         tx_rx_size_ = size;
 
@@ -157,7 +157,7 @@ private:
         gpio_write_pin(gpio, cs.port, cs.pin, cs.active_low ? 0 : 1);
     }
 
-    ISpiModule* finish_transfer() {
+    SpiModule* finish_transfer() {
         if (!module_)
             return nullptr;
 
@@ -178,7 +178,7 @@ private:
 
     std::atomic_flag locking_;
 
-    ISpiModule* module_ = nullptr;
+    SpiModule* module_ = nullptr;
     size_t tx_rx_size_ = 0;
 
     spi_control_config_t control_config_{};

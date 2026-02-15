@@ -13,7 +13,7 @@ namespace librmcs::host::transport {
 /**
  * @brief Buffer interface for transport operations.
  *
- * Buffers are acquired from ITransport and must be returned to the same
+ * Buffers are acquired from Transport and must be returned to the same
  * transport instance through either transmit() or release_transmit_buffer().
  *
  * @section Ownership Rules:
@@ -25,16 +25,16 @@ namespace librmcs::host::transport {
  * - data() returns a memory region of exactly kProtocolBufferSize bytes
  * - data() always returns the same memory region for a given buffer instance
  */
-class ITransportBuffer {
+class TransportBuffer {
 public:
     using BufferSpanType = std::span<std::byte, core::protocol::kProtocolBufferSize>;
 
-    ITransportBuffer() = default;
-    ITransportBuffer(const ITransportBuffer&) = delete;
-    ITransportBuffer& operator=(const ITransportBuffer&) = delete;
-    ITransportBuffer(ITransportBuffer&&) = delete;
-    ITransportBuffer& operator=(ITransportBuffer&&) = delete;
-    virtual ~ITransportBuffer() noexcept = default;
+    TransportBuffer() = default;
+    TransportBuffer(const TransportBuffer&) = delete;
+    TransportBuffer& operator=(const TransportBuffer&) = delete;
+    TransportBuffer(TransportBuffer&&) = delete;
+    TransportBuffer& operator=(TransportBuffer&&) = delete;
+    virtual ~TransportBuffer() noexcept = default;
 
     /**
      * @brief Returns a mutable view of the buffer's memory region.
@@ -51,7 +51,7 @@ public:
  *
  * @section Buffer Lifecycle:
  * - Acquire buffers via acquire_transmit_buffer()
- * - Fill buffer with data using IBuffer::data()
+ * - Fill buffer with data using TransportBuffer::data()
  * - Either transmit the buffer via transmit() or return it via release_transmit_buffer()
  * - Never destroy buffers externally - let the transport manage their lifecycle
  *
@@ -64,14 +64,14 @@ public:
  * - Implementations should detect and log errors when buffers are destroyed externally
  * - Buffer ownership violations should be treated as programming errors
  */
-class ITransport {
+class Transport {
 public:
-    ITransport() = default;
-    virtual ~ITransport() noexcept = default;
-    ITransport(const ITransport&) = delete;
-    ITransport& operator=(const ITransport&) = delete;
-    ITransport(ITransport&&) = delete;
-    ITransport& operator=(ITransport&&) = delete;
+    Transport() = default;
+    virtual ~Transport() noexcept = default;
+    Transport(const Transport&) = delete;
+    Transport& operator=(const Transport&) = delete;
+    Transport(Transport&&) = delete;
+    Transport& operator=(Transport&&) = delete;
 
     /**
      * @brief Acquires a buffer for transmission.
@@ -82,7 +82,7 @@ public:
      * @return A buffer with exactly kProtocolBufferSize bytes of writable memory, or nullptr
      *         if buffer acquisition fails (e.g., resource exhaustion)
      */
-    virtual std::unique_ptr<ITransportBuffer> acquire_transmit_buffer() noexcept = 0;
+    virtual std::unique_ptr<TransportBuffer> acquire_transmit_buffer() noexcept = 0;
 
     /**
      * @brief Transmits data from the provided buffer.
@@ -97,7 +97,7 @@ public:
      *   - buffer must be non-null and acquired from this transport
      *   - payload_size must be <= buffer capacity
      */
-    virtual void transmit(std::unique_ptr<ITransportBuffer> buffer, size_t payload_size) = 0;
+    virtual void transmit(std::unique_ptr<TransportBuffer> buffer, size_t payload_size) = 0;
 
     /**
      * @brief Returns an unused buffer back to the transport.
@@ -111,7 +111,7 @@ public:
      *   - buffer must be non-null and acquired from this transport
      *   - buffer must not have been previously transmitted or released
      */
-    virtual void release_transmit_buffer(std::unique_ptr<ITransportBuffer> buffer) = 0;
+    virtual void release_transmit_buffer(std::unique_ptr<TransportBuffer> buffer) = 0;
 
     /**
      * @brief Starts receiving data with the provided callback.
@@ -137,7 +137,7 @@ public:
     virtual void receive(std::function<void(std::span<const std::byte>)> callback) = 0;
 };
 
-std::unique_ptr<ITransport>
+std::unique_ptr<Transport>
     create_usb_transport(uint16_t usb_vid, int32_t usb_pid, const char* serial_number);
 
 } // namespace librmcs::host::transport

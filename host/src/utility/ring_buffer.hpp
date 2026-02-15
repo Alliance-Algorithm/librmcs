@@ -27,7 +27,7 @@ public:
             size = 2;
         else
             size = round_up_to_next_power_of_2(size);
-        mask = size - 1;
+        mask_ = size - 1;
         storage_ = new Storage[size];
     }
 
@@ -49,7 +49,7 @@ public:
      * @brief Capacity of the ring buffer
      * @return Total number of slots (power of two)
      */
-    size_t max_size() const { return mask + 1; }
+    size_t max_size() const { return mask_ + 1; }
 
     /*!
      * @brief Number of elements currently readable
@@ -87,7 +87,7 @@ public:
         if (out == in_.load(std::memory_order::acquire))
             return nullptr;
 
-        return std::launder(reinterpret_cast<T*>(storage_[out & mask].data));
+        return std::launder(reinterpret_cast<T*>(storage_[out & mask_].data));
     }
 
     /*!
@@ -102,7 +102,7 @@ public:
         if (in == out_.load(std::memory_order::relaxed))
             return nullptr;
 
-        return std::launder(reinterpret_cast<T*>(storage_[(in - 1) & mask].data));
+        return std::launder(reinterpret_cast<T*>(storage_[(in - 1) & mask_].data));
     }
 
     /*!
@@ -128,7 +128,7 @@ public:
         if (!count)
             return 0;
 
-        const auto offset = in & mask;
+        const auto offset = in & mask_;
         const auto slice = std::min(count, max_size() - offset);
 
         for (size_t i = 0; i < slice; i++)
@@ -211,7 +211,7 @@ public:
         if (!count)
             return 0;
 
-        const auto offset = out & mask;
+        const auto offset = out & mask_;
         const auto slice = std::min(count, max_size() - offset);
 
         auto process = [&callback_functor](std::byte* storage) {
@@ -266,7 +266,7 @@ private:
         return n;
     }
 
-    size_t mask;
+    size_t mask_;
     struct Storage {
         alignas(T) std::byte data[sizeof(T)];
     }* storage_;

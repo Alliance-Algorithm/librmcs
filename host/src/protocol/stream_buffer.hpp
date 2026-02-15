@@ -17,7 +17,7 @@ namespace librmcs::host::protocol {
 /**
  * @brief A buffered stream writer for efficient sequential data transmission.
  *
- * StreamBuffer manages a buffer pool from an ITransport and provides a
+ * StreamBuffer manages a buffer pool from a Transport and provides a
  * streaming interface for writing data. It automatically handles buffer
  * allocation, switching, and transmission, allowing users to focus on
  * writing data without managing buffer lifecycle.
@@ -58,7 +58,7 @@ namespace librmcs::host::protocol {
  *   // Destructor automatically transmits all written data
  * @endcode
  */
-class StreamBuffer : public core::protocol::ISerializeBuffer {
+class StreamBuffer : public core::protocol::SerializeBuffer {
 public:
     /**
      * @brief Constructs a StreamBuffer bound to the specified transport.
@@ -66,7 +66,7 @@ public:
      * @param transport The transport to use for buffer acquisition and transmission.
      *                  Must outlive this StreamBuffer instance.
      */
-    explicit StreamBuffer(transport::ITransport& transport) noexcept
+    explicit StreamBuffer(transport::Transport& transport) noexcept
         : transport_(transport) {};
 
     StreamBuffer(StreamBuffer&& other) noexcept
@@ -218,9 +218,9 @@ private:
         current_ = end_ = nullptr;
     }
 
-    transport::ITransport& transport_;
+    transport::Transport& transport_;
 
-    std::unique_ptr<transport::ITransportBuffer> buffer_ = nullptr;
+    std::unique_ptr<transport::TransportBuffer> buffer_ = nullptr;
     std::byte *current_ = nullptr, *end_ = nullptr;
 };
 

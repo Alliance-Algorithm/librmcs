@@ -7,26 +7,26 @@
 namespace librmcs::data {
 
 enum class DataId : uint8_t {
-    EXTEND = 0,
+    kExtend = 0,
 
-    GPIO = 1,
+    kGpio = 1,
 
-    CAN0 = 2,
-    CAN1 = 3,
-    CAN2 = 4,
-    CAN3 = 5,
-    CAN4 = 6,
-    CAN5 = 7,
-    CAN6 = 8,
-    CAN7 = 9,
+    kCan0 = 2,
+    kCan1 = 3,
+    kCan2 = 4,
+    kCan3 = 5,
+    kCan4 = 6,
+    kCan5 = 7,
+    kCan6 = 8,
+    kCan7 = 9,
 
-    UART_DBUS = 10,
-    UART0 = 11,
-    UART1 = 12,
-    UART2 = 13,
-    UART3 = 14,
+    kUartDbus = 10,
+    kUart0 = 11,
+    kUart1 = 12,
+    kUart2 = 13,
+    kUart3 = 14,
 
-    IMU = 15,
+    kImu = 15,
 };
 
 struct CanDataView {
@@ -54,14 +54,14 @@ struct GyroscopeDataView {
     int16_t z;
 };
 
-class IDataCallback {
+class DataCallback {
 public:
-    IDataCallback() = default;
-    IDataCallback(const IDataCallback&) = delete;
-    IDataCallback& operator=(const IDataCallback&) = delete;
-    IDataCallback(IDataCallback&&) = delete;
-    IDataCallback& operator=(IDataCallback&&) = delete;
-    virtual ~IDataCallback() = default;
+    DataCallback() = default;
+    DataCallback(const DataCallback&) = delete;
+    DataCallback& operator=(const DataCallback&) = delete;
+    DataCallback(DataCallback&&) = delete;
+    DataCallback& operator=(DataCallback&&) = delete;
+    virtual ~DataCallback() = default;
 
     // `*_receive_callback` returns `true` if id is valid
     virtual bool can_receive_callback(DataId id, const CanDataView& data) = 0;

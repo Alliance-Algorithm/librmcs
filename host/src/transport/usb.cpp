@@ -27,11 +27,11 @@
 
 namespace librmcs::host::transport {
 
-class Usb : public ITransport {
+class Usb : public Transport {
 public:
     explicit Usb(uint16_t usb_vid, int32_t usb_pid, const char* serial_number)
         : logger_(logging::get_logger())
-        , free_transmit_transfers_(transmit_transfer_count_) {
+        , free_transmit_transfers_(kTransmitTransferCount) {
         if (!usb_init(usb_vid, usb_pid, serial_number)) {
             throw std::runtime_error{"Failed to init."};
         }
@@ -55,7 +55,7 @@ public:
             delete wrapper;
         });
 
-        libusb_release_interface(libusb_device_handle_, target_interface_);
+        libusb_release_interface(libusb_device_handle_, kTargetInterface);
 
         // libusb_close() reliably cancels all pending transfers and invokes their callbacks,
         // avoiding race conditions present in other cancellation methods
@@ -67,7 +67,7 @@ public:
         libusb_exit(libusb_context_);
     }
 
-    std::unique_ptr<ITransportBuffer> acquire_transmit_buffer() noexcept override {
+    std::unique_ptr<TransportBuffer> acquire_transmit_buffer() noexcept override {
         TransferWrapper* transfer = nullptr;
         {
             const std::scoped_lock guard{transmit_transfer_pop_mutex_};
@@ -77,10 +77,10 @@ public:
         if (!transfer)
             return nullptr;
 
-        return std::unique_ptr<ITransportBuffer>{transfer};
+        return std::unique_ptr<TransportBuffer>{transfer};
     };
 
-    void transmit(std::unique_ptr<ITransportBuffer> buffer, size_t size) override {
+    void transmit(std::unique_ptr<TransportBuffer> buffer, size_t size) override {
         core::utility::assert_debug(static_cast<bool>(buffer));
 
         if (size > core::protocol::kProtocolBufferSize)
@@ -101,7 +101,7 @@ public:
         std::ignore = buffer.release();
     }
 
-    void release_transmit_buffer(std::unique_ptr<ITransportBuffer> buffer) override {
+    void release_transmit_buffer(std::unique_ptr<TransportBuffer> buffer) override {
         core::utility::assert_debug(static_cast<bool>(buffer));
 
         const std::scoped_lock guard{transmit_transfer_push_mutex_};
@@ -122,7 +122,7 @@ public:
     };
 
 private:
-    class TransferWrapper : public ITransportBuffer {
+    class TransferWrapper : public TransportBuffer {
         friend class Usb;
 
     public:
@@ -178,7 +178,7 @@ private:
         utility::FinalAction close_device_handle{
             [this]() noexcept { libusb_close(libusb_device_handle_); }};
 
-        ret = libusb_claim_interface(libusb_device_handle_, target_interface_);
+        ret = libusb_claim_interface(libusb_device_handle_, kTargetInterface);
         if (ret != 0) [[unlikely]] {
             logger_.error("Failed to claim interface: {} ({})", ret, libusb_errname(ret));
             return false;
@@ -347,14 +347,14 @@ private:
     }
 
     void init_transmit_transfers() {
-        TransferWrapper* transmit_transfers[transmit_transfer_count_] = {};
+        TransferWrapper* transmit_transfers[kTransmitTransferCount] = {};
         try {
             for (auto& wrapper : transmit_transfers) {
                 wrapper = new TransferWrapper{*this};
                 auto* transfer = wrapper->transfer_;
 
                 libusb_fill_bulk_transfer(
-                    transfer, libusb_device_handle_, out_endpoint_,
+                    transfer, libusb_device_handle_, kOutEndpoint,
                     new unsigned char[core::protocol::kProtocolBufferSize], 0,
                     [](libusb_transfer* transfer) {
                         auto* wrapper = static_cast<TransferWrapper*>(transfer->user_data);
@@ -375,15 +375,15 @@ private:
 
         auto* iter = transmit_transfers;
         free_transmit_transfers_.push_back_n(
-            [&iter]() noexcept { return *iter++; }, transmit_transfer_count_);
+            [&iter]() noexcept { return *iter++; }, kTransmitTransferCount);
     }
 
     void init_receive_transfers() {
-        for (size_t i = 0; i < receive_transfer_count_; i++) {
+        for (size_t i = 0; i < kReceiveTransferCount; i++) {
             auto* transfer = create_libusb_transfer();
 
             libusb_fill_bulk_transfer(
-                transfer, libusb_device_handle_, in_endpoint_,
+                transfer, libusb_device_handle_, kInEndpoint,
                 new unsigned char[core::protocol::kProtocolBufferSize],
                 static_cast<int>(core::protocol::kProtocolBufferSize),
                 [](libusb_transfer* transfer) {
@@ -476,13 +476,13 @@ private:
         }
     }
 
-    static constexpr int target_interface_ = 0x00;
+    static constexpr int kTargetInterface = 0x00;
 
-    static constexpr unsigned char out_endpoint_ = 0x01;
-    static constexpr unsigned char in_endpoint_ = 0x81;
+    static constexpr unsigned char kOutEndpoint = 0x01;
+    static constexpr unsigned char kInEndpoint = 0x81;
 
-    static constexpr size_t transmit_transfer_count_ = 64;
-    static constexpr size_t receive_transfer_count_ = 4;
+    static constexpr size_t kTransmitTransferCount = 64;
+    static constexpr size_t kReceiveTransferCount = 4;
 
     logging::Logger& logger_;
 
@@ -500,7 +500,7 @@ private:
     std::function<void(std::span<const std::byte>)> receive_callback_;
 };
 
-std::unique_ptr<ITransport>
+std::unique_ptr<Transport>
     create_usb_transport(uint16_t usb_vid, int32_t usb_pid, const char* serial_number) {
     return std::make_unique<Usb>(usb_vid, usb_pid, serial_number);
 }
