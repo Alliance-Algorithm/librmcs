@@ -102,7 +102,7 @@ public:
             (state == HAL_CAN_STATE_READY) || (state == HAL_CAN_STATE_LISTENING));
 
         const uint32_t tsr = hcan->Instance->TSR;
-        auto free_mailbox_count =
+        const unsigned int free_mailbox_count =
             !!(tsr & CAN_TSR_TME0) + !!(tsr & CAN_TSR_TME1) + !!(tsr & CAN_TSR_TME2);
 
         return transmit_buffer_.pop_front_n(

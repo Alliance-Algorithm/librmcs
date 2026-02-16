@@ -20,7 +20,7 @@ namespace librmcs::firmware::uart {
 
 class Uart {
 public:
-    using Lazy = utility::Lazy<Uart, UART_HandleTypeDef*, size_t>;
+    using Lazy = utility::Lazy<Uart, UART_HandleTypeDef*, uint16_t>;
 
     explicit Uart(UART_HandleTypeDef* hal_uart_handle, uint16_t max_receive_size)
         : hal_uart_handle_(hal_uart_handle)

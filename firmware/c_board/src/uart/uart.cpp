@@ -1,4 +1,4 @@
-#include "uart.hpp"
+#include "firmware/c_board/src/uart/uart.hpp"
 
 #include <cstdint>
 

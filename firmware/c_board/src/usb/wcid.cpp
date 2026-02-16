@@ -5,10 +5,9 @@
 // in most circumstances, allow immediate access.
 
 // WCID allows a device to be used by a Windows application almost as soon as it is plugged in, as
-// opposed to the the usual scenario where an USB device that is neither HID nor Mass Storage
-// requires end-users to perform a manual driver installation. As such, WCID can bring the
-// 'Plug-and-Play' functionality of HID and Mass Storage to any USB device (that sports a WCID aware
-// firmware).
+// opposed to the usual scenario where an USB device that is neither HID nor Mass Storage requires
+// end-users to perform a manual driver installation. As such, WCID can bring the 'Plug-and-Play'
+// functionality of HID and Mass Storage to any USB device (that sports a WCID aware firmware).
 
 // See https://github.com/pbatard/libwdi/wiki/WCID-Devices
 
@@ -84,7 +83,7 @@ static const uint8_t kWcidFeatureDescriptor[] = {
 
 extern "C" {
 
-uint8_t handle_wcid_requests(USBD_HandleTypeDef* device, USBD_SetupReqTypedef* request) {
+bool handle_wcid_requests(USBD_HandleTypeDef* device, USBD_SetupReqTypedef* request) {
     auto send_data = [device, request]<size_t n>(const uint8_t (&data)[n]) {
         auto length = std::min<size_t>(n, request->wLength);
         // C HAL API requires non-const access.

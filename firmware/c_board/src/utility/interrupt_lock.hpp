@@ -25,6 +25,7 @@ public:
 
 private:
     // Interrupts are disabled during the initialization.
+    // See firmware/c_board/bsp/HAL/startup_stm32f407xx.s:62.
     static inline int lock_count_ = 1;
 };
 

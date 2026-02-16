@@ -91,7 +91,7 @@ private:
 
     void begin_transfer(SpiModule& module, size_t size) {
         spi_module_ = &module;
-        tx_rx_size_ = size;
+        tx_rx_size_ = static_cast<uint16_t>(size);
 
         select();
     }
@@ -122,7 +122,7 @@ private:
     std::atomic_flag locking_;
 
     SpiModule* spi_module_{nullptr};
-    size_t tx_rx_size_{0};
+    uint16_t tx_rx_size_{0};
 };
 
 inline constinit Spi::Lazy spi1(&hspi1);

@@ -3,8 +3,10 @@
 #include <atomic>
 #include <cstdint>
 
+#include <main.h>
 #include <tim.h>
 
+#include "core/src/utility/assert.hpp"
 #include "firmware/c_board/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::led {
@@ -12,9 +14,9 @@ namespace librmcs::firmware::led {
 class Led {
 public:
     Led() {
-        HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_1);
-        HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_2);
-        HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_3);
+        core::utility::assert_always(HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_1) == HAL_OK);
+        core::utility::assert_always(HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_2) == HAL_OK);
+        core::utility::assert_always(HAL_TIM_PWM_Start(&htim5, TIM_CHANNEL_3) == HAL_OK);
         reset();
     }
 
@@ -78,7 +80,7 @@ public:
             auto brightness = (tick >> 2) & 511;
             if (brightness > 255)
                 brightness = 511 - brightness;
-            set_value(0, brightness, 0);
+            set_value(0, static_cast<uint8_t>(brightness), 0);
         }
     }
 
@@ -96,6 +98,6 @@ private:
     std::atomic<uint16_t> uplink_full_reset_counter_, downlink_full_reset_counter_;
 };
 
-inline utility::Lazy<Led> led;
+inline constinit utility::Lazy<Led> led;
 
 } // namespace librmcs::firmware::led
