@@ -40,7 +40,7 @@ class Deserializer : private coroutine::InlineLifoContext<1024> {
 public:
     constexpr explicit Deserializer(DeserializeCallback& callback)
         : callback_(callback)
-        , main_task_(process_stream()) {};
+        , main_task_(process_stream()) {}
 
     ~Deserializer() { finish_transfer(); }
     Deserializer(const Deserializer&) = delete;

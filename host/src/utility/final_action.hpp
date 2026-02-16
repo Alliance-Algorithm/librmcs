@@ -22,7 +22,7 @@ requires requires(Functor& action) {
         }
     }
 
-    void disable() { enabled_ = false; };
+    void disable() { enabled_ = false; }
 
 private:
     bool enabled_{true};

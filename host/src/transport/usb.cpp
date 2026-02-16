@@ -78,7 +78,7 @@ public:
             return nullptr;
 
         return std::unique_ptr<TransportBuffer>{transfer};
-    };
+    }
 
     void transmit(std::unique_ptr<TransportBuffer> buffer, size_t size) override {
         core::utility::assert_debug(static_cast<bool>(buffer));
@@ -119,7 +119,7 @@ public:
 
         receive_callback_ = std::move(callback);
         init_receive_transfers();
-    };
+    }
 
 private:
     class TransferWrapper : public TransportBuffer {

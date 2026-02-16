@@ -118,46 +118,69 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def parse_clangd(target: LintTarget) -> Optional[dict]:
-    if target.clangd is None:
-        return None
-    if not target.clangd.is_file():
-        return None
+def collect_clangd_extra_args(project_dir: Path, root: Path) -> List[str]:
+    resolved_root = root.resolve()
     try:
-        data = yaml.safe_load(target.clangd.read_text())
-    except (yaml.YAMLError, OSError):
-        return None
-    return data if isinstance(data, dict) else None
-
-
-def clangd_extra_args(target: LintTarget) -> List[str]:
-    data = parse_clangd(target)
-    if data is None:
+        rel_parts = project_dir.resolve().relative_to(resolved_root).parts
+    except ValueError:
         return []
-    compile_flags = data.get("CompileFlags")
-    if not isinstance(compile_flags, dict):
-        return []
-    add_flags = compile_flags.get("Add")
-    if isinstance(add_flags, list):
-        return [str(flag) for flag in add_flags]
-    return []
+
+    candidate_dirs = [resolved_root]
+    current = resolved_root
+    for part in rel_parts:
+        current = current / part
+        candidate_dirs.append(current)
+
+    extra_args: List[str] = []
+    seen_flags: Set[str] = set()
+    for candidate_dir in candidate_dirs:
+        clangd_path = candidate_dir / ".clangd"
+        if not clangd_path.is_file():
+            continue
+        try:
+            data = yaml.safe_load(clangd_path.read_text())
+        except (yaml.YAMLError, OSError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        compile_flags = data.get("CompileFlags")
+        if not isinstance(compile_flags, dict):
+            continue
+        add_flags = compile_flags.get("Add")
+        if not isinstance(add_flags, list):
+            continue
+        for flag in add_flags:
+            flag_str = str(flag)
+            if flag_str in seen_flags:
+                continue
+            seen_flags.add(flag_str)
+            extra_args.append(flag_str)
+
+    return extra_args
 
 
-def clang_tidy_args(target: LintTarget, fix: bool) -> List[str]:
-    args = ["-p", str(target.compile_database.parent)]
+def clang_tidy_args(
+    compile_database: Path, project_dir: Path, root: Path, fix: bool
+) -> List[str]:
+    args = ["-p", str(compile_database.parent)]
     if fix:
         args.append("--fix")
     else:
         args.append("--warnings-as-errors=*")
-    for flag in clangd_extra_args(target):
+    for flag in collect_clangd_extra_args(project_dir, root):
         args.append(f"--extra-arg={flag}")
     return args
 
 
 def run_clang_tidy(
-    target: LintTarget, files: Sequence[Path], fix: bool
+    target: LintTarget, files: Sequence[Path], fix: bool, root: Path
 ) -> int:
-    args = clang_tidy_args(target, fix=fix)
+    args = clang_tidy_args(
+        compile_database=target.compile_database,
+        project_dir=target.project_dir,
+        root=root,
+        fix=fix,
+    )
     result = subprocess.run(["clang-tidy", *args, *[str(p) for p in files]])
     return result.returncode
 
@@ -234,7 +257,7 @@ def main() -> int:
             f"clang-tidy: {name}: checking {len(files)} files...",
             flush=True,
         )
-        rc = run_clang_tidy(target, files, fix=args.fix)
+        rc = run_clang_tidy(target, files, fix=args.fix, root=root)
         if rc != 0:
             overall_rc = rc
 

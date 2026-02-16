@@ -67,7 +67,7 @@ public:
      *                  Must outlive this StreamBuffer instance.
      */
     explicit StreamBuffer(transport::Transport& transport) noexcept
-        : transport_(transport) {};
+        : transport_(transport) {}
 
     StreamBuffer(StreamBuffer&& other) noexcept
         : transport_(other.transport_)
@@ -76,7 +76,7 @@ public:
         , end_(other.end_) {
         other.current_ = nullptr;
         other.end_ = nullptr;
-    };
+    }
     StreamBuffer& operator=(StreamBuffer&&) = delete;
     StreamBuffer(const StreamBuffer&) = delete;
     StreamBuffer& operator=(const StreamBuffer&) = delete;
@@ -90,7 +90,7 @@ public:
     ~StreamBuffer() override {
         if (buffer_)
             finalize_buffer();
-    };
+    }
 
     /**
      * @brief Allocates a contiguous memory region of exactly the specified size.
