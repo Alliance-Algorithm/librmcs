@@ -3,10 +3,12 @@ set -eu
 
 usage() {
     cat <<'EOF'
-Usage: setup-clangd <host|firmware>
+Usage: setup-clangd <path>
 Creates symlinks in core/:
-    .clangd -> ../<mode>/.clangd
-    compile_commands.json -> ../<mode>/build/compile_commands.json
+    .clangd -> ../<path>/.clangd
+    compile_commands.json -> ../<path>/build/compile_commands.json
+
+Example: setup-clangd firmware/rmcs_board
 EOF
 }
 
@@ -15,36 +17,29 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
-mode="$1"
-case "$mode" in
-    host|firmware) ;;
-    *)
-        usage
-        exit 1
-        ;;
-esac
-
 core_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+root_dir=$(CDPATH='' cd -- "$core_dir/.." && pwd)
+target="$root_dir/$1"
+
+if [ ! -d "$target" ]; then
+    echo "Error: directory '$1' does not exist." >&2
+    exit 1
+fi
 
 link_clangd="$core_dir/.clangd"
 link_compile="$core_dir/compile_commands.json"
 
-if [ -L "$link_clangd" ]; then
-    rm -f "$link_clangd"
-elif [ -e "$link_clangd" ]; then
-    echo "Error: $link_clangd exists and is not a symlink." >&2
-    exit 1
-fi
-
-if [ -L "$link_compile" ]; then
-    rm -f "$link_compile"
-elif [ -e "$link_compile" ]; then
-    echo "Error: $link_compile exists and is not a symlink." >&2
-    exit 1
-fi
+for link in "$link_clangd" "$link_compile"; do
+    if [ -L "$link" ]; then
+        rm -f "$link"
+    elif [ -e "$link" ]; then
+        echo "Error: $link exists and is not a symlink." >&2
+        exit 1
+    fi
+done
 
 (
     cd "$core_dir"
-    ln -s "../$mode/.clangd" .clangd
-    ln -s "../$mode/build/compile_commands.json" compile_commands.json
+    ln -s "../$1/.clangd" .clangd
+    ln -s "../$1/build/compile_commands.json" compile_commands.json
 )
