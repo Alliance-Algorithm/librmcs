@@ -34,16 +34,17 @@ public:
         if (!size)
             return;
 
-        auto& transmit_buffer = transmit_buffers_[buffer_writing_.load(std::memory_order::relaxed)];
+        const auto writing = buffer_writing_.load(std::memory_order::acquire);
+        auto& transmit_buffer = transmit_buffers_[writing];
         const uint8_t written_size = transmit_buffer.written_size.load(std::memory_order::relaxed);
 
         size_t size_allowed = size;
         const auto remaining_size = sizeof(transmit_buffer.data) - written_size;
         size_allowed = std::min(size_allowed, remaining_size);
 
-        transmit_buffer.written_size.store(
-            static_cast<uint8_t>(written_size + size_allowed), std::memory_order::relaxed);
         std::memcpy(&transmit_buffer.data[written_size], data.uart_data.data(), size_allowed);
+        transmit_buffer.written_size.store(
+            static_cast<uint8_t>(written_size + size_allowed), std::memory_order::release);
 
         if (size_allowed != size) [[unlikely]]
             led::led->downlink_buffer_full();
@@ -57,23 +58,21 @@ public:
         if (device_reception_ready()) [[unlikely]]
             trigger_hal_receive();
 
-        auto writing = buffer_writing_.load(std::memory_order::relaxed);
-        if (transmit_buffers_[writing].written_size.load(std::memory_order::relaxed) == 0)
+        auto writing = buffer_writing_.load(std::memory_order::acquire);
+        if (transmit_buffers_[writing].written_size.load(std::memory_order::acquire) == 0)
             return false;
 
         if (!device_transmission_ready())
             return false;
 
         transmit_buffers_[!writing].written_size.store(0, std::memory_order::relaxed);
-        std::atomic_signal_fence(std::memory_order::release);
-        buffer_writing_.store(!writing, std::memory_order::relaxed);
-        std::atomic_signal_fence(std::memory_order::release);
+        buffer_writing_.store(!writing, std::memory_order::release);
 
         // Note: Must read written_size again here to avoid data loss.
         core::utility::assert_always(
             HAL_UART_Transmit_IT(
                 hal_uart_handle_, reinterpret_cast<uint8_t*>(transmit_buffers_[writing].data),
-                transmit_buffers_[writing].written_size.load(std::memory_order::relaxed))
+                transmit_buffers_[writing].written_size.load(std::memory_order::acquire))
             == HAL_OK);
 
         return true;

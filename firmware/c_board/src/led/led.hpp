@@ -23,7 +23,6 @@ public:
     void reset() {
         uplink_full_reset_counter_.store(0, std::memory_order::relaxed);
         downlink_full_reset_counter_.store(0, std::memory_order::relaxed);
-        std::atomic_signal_fence(std::memory_order_release);
         user_controlling_.store(false, std::memory_order::relaxed);
     }
 

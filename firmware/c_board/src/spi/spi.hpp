@@ -44,13 +44,13 @@ public:
     explicit Spi(SPI_HandleTypeDef* hal_spi_handle)
         : hal_spi_handle_(hal_spi_handle) {}
 
-    bool is_locked() const { return locking_.test(std::memory_order::relaxed); }
+    bool is_locked() const { return locking_.test(std::memory_order::acquire); }
 
-    bool try_lock() { return !locking_.test_and_set(std::memory_order::relaxed); }
+    bool try_lock() { return !locking_.test_and_set(std::memory_order::acquire); }
 
     void unlock() {
         core::utility::assert_debug_lazy([&]() noexcept { return is_locked(); });
-        locking_.clear(std::memory_order::relaxed);
+        locking_.clear(std::memory_order::release);
     }
 
     void transmit_receive(SpiModule& module, size_t size) {
