@@ -33,5 +33,8 @@ jobs:
       - name: Configure firmware/rmcs_board
         run: cmake --preset debug -S firmware/rmcs_board
 
+      - name: Configure firmware/c_board
+        run: cmake --preset debug -S firmware/c_board
+
       - name: Run clang-tidy check
         run: .scripts/clang-tidy-check

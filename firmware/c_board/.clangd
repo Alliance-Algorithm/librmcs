@@ -1,0 +1,13 @@
+CompileFlags:
+  Add:
+    - "--target=arm-none-eabi"
+    - "-isystem/opt/arm-none-eabi/arm-none-eabi/include/c++/15.2.1"
+    - "-isystem/opt/arm-none-eabi/arm-none-eabi/include/c++/15.2.1/arm-none-eabi"
+    - "-isystem/opt/arm-none-eabi/arm-none-eabi/include/c++/15.2.1/backward"
+    - "-isystem/opt/arm-none-eabi/lib/gcc/arm-none-eabi/15.2.1/include-fixed"
+    - "-isystem/opt/arm-none-eabi/arm-none-eabi/include"
+Diagnostics:
+  Includes:
+    IgnoreHeader:
+      - "bits/.+h" # https://github.com/llvm/llvm-project/issues/68213
+      - "cmsis_.+h"
