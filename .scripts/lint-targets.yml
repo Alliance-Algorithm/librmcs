@@ -3,7 +3,7 @@ exclude:
   - build
 
 host:
-  compile_database: host/build/compile_commands.json
+  cmake: host/CMakeLists.txt
   folders:
     - core/src
     - core/include
@@ -11,8 +11,7 @@ host:
     - host/include
 
 rmcs_board:
-  compile_database: firmware/rmcs_board/build/compile_commands.json
-  clangd: firmware/rmcs_board/.clangd
+  cmake: firmware/rmcs_board/CMakeLists.txt
   folders:
     - core/src
     - core/include

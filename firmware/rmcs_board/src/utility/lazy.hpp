@@ -18,7 +18,7 @@ public:
         : init_status_(InitStatus::kUninitialized)
         , construction_arguments_{std::move(args)...} {}
 
-    constexpr ~Lazy() {}; // No need to deconstruct
+    constexpr ~Lazy() {} // No need to deconstruct
     Lazy(const Lazy&) = delete;
     Lazy& operator=(const Lazy&) = delete;
     Lazy(Lazy&&) = delete;

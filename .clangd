@@ -10,3 +10,6 @@ Diagnostics:
     FastCheckFilter: Loose
     Remove:
       - readability-inconsistent-declaration-parameter-name # Unable to be suppressed by NOLINT
+CompileFlags:
+  Add:
+    - "-Wextra-semi"

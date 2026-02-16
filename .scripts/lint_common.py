@@ -3,7 +3,7 @@
 import yaml
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Dict, List, Sequence, Set, Tuple
 
 
 SOURCE_EXTENSIONS = {".c", ".cpp", ".h", ".hpp"}
@@ -12,9 +12,12 @@ SOURCE_EXTENSIONS = {".c", ".cpp", ".h", ".hpp"}
 @dataclass(frozen=True)
 class LintTarget:
     name: str
-    compile_database: Path
-    clangd: Optional[Path]
+    project_dir: Path
     folders: List[Path]
+
+    @property
+    def compile_database(self) -> Path:
+        return self.project_dir / "build" / "compile_commands.json"
 
 
 def repo_root() -> Path:
@@ -57,14 +60,11 @@ def load_targets(root: Path) -> Tuple[List[str], Dict[str, LintTarget]]:
     exclude_dirs: List[str] = data.pop("exclude", [])
     targets: Dict[str, LintTarget] = {}
     for name, section in data.items():
-        compile_database = root / section["compile_database"]
-        clangd_rel = section.get("clangd")
-        clangd = root / clangd_rel if clangd_rel else None
+        project_dir = root / Path(section["cmake"]).parent
         folders = [root / f for f in section["folders"]]
         targets[name] = LintTarget(
             name=name,
-            compile_database=compile_database,
-            clangd=clangd,
+            project_dir=project_dir,
             folders=folders,
         )
     return exclude_dirs, targets

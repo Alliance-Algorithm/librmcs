@@ -50,7 +50,7 @@ private:
     RxBuffer(UART_Type* uart_base, uint32_t dmamux_src)
         : uart_base_(uart_base) {
         init_dma(dmamux_src);
-    };
+    }
 
     void dma_tc_half_tc_callback() { try_dequeue(false); }
 

@@ -91,7 +91,7 @@ private:
         case data::DataId::kCan3: can::can3->handle_downlink(data); break;
         default: core::utility::assert_failed_always();
         }
-    };
+    }
 
     void uart_deserialized_callback(
         core::protocol::FieldId id, const data::UartDataView& data) override {
@@ -100,17 +100,17 @@ private:
         // TODO: Handle other UART events
         default: core::utility::assert_failed_always();
         }
-    };
+    }
 
     void accelerometer_deserialized_callback(const data::AccelerometerDataView& data) override {
         (void)data;
-    };
+    }
 
     void gyroscope_deserialized_callback(const data::GyroscopeDataView& data) override {
         (void)data;
-    };
+    }
 
-    void error_callback() override { core::utility::assert_failed_always(); };
+    void error_callback() override { core::utility::assert_failed_always(); }
 
     static bool device_ready() { return tud_ready() && tud_vendor_n_write_available(0); }
 
