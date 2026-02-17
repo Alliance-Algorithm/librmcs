@@ -1,0 +1,3 @@
+InheritParentConfig: true
+CheckOptions:
+  misc-include-cleaner.IgnoreHeaders: "bits/.+h;cmsis_.+h"

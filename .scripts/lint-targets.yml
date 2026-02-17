@@ -17,3 +17,11 @@ rmcs_board:
     - core/include
     - firmware/rmcs_board/src
     - firmware/rmcs_board/include
+
+c_board:
+  cmake: firmware/c_board/CMakeLists.txt
+  folders:
+    - core/src
+    - core/include
+    - firmware/c_board/src
+    - firmware/c_board/include
