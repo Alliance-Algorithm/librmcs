@@ -23,6 +23,12 @@ enable_language(C CXX ASM)
 set(LIBRMCS_PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 cmake_path(ABSOLUTE_PATH LIBRMCS_PROJECT_ROOT NORMALIZE)
 
+set(LIBRMCS_TINYUSB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/bsp/tinyusb")
+if(NOT EXISTS "${LIBRMCS_TINYUSB_ROOT}/src/tusb.h")
+    message(FATAL_ERROR "TinyUSB submodule not found at ${LIBRMCS_TINYUSB_ROOT}. "
+        "Run: git submodule update --init firmware/c_board/bsp/tinyusb")
+endif()
+
 if(NOT DEFINED LIBRMCS_PROJECT_VERSION OR LIBRMCS_PROJECT_VERSION STREQUAL "")
     execute_process(
         COMMAND ".scripts/generate_version"
@@ -42,6 +48,29 @@ list(APPEND TOOLCHAIN_LINK_LIBRARIES "stdc++")
 
 # Bring in CubeMX generated HAL build definitions.
 add_subdirectory(bsp/HAL/cmake/stm32cubemx)
+
+add_library(tinyusb_device OBJECT)
+target_sources(tinyusb_device PRIVATE
+    "${LIBRMCS_TINYUSB_ROOT}/src/tusb.c"
+    "${LIBRMCS_TINYUSB_ROOT}/src/common/tusb_fifo.c"
+    "${LIBRMCS_TINYUSB_ROOT}/src/device/usbd.c"
+    "${LIBRMCS_TINYUSB_ROOT}/src/device/usbd_control.c"
+    "${LIBRMCS_TINYUSB_ROOT}/src/class/vendor/vendor_device.c"
+    "${LIBRMCS_TINYUSB_ROOT}/src/portable/synopsys/dwc2/dwc2_common.c"
+    "${LIBRMCS_TINYUSB_ROOT}/src/portable/synopsys/dwc2/dcd_dwc2.c"
+)
+target_include_directories(tinyusb_device SYSTEM PUBLIC
+    "${LIBRMCS_TINYUSB_ROOT}/src"
+)
+target_include_directories(tinyusb_device PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+)
+target_compile_definitions(tinyusb_device PUBLIC
+    CFG_TUSB_MCU=OPT_MCU_STM32F4
+)
+target_link_libraries(tinyusb_device PUBLIC
+    stm32cubemx
+)
 
 # Mark CubeMX/HAL headers as SYSTEM so they show up as `-isystem` in
 # compile_commands.json (clang-tidy should not warn on third-party code).
@@ -126,4 +155,5 @@ list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
+    tinyusb_device
 )

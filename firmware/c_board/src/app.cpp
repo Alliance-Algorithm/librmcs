@@ -1,5 +1,6 @@
 #include "firmware/c_board/src/app.hpp"
 
+#include <device/usbd.h>
 #include <main.h>
 
 #include "firmware/c_board/src/can/can.hpp"
@@ -33,6 +34,8 @@ App::App() {
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 [[noreturn]] void App::run() {
     while (true) {
+        tud_task();
+
         usb::vendor->try_transmit();
         can::can1->try_transmit();
         usb::vendor->try_transmit();

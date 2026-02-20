@@ -22,7 +22,7 @@
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
-#include "usb_device.h"
+#include "usb_otg.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -92,33 +92,18 @@ int main(void)
   DWT->CYCCNT = 0;
   DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
 
-  // Generate USB PID from STM32 12-byte unique id using simple CRC-16 algorithm.
-  extern __ALIGN_BEGIN uint8_t USBD_FS_DeviceDesc[USB_LEN_DEV_DESC] __ALIGN_END;
-  uint16_t pid  = 0xFFFF;
-  uint8_t *data = (uint8_t*)0x1FFF7A10u;
-  size_t len    = 12;
-  while (len--) {
-    pid ^= *data++;
-    for (int i = 0; i < 8; i++) {
-      if (pid & 1) pid = (pid >> 1) ^ 0x8408;
-      else         pid = (pid >> 1);
-    }
-  }
-  USBD_FS_DeviceDesc[10] = LOBYTE(pid);
-  USBD_FS_DeviceDesc[11] = HIBYTE(pid);
-
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_SPI1_Init();
-  MX_USB_DEVICE_Init();
   MX_CAN1_Init();
   MX_CAN2_Init();
   MX_USART1_UART_Init();
   MX_USART3_UART_Init();
   MX_USART6_UART_Init();
   MX_TIM5_Init();
+  MX_USB_OTG_FS_PCD_Init();
   /* USER CODE BEGIN 2 */
 
   AppEntry();
