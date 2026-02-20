@@ -1,21 +1,21 @@
 /* USER CODE BEGIN Header */
 /**
- ******************************************************************************
- * @file           : main.h
- * @brief          : Header for main.c file.
- *                   This file contains the common defines of the application.
- ******************************************************************************
- * @attention
- *
- * Copyright (c) 2023 STMicroelectronics.
- * All rights reserved.
- *
- * This software is licensed under terms that can be found in the LICENSE file
- * in the root directory of this software component.
- * If no LICENSE file comes with this software, it is provided AS-IS.
- *
- ******************************************************************************
- */
+  ******************************************************************************
+  * @file           : main.h
+  * @brief          : Header for main.c file.
+  *                   This file contains the common defines of the application.
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2026 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
 /* USER CODE END Header */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
@@ -261,28 +261,28 @@ void AppEntry(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define SPI1_MISO_Pin       GPIO_PIN_4
+#define SPI1_MISO_Pin GPIO_PIN_4
 #define SPI1_MISO_GPIO_Port GPIOB
-#define SPI1_SCK_Pin        GPIO_PIN_3
-#define SPI1_SCK_GPIO_Port  GPIOB
-#define LED_R_Pin           GPIO_PIN_12
-#define LED_R_GPIO_Port     GPIOH
-#define LED_G_Pin           GPIO_PIN_11
-#define LED_G_GPIO_Port     GPIOH
-#define LED_B_Pin           GPIO_PIN_10
-#define LED_B_GPIO_Port     GPIOH
-#define CS1_ACCEL_Pin       GPIO_PIN_4
+#define SPI1_SCK_Pin GPIO_PIN_3
+#define SPI1_SCK_GPIO_Port GPIOB
+#define LED_R_Pin GPIO_PIN_12
+#define LED_R_GPIO_Port GPIOH
+#define LED_G_Pin GPIO_PIN_11
+#define LED_G_GPIO_Port GPIOH
+#define LED_B_Pin GPIO_PIN_10
+#define LED_B_GPIO_Port GPIOH
+#define CS1_ACCEL_Pin GPIO_PIN_4
 #define CS1_ACCEL_GPIO_Port GPIOA
-#define INT1_ACC_Pin        GPIO_PIN_4
-#define INT1_ACC_GPIO_Port  GPIOC
-#define INT1_ACC_EXTI_IRQn  EXTI4_IRQn
-#define INT1_GYRO_Pin       GPIO_PIN_5
+#define INT1_ACC_Pin GPIO_PIN_4
+#define INT1_ACC_GPIO_Port GPIOC
+#define INT1_ACC_EXTI_IRQn EXTI4_IRQn
+#define INT1_GYRO_Pin GPIO_PIN_5
 #define INT1_GYRO_GPIO_Port GPIOC
 #define INT1_GYRO_EXTI_IRQn EXTI9_5_IRQn
-#define SPI1_MOSI_Pin       GPIO_PIN_7
+#define SPI1_MOSI_Pin GPIO_PIN_7
 #define SPI1_MOSI_GPIO_Port GPIOA
-#define CS1_GYRO_Pin        GPIO_PIN_0
-#define CS1_GYRO_GPIO_Port  GPIOB
+#define CS1_GYRO_Pin GPIO_PIN_0
+#define CS1_GYRO_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
