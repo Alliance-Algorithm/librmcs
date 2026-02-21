@@ -51,11 +51,18 @@ public:
     }
 
     bool try_transmit() {
-        if (!device_ready())
+        if (!tud_ready()) {
+            transmit_buffer_.try_lock();
+            return false;
+        }
+
+        if (!tud_vendor_n_write_available(0))
             return false;
 
-        if (!transmitting_batch_)
+        if (!transmitting_batch_) {
+            transmit_buffer_.try_unlock_and_clear();
             transmitting_batch_ = transmit_buffer_.pop_batch();
+        }
         if (!transmitting_batch_)
             return false;
 
@@ -111,8 +118,6 @@ private:
     }
 
     void error_callback() override { core::utility::assert_failed_always(); }
-
-    static bool device_ready() { return tud_ready() && tud_vendor_n_write_available(0); }
 
     core::protocol::Deserializer deserializer_{*this};
 

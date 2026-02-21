@@ -1,4 +1,5 @@
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -421,7 +422,11 @@ private:
             return;
         }
 
-        if (transfer->actual_length > 0) {
+        const auto now = std::chrono::steady_clock::now();
+        const bool should_drop = now > last_rx_callback_timepoint_ + std::chrono::seconds{1};
+        last_rx_callback_timepoint_ = now;
+
+        if (!should_drop && transfer->actual_length > 0) {
             const auto* first = reinterpret_cast<std::byte*>(transfer->buffer);
             const auto size = static_cast<std::size_t>(transfer->actual_length);
             receive_callback_({first, size});
@@ -498,6 +503,8 @@ private:
     std::mutex transmit_transfer_pop_mutex_, transmit_transfer_push_mutex_;
 
     std::function<void(std::span<const std::byte>)> receive_callback_;
+    std::chrono::steady_clock::time_point last_rx_callback_timepoint_ =
+        std::chrono::steady_clock::time_point::min();
 };
 
 std::unique_ptr<Transport>

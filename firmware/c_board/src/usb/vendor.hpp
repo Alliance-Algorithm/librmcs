@@ -45,11 +45,18 @@ public:
     }
 
     bool try_transmit() {
-        if (!device_ready())
+        if (!tud_ready()) {
+            transmit_buffer_.try_lock();
+            return false;
+        }
+
+        if (!tud_vendor_n_write_available(0))
             return false;
 
-        if (!transmitting_batch_)
+        if (!transmitting_batch_) {
+            transmit_buffer_.try_unlock_and_clear();
             transmitting_batch_ = transmit_buffer_.pop_batch();
+        }
         if (!transmitting_batch_)
             return false;
 
@@ -75,8 +82,6 @@ public:
     }
 
 private:
-    static bool device_ready() { return tud_ready() && tud_vendor_n_write_available(0); }
-
     void can_deserialized_callback(
         core::protocol::FieldId id, const data::CanDataView& data) override {
         switch (id) {
