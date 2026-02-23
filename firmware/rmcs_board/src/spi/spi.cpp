@@ -18,7 +18,7 @@ void spi2_isr() {
         return;
 
     if (flags & spi_end_int)
-        spi2->transmit_receive_completed_callback();
+        spi2->transmit_receive_async_callback();
 
     spi_clear_interrupt_status(base, flags);
 }

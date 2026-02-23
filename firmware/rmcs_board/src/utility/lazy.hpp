@@ -7,7 +7,7 @@
 #include <utility>
 
 #include "core/src/utility/assert.hpp"
-#include "firmware/rmcs_board/src/utility/interrupt_lock_guard.hpp"
+#include "firmware/rmcs_board/src/utility/interrupt_lock.hpp"
 
 namespace librmcs::firmware::utility {
 
@@ -18,11 +18,12 @@ public:
         : init_status_(InitStatus::kUninitialized)
         , construction_arguments_{std::move(args)...} {}
 
-    constexpr ~Lazy() {} // No need to deconstruct
     Lazy(const Lazy&) = delete;
     Lazy& operator=(const Lazy&) = delete;
     Lazy(Lazy&&) = delete;
     Lazy& operator=(Lazy&&) = delete;
+
+    constexpr ~Lazy() {} // No need to deconstruct
 
     constexpr T& init() {
         const InterruptLockGuard guard;

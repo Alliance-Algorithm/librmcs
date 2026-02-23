@@ -6,4 +6,4 @@ namespace librmcs::firmware::usb {
 
 core::protocol::Serializer& get_serializer();
 
-}
+} // namespace librmcs::firmware::usb

@@ -40,7 +40,7 @@ public:
     virtual ~SpiModule() = default;
 
 protected:
-    virtual void transmit_receive_completed_callback(std::size_t size) = 0;
+    virtual void transmit_receive_async_callback(std::byte* rx_buffer, std::size_t size) = 0;
 
     ChipSelectPin chip_select_pin_;
 };
@@ -94,14 +94,26 @@ public:
     Spi(Spi&&) = delete;
     Spi& operator=(Spi&&) = delete;
 
-    bool locking() { return locking_.test(std::memory_order::relaxed); }
+    bool is_locked() const { return locking_.test(std::memory_order::relaxed); }
 
     bool try_lock() { return !locking_.test_and_set(std::memory_order::relaxed); }
 
     void transmit_receive(SpiModule& module, std::size_t size) {
+        intc_m_disable_irq(irq_num_);
+
+        transmit_receive_async(module, size);
+        while (spi_is_active(spi_base_))
+            ;
+
+        finish_transfer();
+
+        intc_m_enable_irq(irq_num_);
+    }
+
+    void transmit_receive_async(SpiModule& module, std::size_t size) {
         core::utility::assert_debug(size <= kMaxTransferSize);
         core::utility::assert_debug_lazy(
-            [&]() noexcept { return locking() && !spi_is_active(spi_base_); });
+            [&]() noexcept { return is_locked() && !spi_is_active(spi_base_); });
 
         begin_transfer(module, size);
 
@@ -119,25 +131,13 @@ public:
         }
     }
 
-    void transmit_receive_blocked(SpiModule& module, std::size_t size) {
-        intc_m_disable_irq(irq_num_);
-
-        transmit_receive(module, size);
-        while (spi_is_active(spi_base_))
-            ;
-
-        finish_transfer();
-
-        intc_m_enable_irq(irq_num_);
-    }
-
-    void transmit_receive_completed_callback() {
+    void transmit_receive_async_callback() {
         if (auto* module = finish_transfer())
-            module->transmit_receive_completed_callback(tx_rx_size_);
+            module->transmit_receive_async_callback(rx_buffer, tx_rx_size_);
     }
 
     void unlock() {
-        core::utility::assert_debug_lazy([&]() noexcept { return locking(); });
+        core::utility::assert_debug_lazy([&]() noexcept { return is_locked(); });
         locking_.clear(std::memory_order::relaxed);
     }
 

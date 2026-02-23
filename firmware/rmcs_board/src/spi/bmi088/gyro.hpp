@@ -2,26 +2,46 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
-#include <new>
 
 #include <board.h>
 #include <hpm_gpio_regs.h>
 #include <hpm_soc.h>
 
-#include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
-#include "core/src/utility/immovable.hpp"
+#include "firmware/rmcs_board/src/spi/bmi088/base.hpp"
 #include "firmware/rmcs_board/src/spi/spi.hpp"
 #include "firmware/rmcs_board/src/usb/vendor.hpp"
 #include "firmware/rmcs_board/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::spi::bmi088 {
 
+struct GyroscopeTraits {
+    static constexpr std::size_t kDummyBytes = 1;
+
+    enum class RegisterAddress : uint8_t {
+        kGyroSelfTest = 0x3C,
+        kInt3Int4IoMap = 0x18,
+        kInt3Int4IoConf = 0x16,
+        kGyroIntCtrl = 0x15,
+        kGyroSoftReset = 0x14,
+        kGyroLpm1 = 0x11,
+        kGyroBandwidth = 0x10,
+        kGyroRange = 0x0F,
+        kGyroIntStat1 = 0x0A,
+        kRateZMsb = 0x07,
+        kRateZLsb = 0x06,
+        kRateYMsb = 0x05,
+        kRateYLsb = 0x04,
+        kRateXMsb = 0x03,
+        kRateXLsb = 0x02,
+        kGyroChipId = 0x00,
+    };
+};
+
 class Gyroscope final
-    : private SpiModule
-    , private core::utility::Immovable {
+    : public GyroscopeTraits
+    , private Bmi088Base<GyroscopeTraits> {
 public:
     using Lazy = utility::Lazy<Gyroscope, Spi::Lazy*, ChipSelectPin>;
 
@@ -46,137 +66,52 @@ public:
     explicit Gyroscope(
         Spi::Lazy* spi, ChipSelectPin chip_select, DataRange range = DataRange::k2000,
         DataRateAndBandwidth rate = DataRateAndBandwidth::k2000And230)
-        : SpiModule(chip_select)
-        , spi_(spi->init()) {
+        : Bmi088Base(spi, chip_select) {
 
         core::utility::assert_debug(spi_.try_lock());
 
-        auto read_blocked = [this](RegisterAddress address) {
-            spi_.transmit_receive_blocked(*this, prepare_tx_buffer_read(address, 1));
-            return static_cast<uint8_t>(spi_.rx_buffer[1]);
-        };
-        auto write_blocked = [this](RegisterAddress address, uint8_t value) {
-            spi_.transmit_receive_blocked(*this, prepare_tx_buffer_write(address, value));
-        };
-
-        constexpr int max_try_time = 3;
-        auto read_with_confirm = [&](RegisterAddress address, uint8_t value) {
-            for (int i = max_try_time; i-- > 0;) {
-                if (read_blocked(address) == value)
-                    return true;
-                board_delay_ms(1);
-            }
-            return false;
-        };
-        auto write_with_confirm = [&](RegisterAddress address, uint8_t value) {
-            for (int i = max_try_time; i-- > 0;) {
-                write_blocked(address, value);
-                board_delay_ms(1);
-                if (read_blocked(address) == value)
-                    return true;
-            }
-            return false;
-        };
-
         // Reset all registers to reset value.
-        write_blocked(RegisterAddress::kGyroSoftreset, 0xB6);
+        write_register(RegisterAddress::kGyroSoftReset, 0xB6);
         board_delay_ms(30);
 
         // "Who am I" check.
-        core::utility::assert_always(read_with_confirm(RegisterAddress::kGyroChipId, 0x0F));
+        core::utility::assert_always(read_and_confirm(RegisterAddress::kGyroChipId, 0x0F));
 
         // Enable the new data interrupt.
-        core::utility::assert_always(write_with_confirm(RegisterAddress::kGyroIntCtrl, 0x80));
+        core::utility::assert_always(write_and_confirm(RegisterAddress::kGyroIntCtrl, 0x80));
 
         // Set both INT3 and INT4 as push-pull, active-low, even though only INT3 is used.
-        core::utility::assert_always(write_with_confirm(RegisterAddress::kInt3Int4IoConf, 0b0000));
+        core::utility::assert_always(write_and_confirm(RegisterAddress::kInt3Int4IoConf, 0b0000));
         // Map data ready interrupt to INT3 pin.
-        core::utility::assert_always(write_with_confirm(RegisterAddress::kInt3Int4IoMap, 0x01));
+        core::utility::assert_always(write_and_confirm(RegisterAddress::kInt3Int4IoMap, 0x01));
 
         // Set ODR (output data rate, Hz) and filter bandwidth (Hz).
         core::utility::assert_always(
-            write_with_confirm(RegisterAddress::kGyroBandwidth, 0x80 | static_cast<uint8_t>(rate)));
+            write_and_confirm(RegisterAddress::kGyroBandwidth, 0x80 | static_cast<uint8_t>(rate)));
         // Set data range.
         core::utility::assert_always(
-            write_with_confirm(RegisterAddress::kGyroRange, static_cast<uint8_t>(range)));
+            write_and_confirm(RegisterAddress::kGyroRange, static_cast<uint8_t>(range)));
 
         // Switch the main power mode into normal mode.
-        core::utility::assert_always(write_with_confirm(RegisterAddress::kGyroLpM1, 0x00));
+        core::utility::assert_always(write_and_confirm(RegisterAddress::kGyroLpm1, 0x00));
 
         spi_.unlock();
     }
 
-    void data_ready_callback() { read(RegisterAddress::kRateXLsb, 6); }
+    void data_ready_callback() { read_async(RegisterAddress::kRateXLsb, 6); }
 
 private:
-    enum class RegisterAddress : uint8_t {
-        kGyroSelfTest = 0x3C,
-        kInt3Int4IoMap = 0x18,
-        kInt3Int4IoConf = 0x16,
-        kGyroIntCtrl = 0x15,
-        kGyroSoftreset = 0x14,
-        kGyroLpM1 = 0x11,
-        kGyroBandwidth = 0x10,
-        kGyroRange = 0x0F,
-        kGyroIntStat1 = 0x0A,
-        kRateZMsb = 0x07,
-        kRateZLsb = 0x06,
-        kRateYMsb = 0x05,
-        kRateYLsb = 0x04,
-        kRateXMsb = 0x03,
-        kRateXLsb = 0x02,
-        kGyroChipId = 0x00,
-    };
-
-    struct __attribute__((packed)) Data {
-        int16_t x;
-        int16_t y;
-        int16_t z;
-    };
-
-    bool write(RegisterAddress address, uint8_t value) {
-        if (!spi_.try_lock())
-            return false;
-
-        spi_.transmit_receive(*this, prepare_tx_buffer_write(address, value));
-        return true;
-    }
-
-    bool read(RegisterAddress address, size_t read_size) {
-        if (!spi_.try_lock())
-            return false;
-
-        spi_.transmit_receive(*this, prepare_tx_buffer_read(address, read_size));
-        return true;
-    }
-
-    void transmit_receive_completed_callback(size_t size) override {
-        core::utility::assert_debug(size == sizeof(Data) + 1);
-        auto& data = *std::launder(reinterpret_cast<Data*>(spi_.rx_buffer + 1));
+    void transmit_receive_async_callback(std::byte* rx_buffer, std::size_t size) override {
+        auto& data = parse_rx_data(rx_buffer, size);
         handle_uplink(usb::vendor->serializer(), data);
         spi_.unlock();
     }
 
-    std::size_t prepare_tx_buffer_write(RegisterAddress address, uint8_t value) {
-        spi_.tx_buffer[0] = static_cast<std::byte>(address);
-        spi_.tx_buffer[1] = static_cast<std::byte>(value);
-        return 2;
-    }
-
-    std::size_t prepare_tx_buffer_read(RegisterAddress address, size_t read_size) {
-        spi_.tx_buffer[0] = std::byte{0x80} | static_cast<std::byte>(address);
-        std::memset(&spi_.tx_buffer[1], 0, read_size);
-        return read_size + 1;
-    }
-
     static void handle_uplink(core::protocol::Serializer& serializer, Data& data) {
         core::utility::assert_debug(
-            serializer.write_imu_gyroscope(
-                data::GyroscopeDataView{.x = data.x, .y = data.y, .z = data.z})
+            serializer.write_imu_gyroscope({.x = data.x, .y = data.y, .z = data.z})
             != core::protocol::Serializer::SerializeResult::kInvalidArgument);
     }
-
-    Spi& spi_;
 };
 
 inline Gyroscope::Lazy gyroscope(
