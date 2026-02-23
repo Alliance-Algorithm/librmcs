@@ -11,15 +11,20 @@
 
 #include <common/tusb_types.h>
 #include <device/usbd.h>
+#include <hpm_otp_drv.h>
+#include <hpm_soc_feature.h>
 #include <tusb_config.h>
 #include <tusb_option.h>
 
+#include "core/src/utility/assert.hpp"
 #include "firmware/rmcs_board/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::usb {
 
 class UsbDescriptors {
 public:
+    UsbDescriptors() { update_serial_string(); }
+
     uint8_t const* get_device_descriptor() const {
         return reinterpret_cast<uint8_t const*>(&device_descriptor_);
     }
@@ -39,33 +44,94 @@ public:
         uint8_t str_size;
 
         if (index == 0) {
-            std::memcpy(&descriptor_string_buffer_[1], kStringDescriptor[0].data(), 2);
+            std::memcpy(&descriptor_string_buffer_[1], kLanguageId.data(), kLanguageId.size());
             str_size = 1;
         } else {
-            // Note: the 0xEE index string is a Microsoft OS 1.0 Descriptors.
-            // https://docs.microsoft.com/en-us/windows-hardware/drivers/usbcon/microsoft-defined-usb-descriptors
-
-            constexpr auto string_descriptor_array_size =
-                sizeof(kStringDescriptor) / sizeof(kStringDescriptor[0]);
-            if (index >= string_descriptor_array_size)
-                return nullptr;
-
+            std::string_view str;
+            switch (index) {
+            case 1: str = kManufacturerString; break;
+            case 2: str = kProductString; break;
+            case 3: str = std::string_view{serial_string_.data(), serial_string_.size() - 1}; break;
+            default: return nullptr;
+            }
             constexpr auto max_size = std::min<size_t>(
                 std::tuple_size_v<decltype(descriptor_string_buffer_)> - 1,
                 (std::numeric_limits<uint8_t>::max() - 2) / 2);
 
-            const auto& str = kStringDescriptor[index];
-            str_size = std::min<size_t>(str.size(), max_size);
+            str_size = static_cast<uint8_t>(std::min<size_t>(str.size(), max_size));
 
             // Convert ASCII string into UTF-16
             for (uint8_t i = 0; i < str_size; i++)
-                descriptor_string_buffer_[i + 1] = str[i];
+                descriptor_string_buffer_[i + 1] = static_cast<uint16_t>(str[i]);
         }
 
         // first byte is length (including header), second byte is string type
-        descriptor_string_buffer_[0] = (TUSB_DESC_STRING << 8) | ((2 * str_size) + 2);
+        descriptor_string_buffer_[0] =
+            (TUSB_DESC_STRING << 8) | static_cast<uint16_t>((2 * str_size) + 2);
 
         return descriptor_string_buffer_.data();
+    }
+
+private:
+    static constexpr size_t kUuidWordCount = OTP_SOC_UUID_LEN / sizeof(uint32_t);
+    static_assert((OTP_SOC_UUID_LEN % sizeof(uint32_t)) == 0);
+
+    void update_serial_string() {
+        std::array<uint32_t, kUuidWordCount> uuid{};
+
+        for (size_t i = 0; i < uuid.size(); ++i)
+            uuid[i] = otp_read_from_shadow(OTP_SOC_UUID_IDX + static_cast<uint32_t>(i));
+
+        mix_uid_entropy(uuid);
+
+        auto* cursor = serial_string_.data() + 3;
+        for (const auto& word : uuid) {
+            cursor = write_hex_u16(static_cast<uint16_t>(word >> 16), cursor) + 1;
+            cursor = write_hex_u16(static_cast<uint16_t>(word), cursor) + 1;
+        }
+        core::utility::assert_debug(cursor == serial_string_.data() + serial_string_.size());
+    }
+
+    static constexpr void mix_uid_entropy(std::array<uint32_t, kUuidWordCount>& uid) {
+        static_assert(kUuidWordCount == 4);
+
+        auto& [a, b, c, d] = uid;
+
+        const auto mix_step = [](uint32_t v) {
+            v *= 0x9E3779B9;
+            return v ^ (v >> 16);
+        };
+
+        a ^= mix_step(b ^ c ^ d);
+        b ^= mix_step(a ^ c ^ d);
+        c ^= mix_step(a ^ b ^ d);
+        d ^= mix_step(a ^ b ^ c);
+
+        a ^= mix_step(b + c + d);
+        b ^= mix_step(a + c + d);
+        c ^= mix_step(a + b + d);
+        d ^= mix_step(a + b + c);
+
+        a ^= mix_step((b << 5) ^ (c >> 3) ^ d);
+        b ^= mix_step((c << 7) ^ (d >> 5) ^ a);
+        c ^= mix_step((d << 11) ^ (a >> 7) ^ b);
+        d ^= mix_step((a << 13) ^ (b >> 11) ^ c);
+
+        a += mix_step(b ^ d);
+        b += mix_step(c ^ a);
+        c += mix_step(d ^ b);
+        d += mix_step(a ^ c);
+    }
+
+    static char* write_hex_u16(uint16_t value, char* buffer) {
+        static constexpr char hex_lut[] = "0123456789ABCDEF";
+
+        *buffer++ = hex_lut[(value >> 12) & 0xF];
+        *buffer++ = hex_lut[(value >> 8) & 0xF];
+        *buffer++ = hex_lut[(value >> 4) & 0xF];
+        *buffer++ = hex_lut[value & 0xF];
+
+        return buffer;
     }
 
 private: // Device Descriptor
@@ -79,8 +145,8 @@ private: // Device Descriptor
         .bDeviceProtocol = 0x00,
         .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
 
-        .idVendor = 0xa11c,
-        .idProduct = 0x1235, // TODO: Generate dynamically
+        .idVendor = 0xA11C,
+        .idProduct = 0xAF01,
         .bcdDevice = 0x0100,
 
         .iManufacturer = 0x01,
@@ -121,14 +187,14 @@ private: // Configuration Descriptor
     };
     static_assert(sizeof(kConfigurationDescriptorHs) == kConfigTotalLen);
 
-private:                                               // String Descriptor
-    static constexpr std::string_view kStringDescriptor[4] = {
-        "\x09\x04",                                    // 0: Support English (0x0409)
-        "Alliance RoboMaster Team.",                   // 1: Manufacturer
-        "RMCS Board v" LIBRMCS_PROJECT_VERSION_STRING, // 2: Product
-        "123456",                                      // 3: Serials, should use chip ID
-    };
-    std::array<uint16_t, 128> descriptor_string_buffer_;
+private: // String Descriptor
+    static constexpr std::array<uint8_t, 2> kLanguageId = {0x09, 0x04};
+    static constexpr std::string_view kManufacturerString = "Alliance RoboMaster Team.";
+    static constexpr std::string_view kProductString =
+        "RMCS Agent v" LIBRMCS_PROJECT_VERSION_STRING;
+    std::array<char, 43> serial_string_{"AF-0000-0000-0000-0000-0000-0000-0000-0000"};
+
+    std::array<uint16_t, 128> descriptor_string_buffer_{};
 };
 inline constinit utility::Lazy<UsbDescriptors> usb_descriptors;
 
