@@ -66,7 +66,8 @@ public:
         }
 
         // first byte is length (including header), second byte is string type
-        descriptor_string_buffer_[0] = (TUSB_DESC_STRING << 8) | ((2 * str_size) + 2);
+        descriptor_string_buffer_[0] =
+            (TUSB_DESC_STRING << 8) | static_cast<uint16_t>((2 * str_size) + 2);
 
         return descriptor_string_buffer_.data();
     }
