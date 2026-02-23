@@ -65,7 +65,7 @@ public:
 
 private:
     void update_serial_string() {
-        uint32_t uid[3];
+        std::array<uint32_t, 3> uid;
 
         uid[0] = HAL_GetUIDw0();
         uid[1] = HAL_GetUIDw1();
@@ -74,15 +74,13 @@ private:
         mix_uid_entropy(uid);
 
         auto* cursor = serial_string_.data() + 3;
-        cursor = write_hex_u16(static_cast<uint16_t>(uid[0] >> 16), cursor) + 1;
-        cursor = write_hex_u16(static_cast<uint16_t>(uid[0]), cursor) + 1;
-        cursor = write_hex_u16(static_cast<uint16_t>(uid[1] >> 16), cursor) + 1;
-        cursor = write_hex_u16(static_cast<uint16_t>(uid[1]), cursor) + 1;
-        cursor = write_hex_u16(static_cast<uint16_t>(uid[2] >> 16), cursor) + 1;
-        cursor = write_hex_u16(static_cast<uint16_t>(uid[2]), cursor) + 0;
+        for (const auto& word : uid) {
+            cursor = write_hex_u16(static_cast<uint16_t>(word >> 16), cursor) + 1;
+            cursor = write_hex_u16(static_cast<uint16_t>(word), cursor) + 1;
+        }
     }
 
-    static constexpr void mix_uid_entropy(uint32_t (&uid)[3]) {
+    static constexpr void mix_uid_entropy(std::array<uint32_t, 3>& uid) {
         auto& [a, b, c] = uid;
 
         const auto mix_step = [](uint32_t v) {
