@@ -14,6 +14,7 @@
 #include <main.h>
 #include <tusb_config.h>
 
+#include "core/src/utility/assert.hpp"
 #include "firmware/c_board/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::usb {
@@ -78,6 +79,7 @@ private:
             cursor = write_hex_u16(static_cast<uint16_t>(word >> 16), cursor) + 1;
             cursor = write_hex_u16(static_cast<uint16_t>(word), cursor) + 1;
         }
+        core::utility::assert_debug(cursor == serial_string_.data() + serial_string_.size());
     }
 
     static constexpr void mix_uid_entropy(std::array<uint32_t, 3>& uid) {
