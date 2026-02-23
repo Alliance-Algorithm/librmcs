@@ -142,7 +142,7 @@ private: // Device Descriptor
         .bDeviceProtocol = 0x00,
         .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
 
-        .idVendor = 0xa11c,
+        .idVendor = 0xA11C,
         .idProduct = 0xAF01,
         .bcdDevice = 0x0100,
 
