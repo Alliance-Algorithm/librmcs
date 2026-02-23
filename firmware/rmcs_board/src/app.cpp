@@ -11,7 +11,7 @@
 #include "firmware/rmcs_board/src/spi/bmi088/gyro.hpp"
 #include "firmware/rmcs_board/src/uart/uart.hpp"
 #include "firmware/rmcs_board/src/usb/vendor.hpp"
-#include "firmware/rmcs_board/src/utility/interrupt_lock_guard.hpp"
+#include "firmware/rmcs_board/src/utility/interrupt_lock.hpp"
 
 int main() { librmcs::firmware::app.init().run(); }
 
@@ -37,6 +37,7 @@ App::App() {
     usb::vendor.init();
 }
 
+// Non-static to ensure instantiation
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 [[noreturn]] void App::run() {
     while (true) {

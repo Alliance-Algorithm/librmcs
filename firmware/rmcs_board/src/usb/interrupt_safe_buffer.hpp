@@ -20,6 +20,8 @@ public:
     static constexpr size_t kBatchCount = 8;
     static_assert(std::has_single_bit(kBatchCount), "Batch count must be a power of 2");
 
+    static constexpr size_t kMask = kBatchCount - 1;
+
     constexpr InterruptSafeBuffer() = default;
 
     std::span<std::byte> allocate(size_t size) noexcept override {
@@ -47,8 +49,6 @@ public:
             in_.compare_exchange_weak(in, in + 1, std::memory_order::relaxed);
         }
     }
-
-    static constexpr size_t kMask = kBatchCount - 1;
 
     class Batch {
     public:
