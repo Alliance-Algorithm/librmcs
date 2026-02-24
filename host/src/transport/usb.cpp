@@ -11,6 +11,7 @@
 #include <new>
 #include <span>
 #include <stdexcept>
+#include <string_view>
 #include <thread>
 #include <tuple>
 #include <utility>
@@ -30,10 +31,10 @@ namespace librmcs::host::transport {
 
 class Usb : public Transport {
 public:
-    explicit Usb(uint16_t usb_vid, int32_t usb_pid, const char* serial_number)
+    explicit Usb(uint16_t usb_vid, int32_t usb_pid, std::string_view serial_filter)
         : logger_(logging::get_logger())
         , free_transmit_transfers_(kTransmitTransferCount) {
-        if (!usb_init(usb_vid, usb_pid, serial_number)) {
+        if (!usb_init(usb_vid, usb_pid, serial_filter)) {
             throw std::runtime_error{"Failed to init."};
         }
 
@@ -164,7 +165,7 @@ private:
         libusb_transfer* transfer_;
     };
 
-    bool usb_init(uint16_t vendor_id, int32_t product_id, const char* serial_number) {
+    bool usb_init(uint16_t vendor_id, int32_t product_id, std::string_view serial_filter) {
         int ret;
 
         ret = libusb_init(&libusb_context_);
@@ -174,7 +175,7 @@ private:
         }
         utility::FinalAction exit_libusb{[this]() noexcept { libusb_exit(libusb_context_); }};
 
-        if (!select_device(vendor_id, product_id, serial_number))
+        if (!select_device(vendor_id, product_id, serial_filter))
             return false;
         utility::FinalAction close_device_handle{
             [this]() noexcept { libusb_close(libusb_device_handle_); }};
@@ -191,7 +192,7 @@ private:
         return true;
     }
 
-    bool select_device(uint16_t vendor_id, int32_t product_id, const char* serial_number) {
+    bool select_device(uint16_t vendor_id, int32_t product_id, std::string_view serial_filter) {
         libusb_device** device_list = nullptr;
         const ssize_t device_count = libusb_get_device_list(libusb_context_, &device_list);
         if (device_count < 0) {
@@ -232,15 +233,15 @@ private:
                 continue;
             utility::FinalAction close_device{[&handle]() noexcept { libusb_close(handle); }};
 
-            if (serial_number) {
-                unsigned char serial_buf[256];
+            if (!serial_filter.empty()) {
+                char serial_buf[256];
                 const int n = libusb_get_string_descriptor_ascii(
-                    handle, descriptors.iSerialNumber, serial_buf, sizeof(serial_buf) - 1);
+                    handle, descriptors.iSerialNumber, reinterpret_cast<unsigned char*>(serial_buf),
+                    sizeof(serial_buf));
                 if (n < 0)
                     continue;
-                serial_buf[n] = '\0';
 
-                if (strcmp(reinterpret_cast<char*>(serial_buf), serial_number) != 0)
+                if (!match_filter(serial_filter, {serial_buf, static_cast<size_t>(n)}))
                     continue;
             }
 
@@ -258,14 +259,15 @@ private:
                                         : "No device",
                 vendor_id,
                 product_id >= 0 ? std::format(", product id (0x{:04x})", product_id).c_str() : "",
-                serial_number ? std::format(", serial number ({})", serial_number).c_str() : "");
+                !serial_filter.empty() ? std::format(", serial number ({})", serial_filter).c_str()
+                                       : "");
 
             const int relaxing_count = print_matched_unmatched_devices(
                 device_list, device_count, device_descriptors, vendor_id, product_id,
-                serial_number);
+                serial_filter);
 
             if (!devices_opened.empty()) {
-                if (!serial_number)
+                if (serial_filter.empty())
                     logger_.error(
                         "To ensure correct device selection, please specify the Serial Number");
                 else
@@ -287,7 +289,7 @@ private:
     int print_matched_unmatched_devices(
         libusb_device** device_list, ssize_t device_count,
         libusb_device_descriptor* device_descriptors, uint16_t vendor_id, int32_t product_id,
-        const char* serial_number) {
+        std::string_view serial_filter) {
 
         int j = 0;
         int k = 0;
@@ -315,19 +317,19 @@ private:
             }
             const utility::FinalAction close_device{[&handle]() noexcept { libusb_close(handle); }};
 
-            unsigned char serial_buf[256];
-            int n = libusb_get_string_descriptor_ascii(
-                handle, descriptors.iSerialNumber, serial_buf, sizeof(serial_buf) - 1);
+            char serial_buf[256];
+            const int n = libusb_get_string_descriptor_ascii(
+                handle, descriptors.iSerialNumber, reinterpret_cast<unsigned char*>(serial_buf),
+                sizeof(serial_buf));
             if (n < 0) {
                 logger_.error(
                     "{} Ignored because descriptor could not be read: {} ({})", device_str, n,
                     libusb_errname(n));
                 continue;
             }
-            serial_buf[n] = '\0';
-            const char* serial_str = reinterpret_cast<char*>(serial_buf);
+            const std::string_view serial_str = {serial_buf, static_cast<size_t>(n)};
 
-            if (serial_number && std::strcmp(serial_str, serial_number) != 0)
+            if (!serial_filter.empty() && !match_filter(serial_filter, serial_str))
                 matched = false;
 
             if (matched) {
@@ -339,6 +341,41 @@ private:
             }
         }
         return j;
+    }
+
+    static constexpr bool match_filter(std::string_view filter, std::string_view target) {
+        const auto *filter_it = filter.cbegin(), *filter_end = filter.cend();
+        const auto *target_it = target.cbegin(), *target_end = target.cend();
+
+        const auto to_upper = [](char c) constexpr {
+            if (c >= 'a' && c <= 'z')
+                return static_cast<char>(c - 'a' + 'A');
+            return c;
+        };
+
+        while (filter_it != filter_end && target_it != target_end) {
+            if (*filter_it == '-') {
+                ++filter_it;
+                continue;
+            }
+            if (*target_it == '-') {
+                ++target_it;
+                continue;
+            }
+
+            if (to_upper(*filter_it) != to_upper(*target_it)) {
+                return false;
+            }
+
+            ++filter_it;
+            ++target_it;
+        }
+
+        while (filter_it != filter_end && *filter_it == '-') {
+            ++filter_it;
+        }
+
+        return filter_it == filter_end;
     }
 
     void handle_events() {
@@ -508,8 +545,8 @@ private:
 };
 
 std::unique_ptr<Transport>
-    create_usb_transport(uint16_t usb_vid, int32_t usb_pid, const char* serial_number) {
-    return std::make_unique<Usb>(usb_vid, usb_pid, serial_number);
+    create_usb_transport(uint16_t usb_vid, int32_t usb_pid, std::string_view serial_filter) {
+    return std::make_unique<Usb>(usb_vid, usb_pid, serial_filter);
 }
 
 } // namespace librmcs::host::transport

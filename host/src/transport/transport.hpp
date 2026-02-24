@@ -5,6 +5,7 @@
 #include <functional>
 #include <memory>
 #include <span>
+#include <string_view>
 
 #include "core/src/protocol/constant.hpp"
 
@@ -138,6 +139,6 @@ public:
 };
 
 std::unique_ptr<Transport>
-    create_usb_transport(uint16_t usb_vid, int32_t usb_pid, const char* serial_number);
+    create_usb_transport(uint16_t usb_vid, int32_t usb_pid, std::string_view serial_filter);
 
 } // namespace librmcs::host::transport

@@ -6,6 +6,7 @@
 #include <memory>
 #include <new>
 #include <span>
+#include <string_view>
 #include <utility>
 
 #include "core/src/protocol/deserializer.hpp"
@@ -153,8 +154,8 @@ bool Handler::PacketBuilder::write_imu_gyroscope(const data::GyroscopeDataView& 
 }
 
 Handler::Handler(
-    uint16_t usb_vid, int32_t usb_pid, const char* serial_number, data::DataCallback& callback)
-    : impl_(new Impl(transport::create_usb_transport(usb_vid, usb_pid, serial_number), callback)) {}
+    uint16_t usb_vid, int32_t usb_pid, std::string_view serial_filter, data::DataCallback& callback)
+    : impl_(new Impl(transport::create_usb_transport(usb_vid, usb_pid, serial_filter), callback)) {}
 
 Handler::Handler(Handler&& other) noexcept
     : impl_(std::exchange(other.impl_, nullptr)) {}
