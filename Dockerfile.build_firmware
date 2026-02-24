@@ -4,17 +4,25 @@ SHELL ["/bin/bash", "-c"]
 
 WORKDIR /src
 RUN --mount=type=bind,target=/src,source=.,readonly \
-    LIBRMCS_PROJECT_VERSION=$(.scripts/generate_version) \
-    && cmake --preset debug -S firmware/rmcs_board -B /output/build-debug \
-    && cmake --build /output/build-debug \
-    && cmake --preset release -S firmware/rmcs_board -B /output/build-release \
-    && cmake --build /output/build-release \
-    && cd /output \
-    && mv build-debug/output/librmcs-firmware.elf \
-        ./librmcs-firmware-${LIBRMCS_PROJECT_VERSION}-debug.elf \
-    && mv build-release/output/librmcs-firmware.elf \
-        ./librmcs-firmware-${LIBRMCS_PROJECT_VERSION}-release.elf \
-    && rm -rf build*
+    set -euo pipefail \
+    && LIBRMCS_PROJECT_VERSION="$(.scripts/generate_version)" \
+    && for board in rmcs_board c_board; do \
+        for config in debug release; do \
+            build_dir="/output/build-${board}-${config}"; \
+            cmake --preset "${config}" -S "firmware/${board}" -B "${build_dir}"; \
+            cmake --build "${build_dir}"; \
+            elf_path="${build_dir}/output/librmcs-firmware.elf"; \
+            if [ ! -f "${elf_path}" ]; then \
+                elf_path="${build_dir}/librmcs-firmware.elf"; \
+            fi; \
+            if [ ! -f "${elf_path}" ]; then \
+                echo "Missing firmware ELF for ${board} (${config})" >&2; \
+                exit 1; \
+            fi; \
+            mv "${elf_path}" "/output/librmcs-firmware-${board}-${LIBRMCS_PROJECT_VERSION}-${config}.elf"; \
+        done; \
+    done \
+    && rm -rf /output/build-*
 
 FROM scratch AS output
 COPY --from=build /output/ /
