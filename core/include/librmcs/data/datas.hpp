@@ -32,14 +32,14 @@ enum class DataId : uint8_t {
 struct CanDataView {
     uint32_t can_id;
     std::span<const std::byte> can_data;
-    bool is_fdcan;
-    bool is_extended_can_id;
-    bool is_remote_transmission;
+    bool is_fdcan = false;
+    bool is_extended_can_id = false;
+    bool is_remote_transmission = false;
 };
 
 struct UartDataView {
     std::span<const std::byte> uart_data;
-    bool idle_delimited;
+    bool idle_delimited = false;
 };
 
 struct AccelerometerDataView {
