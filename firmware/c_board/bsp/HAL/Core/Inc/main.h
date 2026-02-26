@@ -32,9 +32,10 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "stm32f407xx.h"       // IWYU pragma: export
+#include "stm32f4xx.h"         // IWYU pragma: export
 #include "stm32f4xx_hal.h"     // IWYU pragma: export
 #include "stm32f4xx_hal_def.h" // IWYU pragma: export
-#include "stm32f407xx.h"       // IWYU pragma: export
 
 #ifdef HAL_RCC_MODULE_ENABLED
 # include "stm32f4xx_hal_rcc.h" // IWYU pragma: export

@@ -7,6 +7,7 @@
 #include "firmware/c_board/src/led/led.hpp"
 #include "firmware/c_board/src/spi/bmi088/accel.hpp"
 #include "firmware/c_board/src/spi/bmi088/gyro.hpp"
+#include "firmware/c_board/src/spi/spi.hpp"
 #include "firmware/c_board/src/uart/uart.hpp"
 #include "firmware/c_board/src/usb/vendor.hpp"
 #include "firmware/c_board/src/utility/interrupt_lock.hpp"
@@ -40,6 +41,8 @@ App::App() {
         can::can1->try_transmit();
         usb::vendor->try_transmit();
         can::can2->try_transmit();
+        usb::vendor->try_transmit();
+        spi::spi1->update();
         usb::vendor->try_transmit();
         uart::uart1->try_transmit();
         usb::vendor->try_transmit();

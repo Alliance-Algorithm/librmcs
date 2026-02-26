@@ -1,27 +1,31 @@
 #include "firmware/c_board/src/spi/spi.hpp"
 
+#include <main.h>
 #include <spi.h>
 
-#ifndef NDEBUG
-# include "core/src/utility/assert.hpp"
-#endif
+#include "core/src/utility/assert.hpp"
 
 namespace librmcs::firmware::spi {
 
-extern "C" void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef* hspi) {
-    if (hspi == &hspi1) {
-        spi1->transmit_receive_async_callback(true);
+void Spi::dma_transfer_complete_callback_global(DMA_HandleTypeDef* hal_dma_handle) {
+    if (hal_dma_handle->Parent == &hspi1) {
+        spi1->dma_transfer_complete_callback();
     }
 }
 
-extern "C" void HAL_SPI_ErrorCallback(SPI_HandleTypeDef* hspi) {
-#ifndef NDEBUG
-    // Fail-fast in debug builds.
-    core::utility::assert_failed_always();
-#endif
-    // Release fallback: cleanup (drop this frame, deassert CS, and release the lock).
+void Spi::dma_error_callback_global(DMA_HandleTypeDef* hal_dma_handle) {
+    if (hal_dma_handle->Parent == &hspi1) {
+        spi1->transmit_receive_async_callback(false);
+    }
+}
 
-    if (hspi == &hspi1) {
+extern "C" void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef*) {
+    core::utility::assert_failed_always();
+}
+
+// NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
+extern "C" void HAL_SPI_ErrorCallback(SPI_HandleTypeDef* hal_spi_handle) {
+    if (hal_spi_handle == &hspi1) {
         spi1->transmit_receive_async_callback(false);
     }
 }
