@@ -40,7 +40,7 @@ public:
     virtual ~SpiModule() = default;
 
 protected:
-    virtual void transmit_receive_async_callback(std::byte* rx_buffer, std::size_t size) = 0;
+    virtual void transmit_receive_async_callback(std::size_t size) = 0;
 
     ChipSelectPin chip_select_pin_;
 };
@@ -133,7 +133,7 @@ public:
 
     void transmit_receive_async_callback() {
         if (auto* module = finish_transfer())
-            module->transmit_receive_async_callback(rx_buffer, tx_rx_size_);
+            module->transmit_receive_async_callback(tx_rx_size_);
     }
 
     void unlock() {

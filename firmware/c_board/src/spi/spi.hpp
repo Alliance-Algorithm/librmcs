@@ -29,7 +29,7 @@ public:
     virtual ~SpiModule() = default;
 
 protected:
-    virtual void transmit_receive_async_callback(uint8_t* rx_buffer, size_t size) = 0;
+    virtual void transmit_receive_async_callback(size_t size) = 0;
 
     GPIO_TypeDef* const chip_select_port_;
     const uint16_t chip_select_pin_;
@@ -74,13 +74,13 @@ public:
         begin_transfer(module, size);
 
         core::utility::assert_debug(
-            HAL_SPI_TransmitReceive_IT(hal_spi_handle_, tx_buffer, rx_buffer, tx_rx_size_)
+            HAL_SPI_TransmitReceive_DMA(hal_spi_handle_, tx_buffer, rx_buffer, tx_rx_size_)
             == HAL_OK);
     }
 
-    void transmit_receive_async_callback() {
+    void transmit_receive_async_callback(bool success) {
         if (auto* module = finish_transfer())
-            module->transmit_receive_async_callback(rx_buffer, tx_rx_size_);
+            module->transmit_receive_async_callback(success ? tx_rx_size_ : 0);
     }
 
     alignas(4) uint8_t tx_buffer[kMaxTransferSize];

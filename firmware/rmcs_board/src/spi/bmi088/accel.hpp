@@ -107,9 +107,11 @@ public:
     void data_ready_callback() { read_async(RegisterAddress::kAccXLsb, 6); }
 
 private:
-    void transmit_receive_async_callback(std::byte* rx_buffer, std::size_t size) override {
-        auto& data = parse_rx_data(rx_buffer, size);
-        handle_uplink(usb::vendor->serializer(), data);
+    void transmit_receive_async_callback(std::size_t size) override {
+        if (size) [[likely]] {
+            auto& data = parse_rx_data(spi_.rx_buffer, size);
+            handle_uplink(usb::vendor->serializer(), data);
+        }
         spi_.unlock();
     }
 
