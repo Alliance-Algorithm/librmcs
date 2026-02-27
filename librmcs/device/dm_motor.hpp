@@ -121,10 +121,6 @@ public:
         }
         last_raw_angle_ = raw_angle;
 
-        angle_value_ = status_angle_to_angle_coefficient_ * static_cast<double>(encoder);
-        if (angle_value_ < 0)
-            angle_value_ += 2 * std::numbers::pi;
-
         velocity_ = status_velocity_to_velocity_coefficient_
                   * uint_to_double(velocity, -max_velocity_, max_velocity_, 12);
 
@@ -145,7 +141,6 @@ public:
     double torque() const { return torque_; }
     double max_torque() const { return max_torque_; }
 
-    double angle_value() const { return angle_value_; }
     double position() const { return position_; }
 
     double mos_temperature() const { return mos_temperature_; }
@@ -212,7 +207,7 @@ public:
     }
 
     uint64_t generate_angle_command(
-        double control_angle, double control_kp = 65, double control_kd = 2) const {
+        double control_angle, double control_kp = 60, double control_kd = 2) const {
         if (std::isnan(control_angle)) {
             return generate_disable_command();
         }
@@ -268,7 +263,6 @@ private:
     double velocity_;
     double torque_;
 
-    double angle_value_ = 0.0;
     double position_ = 0.0;
 
     double max_angle_;
