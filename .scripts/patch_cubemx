@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+
+STALE_FILES = (
+    Path(".mxproject"),
+    Path("CMakeLists.txt"),
+    Path("CMakePresets.json"),
+    Path("cmake/starm-clang.cmake"),
+)
+
+PATCH_RULES = (
+    (
+        re.compile(
+            r"/[^\s\"')]+/Drivers/STM32F4xx_HAL_Driver/(?P<suffix>[^\s\"')]+)"
+        ),
+        r"${LIBRMCS_STM32_HAL_DRIVER_ROOT}/\g<suffix>",
+    ),
+    (
+        re.compile(
+            r"/[^\s\"')]+/Drivers/CMSIS/Device/ST/STM32F4xx/(?P<suffix>[^\s\"')]+)"
+        ),
+        r"${LIBRMCS_STM32_DEVICE_ROOT}/\g<suffix>",
+    ),
+    (
+        re.compile(r"/[^\s\"')]+/Drivers/CMSIS/Include(?=$|[\s\"')])"),
+        r"${LIBRMCS_CMSIS_CORE_INCLUDE_DIR}",
+    ),
+)
+
+ABSOLUTE_PATH_PATTERN = re.compile(r"(?:(?<=^)|(?<=[\s(]))/[^\s\"')]+")
+PROJECT_LINK_LIBRARIES_PATTERN = re.compile(
+    r"target_link_libraries\(\$\{CMAKE_PROJECT_NAME\}\s+\$\{MX_LINK_LIBS\}\)"
+)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Patch CubeMX-generated CMake files for librmcs layout."
+    )
+    parser.add_argument(
+        "--cubemx-root",
+        type=Path,
+        default=None,
+        help="Path to CubeMX root (default: firmware/c_board/cubemx).",
+    )
+    return parser.parse_args()
+
+
+def resolve_cubemx_root(cubemx_root_arg: Path | None) -> Path:
+    if cubemx_root_arg is not None:
+        return cubemx_root_arg.resolve()
+    return (Path(__file__).resolve().parent.parent / "firmware/c_board/cubemx").resolve()
+
+
+def remove_stale_files(cubemx_root: Path) -> None:
+    for rel_path in STALE_FILES:
+        (cubemx_root / rel_path).unlink(missing_ok=True)
+
+
+def patch_stm32cubemx_cmake(cubemx_root: Path) -> None:
+    cmake_file = cubemx_root / "cmake/stm32cubemx/CMakeLists.txt"
+    if not cmake_file.is_file():
+        raise FileNotFoundError(f"Missing CubeMX CMake file: {cmake_file}")
+
+    original = cmake_file.read_text(encoding="utf-8")
+    patched = original
+
+    for pattern, replacement in PATCH_RULES:
+        patched = pattern.sub(replacement, patched)
+
+    patched = PROJECT_LINK_LIBRARIES_PATTERN.sub(
+        "target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${MX_LINK_LIBS})",
+        patched,
+    )
+
+    unresolved = sorted(set(ABSOLUTE_PATH_PATTERN.findall(patched)))
+    if unresolved:
+        unresolved_text = "\n".join(f"  - {path}" for path in unresolved)
+        raise ValueError(
+            "Found unresolved absolute paths in stm32cubemx CMake file:\n"
+            f"{unresolved_text}"
+        )
+
+    if patched != original:
+        cmake_file.write_text(patched, encoding="utf-8")
+
+
+def main() -> int:
+    args = parse_args()
+    cubemx_root = resolve_cubemx_root(args.cubemx_root)
+
+    if not cubemx_root.is_dir():
+        raise FileNotFoundError(f"CubeMX root directory not found: {cubemx_root}")
+
+    remove_stale_files(cubemx_root)
+    patch_stm32cubemx_cmake(cubemx_root)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        print(f"Error: {exc}", file=sys.stderr)
+        raise SystemExit(1)
