@@ -97,8 +97,8 @@ def main() -> int:
     if not cubemx_root.is_dir():
         raise FileNotFoundError(f"CubeMX root directory not found: {cubemx_root}")
 
-    remove_stale_files(cubemx_root)
     patch_stm32cubemx_cmake(cubemx_root)
+    remove_stale_files(cubemx_root)
     return 0
 
 
