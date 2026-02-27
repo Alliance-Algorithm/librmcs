@@ -6,7 +6,7 @@
             "hidden": true,
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build",
-            "toolchainFile": "${sourceDir}/bsp/HAL/cmake/gcc-arm-none-eabi.cmake"
+            "toolchainFile": "${sourceDir}/cubemx/cmake/gcc-arm-none-eabi.cmake"
         },
         {
             "name": "debug",

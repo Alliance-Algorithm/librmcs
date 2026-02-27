@@ -23,11 +23,11 @@ enable_language(C CXX ASM)
 set(LIBRMCS_PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 cmake_path(ABSOLUTE_PATH LIBRMCS_PROJECT_ROOT NORMALIZE)
 
+set(LIBRMCS_STM32_HAL_DRIVER_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/bsp/stm32f4xx-hal-driver")
+set(LIBRMCS_STM32_DEVICE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/bsp/cmsis-device-f4")
+set(LIBRMCS_CMSIS_CORE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/bsp/cmsis-core")
+set(LIBRMCS_CMSIS_CORE_INCLUDE_DIR "${LIBRMCS_CMSIS_CORE_ROOT}/Core/Include")
 set(LIBRMCS_TINYUSB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/bsp/tinyusb")
-if(NOT EXISTS "${LIBRMCS_TINYUSB_ROOT}/src/tusb.h")
-    message(FATAL_ERROR "TinyUSB submodule not found at ${LIBRMCS_TINYUSB_ROOT}. "
-        "Run: git submodule update --init firmware/c_board/bsp/tinyusb")
-endif()
 
 if(NOT DEFINED LIBRMCS_PROJECT_VERSION OR LIBRMCS_PROJECT_VERSION STREQUAL "")
     execute_process(
@@ -42,12 +42,10 @@ message(STATUS "Librmcs project version: ${LIBRMCS_PROJECT_VERSION}")
 
 add_executable(${CMAKE_PROJECT_NAME})
 
-# Add libstdc++ for C++ code. This is consumed by stm32cubemx/CMakeLists.txt
-# via TOOLCHAIN_LINK_LIBRARIES.
+# Add libstdc++ for C++ code.
 list(APPEND TOOLCHAIN_LINK_LIBRARIES "stdc++")
 
-# Bring in CubeMX generated HAL build definitions.
-add_subdirectory(bsp/HAL/cmake/stm32cubemx)
+add_subdirectory(cubemx/cmake/stm32cubemx)
 
 add_library(tinyusb_device OBJECT)
 target_sources(tinyusb_device PRIVATE
@@ -153,7 +151,7 @@ target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
 # Remove wrong libob.a dependency (CubeMX toolchain quirk)
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 
-target_link_libraries(${CMAKE_PROJECT_NAME}
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     stm32cubemx
     tinyusb_device
 )

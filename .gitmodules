@@ -4,3 +4,12 @@
 [submodule "firmware/c_board/bsp/tinyusb"]
 	path = firmware/c_board/bsp/tinyusb
 	url = https://github.com/qzhhhi/tinyusb.git
+[submodule "firmware/c_board/bsp/cmsis-device-f4"]
+	path = firmware/c_board/bsp/cmsis-device-f4
+	url = https://github.com/STMicroelectronics/cmsis-device-f4.git
+[submodule "firmware/c_board/bsp/stm32f4xx-hal-driver"]
+	path = firmware/c_board/bsp/stm32f4xx-hal-driver
+	url = https://github.com/STMicroelectronics/stm32f4xx-hal-driver.git
+[submodule "firmware/c_board/bsp/cmsis-core"]
+	path = firmware/c_board/bsp/cmsis-core
+	url = https://github.com/STMicroelectronics/cmsis-core.git
