@@ -22,11 +22,6 @@ public:
         : chip_select_port_(chip_select_port)
         , chip_select_pin_(chip_select_pin) {}
 
-    SpiModule(const SpiModule&) = delete;
-    SpiModule& operator=(const SpiModule&) = delete;
-    SpiModule(SpiModule&&) = delete;
-    SpiModule& operator=(SpiModule&&) = delete;
-
     virtual ~SpiModule() = default;
 
 protected:

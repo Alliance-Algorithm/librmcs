@@ -121,6 +121,8 @@ CheckOptions:
 
   readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
 
+  cppcoreguidelines-special-member-functions.AllowImplicitlyDeletedCopyOrMove: true
+  cppcoreguidelines-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted: true
   misc-include-cleaner.IgnoreHeaders: "bits/.+h" # https://github.com/llvm/llvm-project/issues/68213
   misc-const-correctness.AnalyzeParameters: false # Handled by `readability-non-const-parameter`
   readability-simplify-boolean-expr.IgnoreMacros: true
