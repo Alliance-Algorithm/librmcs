@@ -98,7 +98,8 @@ extern "C" {
 #endif
 
 #ifdef HAL_FLASH_MODULE_ENABLED
-# include "stm32f4xx_hal_flash.h" // IWYU pragma: export
+# include "stm32f4xx_hal_flash.h"    // IWYU pragma: export
+# include "stm32f4xx_hal_flash_ex.h" // IWYU pragma: export
 #endif
 
 #ifdef HAL_SRAM_MODULE_ENABLED

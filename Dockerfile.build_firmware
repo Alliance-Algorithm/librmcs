@@ -21,8 +21,10 @@ RUN --mount=type=bind,target=/src,source=.,readonly \
         build_dir="/tmp/build-${board}"; \
         cmake --preset release -S "firmware/${board}" -B "${build_dir}"; \
         cmake --build "${build_dir}"; \
-        cp "${build_dir}/app/${board}_app.elf" \
-            "/output/librmcs-firmware-${board}-${LIBRMCS_PROJECT_VERSION}.elf"; \
+        cp "${build_dir}/bootloader/${board}_bootloader.elf" \
+            "/output/librmcs-bootloader-${board}.elf"; \
+        cp "${build_dir}/app/${board}_app.dfu" \
+            "/output/librmcs-firmware-${board}-${LIBRMCS_PROJECT_VERSION}.dfu"; \
     done
 
 FROM scratch AS output

@@ -73,7 +73,9 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: librmcs-firmware
-          path: build/librmcs-firmware*
+          path: |
+            build/librmcs-firmware*
+            build/librmcs-bootloader*
           if-no-files-found: error
 
   release:

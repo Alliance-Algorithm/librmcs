@@ -4,10 +4,6 @@
 extern "C" {
 #endif
 
-//--------------------------------------------------------------------
-// COMMON CONFIGURATION
-//--------------------------------------------------------------------
-
 #ifndef CFG_TUSB_MCU
 # error CFG_TUSB_MCU must be defined
 #endif
@@ -30,10 +26,6 @@ extern "C" {
 
 #define CFG_TUSB_OS OPT_OS_NONE
 
-//--------------------------------------------------------------------
-// DEVICE CONFIGURATION
-//--------------------------------------------------------------------
-
 #ifndef CFG_TUD_ENDPOINT0_SIZE
 # define CFG_TUD_ENDPOINT0_SIZE 64
 #endif
@@ -42,15 +34,11 @@ extern "C" {
 #define CFG_TUD_MSC         0
 #define CFG_TUD_HID         0
 #define CFG_TUD_MIDI        0
-#define CFG_TUD_VENDOR      1
-#define CFG_TUD_DFU_RUNTIME 1
-#define CFG_TUD_DFU         0
+#define CFG_TUD_VENDOR      0
+#define CFG_TUD_DFU_RUNTIME 0
+#define CFG_TUD_DFU         1
 
-#define CFG_TUD_VENDOR_EPSIZE 64
-
-// Direct mode to match the existing per-packet framing behavior.
-#define CFG_TUD_VENDOR_RX_BUFSIZE 0
-#define CFG_TUD_VENDOR_TX_BUFSIZE 0
+#define CFG_TUD_DFU_XFER_BUFSIZE 1024
 
 #ifdef __cplusplus
 }

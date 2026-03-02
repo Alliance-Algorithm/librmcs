@@ -25,3 +25,5 @@ c_board:
     - core/include
     - firmware/c_board/app/src
     - firmware/c_board/app/include
+    - firmware/c_board/bootloader/src
+    - firmware/c_board/bootloader/include

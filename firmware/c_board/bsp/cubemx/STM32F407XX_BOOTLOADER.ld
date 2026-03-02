@@ -58,12 +58,12 @@ MEMORY
 RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 128K
 CCMRAM (xrw)      : ORIGIN = 0x10000000, LENGTH = 64K - 64
 MAILBOX (rw)   : ORIGIN = 0x1000FFC0, LENGTH = 64
-FLASH (rx)      : ORIGIN = 0x8010000, LENGTH = 960K
+FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 48K
 }
 
 /* Highest address of the user mode stack */
-_estack = ORIGIN(RAM) + LENGTH(RAM);    /* end of RAM */
-/* Generate a link error if heap and stack don't fit into RAM */
+_estack = ORIGIN(CCMRAM) + LENGTH(CCMRAM);    /* end of CCMRAM */
+/* Generate a link error if heap and stack don't fit into CCMRAM */
 _Min_Heap_Size = 0x200;      /* required amount of heap  */
 _Min_Stack_Size = 0x400; /* required amount of stack */
 
@@ -171,7 +171,7 @@ SECTIONS
   /* used by the startup to initialize data */
   _sidata = LOADADDR(.data);
 
-  /* Initialized data sections goes into RAM, load LMA copy after code */
+  /* Initialized data sections goes into CCMRAM, load LMA copy after code */
   .data :
   {
     . = ALIGN(4);
@@ -182,7 +182,7 @@ SECTIONS
     *(.RamFunc*)       /* .RamFunc* sections */
 
     . = ALIGN(4);
-  } >RAM AT> FLASH
+  } >CCMRAM AT> FLASH
 
  /* Initialized TLS data section */
   .tdata : ALIGN(4)
@@ -192,7 +192,7 @@ SECTIONS
     _edata = .;        /* define a global symbol at data end */
     PROVIDE(__data_end = .);
     PROVIDE(__tdata_end = .);
-  } >RAM AT> FLASH
+  } >CCMRAM AT> FLASH
 
   PROVIDE( __tdata_start = ADDR(.tdata) );
   PROVIDE( __tdata_size = __tdata_end - __tdata_start );
@@ -216,7 +216,7 @@ SECTIONS
     *(.tbss .tbss.*)
     . = ALIGN(4);
     PROVIDE( __tbss_end = . );
-  } >RAM
+  } >CCMRAM
 
   PROVIDE( __tbss_start = ADDR(.tbss) );
   PROVIDE( __tbss_size = __tbss_end - __tbss_start );
@@ -240,11 +240,21 @@ SECTIONS
     _ebss = .;         /* define a global symbol at bss end */
     __bss_end__ = _ebss;
       PROVIDE( __bss_end = .);
-  } >RAM
+  } >CCMRAM
   PROVIDE( __non_tls_bss_start = ADDR(.bss) );
 
   PROVIDE( __bss_start = __tbss_start );
   PROVIDE( __bss_size = __bss_end - __bss_start );
+
+  .flash_sector_cache (NOLOAD) :
+  {
+    . = ALIGN(4);
+    __flash_sector_cache_start__ = .;
+    KEEP(*(.flash_sector_cache))
+    KEEP(*(.flash_sector_cache.*))
+    . = ALIGN(4);
+    __flash_sector_cache_end__ = .;
+  } >RAM
 
   .boot_mailbox (NOLOAD) :
   {
@@ -256,7 +266,7 @@ SECTIONS
     __boot_mailbox_end__ = .;
   } >MAILBOX
 
-  /* User_heap_stack section, used to check that there is enough RAM left */
+  /* User_heap_stack section, used to check that there is enough CCMRAM left */
   ._user_heap_stack (NOLOAD) :
   {
     . = ALIGN(8);
@@ -265,7 +275,7 @@ SECTIONS
     . = . + _Min_Heap_Size;
     . = . + _Min_Stack_Size;
     . = ALIGN(8);
-  } >RAM
+  } >CCMRAM
 
 
 

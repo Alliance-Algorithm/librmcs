@@ -17,9 +17,13 @@
 #include "firmware/c_board/app/src/spi/spi.hpp"
 #include "firmware/c_board/app/src/uart/uart.hpp"
 #include "firmware/c_board/app/src/usb/vendor.hpp"
+#include "firmware/c_board/app/src/utility/boot_mailbox.hpp"
 #include "firmware/c_board/app/src/utility/interrupt_lock.hpp"
 
-int main() { librmcs::firmware::app.init().run(); }
+int main() {
+    SCB->VTOR = 0x08010000U;
+    librmcs::firmware::app.init().run();
+}
 
 namespace librmcs::firmware {
 
@@ -28,6 +32,7 @@ App::App() {
 
     HAL_Init();
     SystemClock_Config();
+    utility::boot_mailbox.clear();
 
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
     DWT->CYCCNT = 0;
