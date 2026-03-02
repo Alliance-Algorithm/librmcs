@@ -15,6 +15,7 @@ add_library(tinyusb_app OBJECT)
 target_sources(tinyusb_app PRIVATE
     ${C_BOARD_APP_TINYUSB_COMMON_SOURCES}
     "${C_BOARD_APP_TINYUSB_ROOT}/src/class/vendor/vendor_device.c"
+    "${C_BOARD_APP_TINYUSB_ROOT}/src/class/dfu/dfu_rt_device.c"
 )
 target_include_directories(tinyusb_app SYSTEM PUBLIC
     "${C_BOARD_APP_TINYUSB_ROOT}/src"
@@ -51,3 +52,16 @@ target_link_libraries(c_board_app PRIVATE
 )
 
 c_board_apply_target_options(c_board_app "STM32F407XX_APP.ld")
+
+add_custom_command(TARGET c_board_app POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY} -O binary
+            $<TARGET_FILE:c_board_app>
+            $<TARGET_FILE_DIR:c_board_app>/c_board_app.bin
+    COMMAND ${LIBRMCS_PROJECT_ROOT}/.scripts/append_image_hash
+            -o $<TARGET_FILE_DIR:c_board_app>/c_board_app.dfu
+            $<TARGET_FILE_DIR:c_board_app>/c_board_app.bin
+    COMMAND dfu-suffix -v 0xA11C -p 0xD401 -d 0x0100
+            -a $<TARGET_FILE_DIR:c_board_app>/c_board_app.dfu
+            > /dev/null
+    COMMENT "Generating c_board_app.dfu"
+)

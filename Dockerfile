@@ -51,6 +51,7 @@ RUN apt-get update \
     git sudo \
     zip unzip xz-utils \
     openssh-client \
+    dfu-util \
     # Host toolchain
     libc6-dev gcc-14 g++-14 \
     pkg-config libusb-1.0-0-dev \
