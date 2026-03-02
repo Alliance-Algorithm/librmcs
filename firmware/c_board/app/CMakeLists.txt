@@ -60,7 +60,7 @@ add_custom_command(TARGET c_board_app POST_BUILD
     COMMAND ${LIBRMCS_PROJECT_ROOT}/.scripts/append_image_hash
             -o $<TARGET_FILE_DIR:c_board_app>/c_board_app.dfu
             $<TARGET_FILE_DIR:c_board_app>/c_board_app.bin
-    COMMAND dfu-suffix -v 0xA11C -p 0xD401 -d 0x0100
+    COMMAND dfu-suffix -v 0xA11C -p 0xD401 -d 0x0300
             -a $<TARGET_FILE_DIR:c_board_app>/c_board_app.dfu
             > /dev/null
     COMMENT "Generating c_board_app.dfu"

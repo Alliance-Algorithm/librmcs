@@ -133,7 +133,7 @@ private: // Device Descriptor
 
         .idVendor = 0xA11C,
         .idProduct = 0xD401,
-        .bcdDevice = 0x0100,
+        .bcdDevice = 0x0300,
 
         .iManufacturer = 0x01,
         .iProduct = 0x02,
