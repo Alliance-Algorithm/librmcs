@@ -68,11 +68,38 @@ private:
         uid[1] = HAL_GetUIDw1();
         uid[2] = HAL_GetUIDw2();
 
+        mix_uid_entropy(uid);
+
         auto* cursor = serial_string_.data() + 3;
         for (const auto& word : uid) {
             cursor = write_hex_u16(static_cast<uint16_t>(word >> 16), cursor) + 1;
             cursor = write_hex_u16(static_cast<uint16_t>(word), cursor) + 1;
         }
+    }
+
+    static constexpr void mix_uid_entropy(std::array<uint32_t, 3>& uid) {
+        auto& [a, b, c] = uid;
+
+        const auto mix_step = [](uint32_t v) {
+            v *= 0x9E3779B9;
+            return v ^ (v >> 16);
+        };
+
+        a ^= mix_step(b ^ c);
+        b ^= mix_step(a ^ c);
+        c ^= mix_step(a ^ b);
+
+        a ^= mix_step(b + c);
+        b ^= mix_step(a + c);
+        c ^= mix_step(a + b);
+
+        a ^= mix_step(b ^ (c >> 5));
+        b ^= mix_step(a ^ (c << 5));
+        c ^= mix_step(a ^ b);
+
+        a += mix_step(b);
+        b += mix_step(c);
+        c += mix_step(a);
     }
 
     static char* write_hex_u16(uint16_t value, char* buffer) {
