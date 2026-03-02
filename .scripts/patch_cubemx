@@ -10,7 +10,9 @@ STALE_FILES = (
     Path(".mxproject"),
     Path("CMakeLists.txt"),
     Path("CMakePresets.json"),
+    Path("STM32F407XX_FLASH.ld"),
     Path("cmake/starm-clang.cmake"),
+    Path("cmake/gcc-arm-none-eabi.cmake"),
 )
 
 PATCH_RULES = (
@@ -28,14 +30,23 @@ PATCH_RULES = (
     ),
     (
         re.compile(r"/[^\s\"')]+/Drivers/CMSIS/Include(?=$|[\s\"')])"),
-        r"${LIBRMCS_CMSIS_CORE_INCLUDE_DIR}",
+        r"${LIBRMCS_CMSIS_CORE_ROOT}/Core/Include",
     ),
 )
 
 ABSOLUTE_PATH_PATTERN = re.compile(r"(?:(?<=^)|(?<=[\s(]))/[^\s\"')]+")
-PROJECT_LINK_LIBRARIES_PATTERN = re.compile(
-    r"target_link_libraries\(\$\{CMAKE_PROJECT_NAME\}\s+\$\{MX_LINK_LIBS\}\)"
+DRIVERS_MIDDLEWARES_TO_EOF_PATTERN = re.compile(
+    r"^# Drivers Midllewares[\s\S]*\Z",
+    re.MULTILINE,
 )
+STM32CUBEMX_TAIL = """# Create stm32cubemx object library
+add_library(stm32cubemx OBJECT)
+target_sources(stm32cubemx PRIVATE ${STM32_Drivers_Src})
+target_sources(stm32cubemx PRIVATE ${MX_Application_Src})
+target_include_directories(stm32cubemx PUBLIC ${MX_Include_Dirs})
+target_compile_definitions(stm32cubemx PUBLIC ${MX_Defines_Syms})
+"""
+STM32CUBEMX_TAIL_ANCHOR = "# Create stm32cubemx object library"
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,7 +57,7 @@ def parse_args() -> argparse.Namespace:
         "--cubemx-root",
         type=Path,
         default=None,
-        help="Path to CubeMX root (default: firmware/c_board/cubemx).",
+        help="Path to CubeMX root (default: firmware/c_board/bsp/cubemx).",
     )
     return parser.parse_args()
 
@@ -54,7 +65,7 @@ def parse_args() -> argparse.Namespace:
 def resolve_cubemx_root(cubemx_root_arg: Path | None) -> Path:
     if cubemx_root_arg is not None:
         return cubemx_root_arg.resolve()
-    return (Path(__file__).resolve().parent.parent / "firmware/c_board/cubemx").resolve()
+    return (Path(__file__).resolve().parent.parent / "firmware/c_board/bsp/cubemx").resolve()
 
 
 def remove_stale_files(cubemx_root: Path) -> None:
@@ -73,10 +84,11 @@ def patch_stm32cubemx_cmake(cubemx_root: Path) -> None:
     for pattern, replacement in PATCH_RULES:
         patched = pattern.sub(replacement, patched)
 
-    patched = PROJECT_LINK_LIBRARIES_PATTERN.sub(
-        "target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${MX_LINK_LIBS})",
-        patched,
-    )
+    line_ending = "\r\n" if "\r\n" in original else "\n"
+    custom_tail = STM32CUBEMX_TAIL.replace("\n", line_ending)
+    patched, replacements = DRIVERS_MIDDLEWARES_TO_EOF_PATTERN.subn(custom_tail, patched)
+    if replacements == 0 and STM32CUBEMX_TAIL_ANCHOR not in patched:
+        raise ValueError("Marker '# Drivers Midllewares' not found in stm32cubemx CMake file")
 
     unresolved = sorted(set(ABSOLUTE_PATH_PATTERN.findall(patched)))
     if unresolved:
