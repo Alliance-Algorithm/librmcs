@@ -39,7 +39,7 @@ DRIVERS_MIDDLEWARES_TO_EOF_PATTERN = re.compile(
     r"^# Drivers Midllewares[\s\S]*\Z",
     re.MULTILINE,
 )
-STM32CUBEMX_TAIL = """# Create stm32cubemx static library
+STM32CUBEMX_TAIL = """# Create stm32cubemx object library
 add_library(stm32cubemx OBJECT)
 target_sources(stm32cubemx PRIVATE ${STM32_Drivers_Src})
 target_sources(stm32cubemx PRIVATE ${MX_Application_Src})
