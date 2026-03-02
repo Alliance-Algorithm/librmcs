@@ -46,7 +46,7 @@ target_sources(stm32cubemx PRIVATE ${MX_Application_Src})
 target_include_directories(stm32cubemx PUBLIC ${MX_Include_Dirs})
 target_compile_definitions(stm32cubemx PUBLIC ${MX_Defines_Syms})
 """
-STM32CUBEMX_TAIL_ANCHOR = "# Create stm32cubemx static library"
+STM32CUBEMX_TAIL_ANCHOR = "# Create stm32cubemx object library"
 
 
 def parse_args() -> argparse.Namespace:

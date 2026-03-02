@@ -60,7 +60,7 @@ set(STM32_Drivers_Src
     ${LIBRMCS_STM32_HAL_DRIVER_ROOT}/Src/stm32f4xx_ll_usb.c
 )
 
-# Create stm32cubemx static library
+# Create stm32cubemx object library
 add_library(stm32cubemx OBJECT)
 target_sources(stm32cubemx PRIVATE ${STM32_Drivers_Src})
 target_sources(stm32cubemx PRIVATE ${MX_Application_Src})
