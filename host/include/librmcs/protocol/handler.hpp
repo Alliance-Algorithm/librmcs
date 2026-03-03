@@ -4,12 +4,13 @@
 #include <string_view>
 
 #include <librmcs/data/datas.hpp>
+#include <librmcs/export.hpp>
 
 namespace librmcs::host::protocol {
 
-class Handler {
+class LIBRMCS_API Handler {
 public:
-    class PacketBuilder {
+    class LIBRMCS_API PacketBuilder {
     public:
         PacketBuilder(const PacketBuilder&) = delete;
         PacketBuilder& operator=(const PacketBuilder&) = delete;
