@@ -34,7 +34,10 @@ if(MSVC)
     add_compile_definitions(NOMINMAX _CRT_SECURE_NO_WARNINGS)
 else()
     # GCC/Clang
-    add_compile_options(-g -Wall -Wextra -Wpedantic -fvisibility=hidden -fvisibility-inlines-hidden)
+    add_compile_options(
+        -g -Wall -Wextra -Wpedantic -fvisibility=hidden
+        $<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>
+    )
 endif()
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
