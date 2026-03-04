@@ -2,7 +2,6 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <exception>
 #include <format>
 #include <functional>
@@ -15,31 +14,38 @@
 #include <thread>
 #include <tuple>
 #include <utility>
-#include <vector>
 
 #include <libusb.h>
-#include <unistd.h>
 
 #include "core/src/protocol/constant.hpp"
 #include "core/src/utility/assert.hpp"
 #include "host/src/logging/logging.hpp"
 #include "host/src/transport/transport.hpp"
+#include "host/src/transport/usb/device_scanner.hpp"
+#include "host/src/transport/usb/helper.hpp"
 #include "host/src/utility/final_action.hpp"
 #include "host/src/utility/ring_buffer.hpp"
 
 namespace librmcs::host::transport {
+namespace usb {
 
 class Usb : public Transport {
 public:
     explicit Usb(uint16_t usb_vid, int32_t usb_pid, std::string_view serial_filter)
         : logger_(logging::get_logger())
         , free_transmit_transfers_(kTransmitTransferCount) {
-        if (!usb_init(usb_vid, usb_pid, serial_filter)) {
-            throw std::runtime_error{"Failed to init."};
-        }
+        usb_init(usb_vid, usb_pid, serial_filter);
+        utility::FinalAction rollback_on_failure{[this]() noexcept {
+            destroy_free_transmit_transfers();
+            libusb_release_interface(libusb_device_handle_, kTargetInterface);
+            libusb_close(libusb_device_handle_);
+            libusb_exit(libusb_context_);
+        }};
 
         init_transmit_transfers();
         event_thread_ = std::thread{[this]() { handle_events(); }};
+
+        rollback_on_failure.disable();
     }
 
     Usb(const Usb&) = delete;
@@ -52,10 +58,7 @@ public:
             const std::scoped_lock guard{transmit_transfer_push_mutex_};
             stop_handling_events_.store(true, std::memory_order::relaxed);
         }
-        free_transmit_transfers_.pop_front_n([](TransferWrapper* wrapper) noexcept {
-            wrapper->destroy();
-            delete wrapper;
-        });
+        destroy_free_transmit_transfers();
 
         libusb_release_interface(libusb_device_handle_, kTargetInterface);
 
@@ -96,7 +99,8 @@ public:
         if (ret != 0) [[unlikely]] {
             throw std::runtime_error(
                 std::format(
-                    "Failed to submit transmit transfer: {} ({})", ret, libusb_errname(ret)));
+                    "Failed to submit transmit transfer: {} ({})", ret,
+                    helper::libusb_errname(ret)));
         }
 
         // If success: Ownership is transferred to libusb
@@ -165,223 +169,30 @@ private:
         libusb_transfer* transfer_;
     };
 
-    bool usb_init(uint16_t vendor_id, int32_t product_id, std::string_view serial_filter) {
-        int ret;
-
-        ret = libusb_init(&libusb_context_);
-        if (ret != 0) [[unlikely]] {
-            logger_.error("Failed to init libusb: {} ({})", ret, libusb_errname(ret));
-            return false;
+    void usb_init(uint16_t vendor_id, int32_t product_id, std::string_view serial_filter) {
+        if (const int ret = libusb_init(&libusb_context_); ret != 0) [[unlikely]] {
+            throw std::runtime_error(
+                std::format(
+                    "Failed to initialize libusb: {} ({})", ret, helper::libusb_errname(ret)));
         }
         utility::FinalAction exit_libusb{[this]() noexcept { libusb_exit(libusb_context_); }};
 
-        if (!select_device(vendor_id, product_id, serial_filter))
-            return false;
+        libusb_device_handle_ =
+            DeviceScanner::select_device(libusb_context_, vendor_id, product_id, serial_filter);
         utility::FinalAction close_device_handle{
             [this]() noexcept { libusb_close(libusb_device_handle_); }};
 
-        ret = libusb_claim_interface(libusb_device_handle_, kTargetInterface);
-        if (ret != 0) [[unlikely]] {
-            logger_.error("Failed to claim interface: {} ({})", ret, libusb_errname(ret));
-            return false;
+        if (const int ret = libusb_claim_interface(libusb_device_handle_, kTargetInterface);
+            ret != 0) [[unlikely]] {
+            throw std::runtime_error(
+                std::format(
+                    "Failed to claim interface {}: {} ({})", kTargetInterface, ret,
+                    helper::libusb_errname(ret)));
         }
 
         // Libusb successfully initialized
         close_device_handle.disable();
         exit_libusb.disable();
-        return true;
-    }
-
-    bool select_device(uint16_t vendor_id, int32_t product_id, std::string_view serial_filter) {
-        libusb_device** device_list = nullptr;
-        const ssize_t device_count = libusb_get_device_list(libusb_context_, &device_list);
-        if (device_count < 0) {
-            logger_.error(
-                "Failed to get device list: {} ({})", device_count,
-                libusb_errname(static_cast<int>(device_count)));
-            return false;
-        }
-
-        const utility::FinalAction free_device_list{
-            [&device_list]() noexcept { libusb_free_device_list(device_list, 1); }};
-
-        auto* device_descriptors = new libusb_device_descriptor[device_count];
-        const utility::FinalAction free_device_descriptors{
-            [&device_descriptors]() noexcept { delete[] device_descriptors; }};
-
-        std::vector<libusb_device_handle*> devices_opened;
-
-        for (ssize_t i = 0; i < device_count; i++) {
-            int ret = libusb_get_device_descriptor(device_list[i], &device_descriptors[i]);
-            if (ret != 0 || device_descriptors[i].bLength == 0) {
-                logger_.warn(
-                    "A device descriptor failed to get: {} ({})", ret, libusb_errname(ret));
-                continue;
-            }
-            auto& descriptors = device_descriptors[i];
-
-            if (descriptors.idVendor != vendor_id)
-                continue;
-            if (descriptors.iSerialNumber == 0)
-                continue;
-            if (product_id >= 0 && std::cmp_not_equal(descriptors.idProduct, product_id))
-                continue;
-
-            libusb_device_handle* handle;
-            ret = libusb_open(device_list[i], &handle);
-            if (ret != 0)
-                continue;
-            utility::FinalAction close_device{[&handle]() noexcept { libusb_close(handle); }};
-
-            if (!serial_filter.empty()) {
-                char serial_buf[256];
-                const int n = libusb_get_string_descriptor_ascii(
-                    handle, descriptors.iSerialNumber, reinterpret_cast<unsigned char*>(serial_buf),
-                    sizeof(serial_buf));
-                if (n < 0)
-                    continue;
-
-                if (!match_filter(serial_filter, {serial_buf, static_cast<size_t>(n)}))
-                    continue;
-            }
-
-            close_device.disable();
-            devices_opened.push_back(handle);
-        }
-
-        if (devices_opened.size() != 1) {
-            for (auto& device : devices_opened)
-                libusb_close(device);
-
-            logger_.error(
-                "{} found with specified vendor id (0x{:04x}){}{}",
-                !devices_opened.empty() ? std::format("{} devices", devices_opened.size()).c_str()
-                                        : "No device",
-                vendor_id,
-                product_id >= 0 ? std::format(", product id (0x{:04x})", product_id).c_str() : "",
-                !serial_filter.empty() ? std::format(", serial number ({})", serial_filter).c_str()
-                                       : "");
-
-            const int relaxing_count = print_matched_unmatched_devices(
-                device_list, device_count, device_descriptors, vendor_id, product_id,
-                serial_filter);
-
-            if (!devices_opened.empty()) {
-                if (serial_filter.empty())
-                    logger_.error(
-                        "To ensure correct device selection, please specify the Serial Number");
-                else
-                    logger_.error(
-                        "Multiple devices found, which is unusual. Consider using a device "
-                        "with a unique Serial Number");
-            } else {
-                if (relaxing_count)
-                    logger_.error("Consider relaxing some filters");
-            }
-
-            return false;
-        }
-
-        libusb_device_handle_ = devices_opened[0];
-        return true;
-    }
-
-    int print_matched_unmatched_devices(
-        libusb_device** device_list, ssize_t device_count,
-        libusb_device_descriptor* device_descriptors, uint16_t vendor_id, int32_t product_id,
-        std::string_view serial_filter) {
-
-        int j = 0;
-        int k = 0;
-        for (ssize_t i = 0; i < device_count; i++) {
-            auto& descriptors = device_descriptors[i];
-            bool matched = true;
-
-            if (descriptors.idVendor != vendor_id)
-                continue;
-            if (descriptors.iSerialNumber == 0)
-                continue;
-            if (product_id >= 0 && std::cmp_not_equal(descriptors.idProduct, product_id))
-                matched = false;
-
-            const auto device_str = std::format(
-                "Device {} ({:04x}:{:04x}):", ++j, descriptors.idVendor, descriptors.idProduct);
-
-            libusb_device_handle* handle;
-            int ret = libusb_open(device_list[i], &handle);
-            if (ret != 0) {
-                logger_.error(
-                    "{} Ignored because device could not be opened: {} ({})", device_str, ret,
-                    libusb_errname(ret));
-                continue;
-            }
-            const utility::FinalAction close_device{[&handle]() noexcept { libusb_close(handle); }};
-
-            char serial_buf[256];
-            const int n = libusb_get_string_descriptor_ascii(
-                handle, descriptors.iSerialNumber, reinterpret_cast<unsigned char*>(serial_buf),
-                sizeof(serial_buf));
-            if (n < 0) {
-                logger_.error(
-                    "{} Ignored because descriptor could not be read: {} ({})", device_str, n,
-                    libusb_errname(n));
-                continue;
-            }
-            const std::string_view serial_str = {serial_buf, static_cast<size_t>(n)};
-
-            if (!serial_filter.empty() && !match_filter(serial_filter, serial_str))
-                matched = false;
-
-            if (matched) {
-                const int match_index = ++k;
-                logger_.error(
-                    "{} Serial Number = {} <-- Matched #{}", device_str, serial_str, match_index);
-            } else {
-                logger_.error("{} Serial Number = {}", device_str, serial_str);
-            }
-        }
-        return j;
-    }
-
-    static constexpr bool match_filter(std::string_view filter, std::string_view target) {
-        const auto *filter_it = filter.cbegin(), *filter_end = filter.cend();
-        const auto *target_it = target.cbegin(), *target_end = target.cend();
-
-        const auto to_upper = [](char c) constexpr {
-            if (c >= 'a' && c <= 'z')
-                return static_cast<char>(c - 'a' + 'A');
-            return c;
-        };
-
-        while (filter_it != filter_end && target_it != target_end) {
-            if (*filter_it == '-') {
-                ++filter_it;
-                continue;
-            }
-            if (*target_it == '-') {
-                ++target_it;
-                continue;
-            }
-
-            if (to_upper(*filter_it) != to_upper(*target_it)) {
-                return false;
-            }
-
-            ++filter_it;
-            ++target_it;
-        }
-
-        while (filter_it != filter_end && *filter_it == '-') {
-            ++filter_it;
-        }
-
-        return filter_it == filter_end;
-    }
-
-    void handle_events() {
-        while (active_transfers_.load(std::memory_order::relaxed)) {
-            libusb_handle_events(libusb_context_);
-        }
     }
 
     void init_transmit_transfers() {
@@ -416,6 +227,12 @@ private:
             [&iter]() noexcept { return *iter++; }, kTransmitTransferCount);
     }
 
+    void handle_events() {
+        while (active_transfers_.load(std::memory_order::relaxed)) {
+            libusb_handle_events(libusb_context_);
+        }
+    }
+
     void init_receive_transfers() {
         for (size_t i = 0; i < kReceiveTransferCount; i++) {
             auto* transfer = create_libusb_transfer();
@@ -435,7 +252,8 @@ private:
                 destroy_libusb_transfer(transfer);
                 throw std::runtime_error(
                     std::format(
-                        "Failed to submit receive transfer: {} ({})", ret, libusb_errname(ret)));
+                        "Failed to submit receive transfer: {} ({})", ret,
+                        helper::libusb_errname(ret)));
             }
         }
     }
@@ -478,12 +296,19 @@ private:
             else
                 logger_.error(
                     "Failed to re-submit receive transfer: {} ({}). Terminating...", ret,
-                    libusb_errname(ret));
+                    helper::libusb_errname(ret));
             destroy_libusb_transfer(transfer);
 
             // TODO: Replace abrupt termination with a flag and exception-based error handling
             std::terminate();
         }
+    }
+
+    void destroy_free_transmit_transfers() noexcept {
+        free_transmit_transfers_.pop_front_n([](TransferWrapper* wrapper) noexcept {
+            wrapper->destroy();
+            delete wrapper;
+        });
     }
 
     libusb_transfer* create_libusb_transfer() {
@@ -499,25 +324,6 @@ private:
         active_transfers_.fetch_sub(1, std::memory_order::relaxed);
     }
 
-    static constexpr const char* libusb_errname(int number) {
-        switch (number) {
-        case LIBUSB_ERROR_IO: return "ERROR_IO";
-        case LIBUSB_ERROR_INVALID_PARAM: return "ERROR_INVALID_PARAM";
-        case LIBUSB_ERROR_ACCESS: return "ERROR_ACCESS";
-        case LIBUSB_ERROR_NO_DEVICE: return "ERROR_NO_DEVICE";
-        case LIBUSB_ERROR_NOT_FOUND: return "ERROR_NOT_FOUND";
-        case LIBUSB_ERROR_BUSY: return "ERROR_BUSY";
-        case LIBUSB_ERROR_TIMEOUT: return "ERROR_TIMEOUT";
-        case LIBUSB_ERROR_OVERFLOW: return "ERROR_OVERFLOW";
-        case LIBUSB_ERROR_PIPE: return "ERROR_PIPE";
-        case LIBUSB_ERROR_INTERRUPTED: return "ERROR_INTERRUPTED";
-        case LIBUSB_ERROR_NO_MEM: return "ERROR_NO_MEM";
-        case LIBUSB_ERROR_NOT_SUPPORTED: return "ERROR_NOT_SUPPORTED";
-        case LIBUSB_ERROR_OTHER: return "ERROR_OTHER";
-        default: return "UNKNOWN";
-        }
-    }
-
     static constexpr int kTargetInterface = 0x00;
 
     static constexpr unsigned char kOutEndpoint = 0x01;
@@ -528,8 +334,8 @@ private:
 
     logging::Logger& logger_;
 
-    libusb_context* libusb_context_;
-    libusb_device_handle* libusb_device_handle_;
+    libusb_context* libusb_context_ = nullptr;
+    libusb_device_handle* libusb_device_handle_ = nullptr;
 
     std::thread event_thread_;
 
@@ -544,9 +350,11 @@ private:
         std::chrono::steady_clock::time_point::min();
 };
 
+} // namespace usb
+
 std::unique_ptr<Transport>
     create_usb_transport(uint16_t usb_vid, int32_t usb_pid, std::string_view serial_filter) {
-    return std::make_unique<Usb>(usb_vid, usb_pid, serial_filter);
+    return std::make_unique<usb::Usb>(usb_vid, usb_pid, serial_filter);
 }
 
 } // namespace librmcs::host::transport
