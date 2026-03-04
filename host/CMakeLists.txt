@@ -34,7 +34,10 @@ if(MSVC)
     add_compile_definitions(NOMINMAX _CRT_SECURE_NO_WARNINGS)
 else()
     # GCC/Clang
-    add_compile_options(-g -Wall -Wextra -Wpedantic -fvisibility=hidden)
+    add_compile_options(
+        -g -Wall -Wextra -Wpedantic -fvisibility=hidden
+        $<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>
+    )
 endif()
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -48,7 +51,7 @@ file(GLOB_RECURSE PROJECT_SOURCE CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c
 )
 
-option(BUILD_STATIC_LIBRMCS "Build static librmcs" OFF)
+option(BUILD_STATIC_LIBRMCS "Build static librmcs" ON)
 if(BUILD_STATIC_LIBRMCS)
     add_library(
         ${PROJECT_NAME} STATIC
