@@ -11,7 +11,7 @@
 
 #include "core/src/utility/assert.hpp"
 #include "firmware/c_board/app/src/spi/spi.hpp"
-#include "firmware/c_board/app/src/timer/delay.hpp"
+#include "firmware/c_board/app/src/timer/timer.hpp"
 
 namespace librmcs::firmware::spi::bmi088 {
 
@@ -53,7 +53,7 @@ protected:
         for (int i = kMaxRetries; i-- > 0;) {
             if (read_register(addr) == expected)
                 return true;
-            timer::delay(1ms);
+            timer::timer->delay(1ms);
         }
         return false;
     }
@@ -63,7 +63,7 @@ protected:
 
         for (int i = kMaxRetries; i-- > 0;) {
             write_register(addr, val);
-            timer::delay(1ms);
+            timer::timer->delay(1ms);
             if (read_register(addr) == val)
                 return true;
         }

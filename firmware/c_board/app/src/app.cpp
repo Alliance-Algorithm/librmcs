@@ -15,6 +15,7 @@
 #include "firmware/c_board/app/src/spi/bmi088/accel.hpp"
 #include "firmware/c_board/app/src/spi/bmi088/gyro.hpp"
 #include "firmware/c_board/app/src/spi/spi.hpp"
+#include "firmware/c_board/app/src/timer/timer.hpp"
 #include "firmware/c_board/app/src/uart/uart.hpp"
 #include "firmware/c_board/app/src/usb/vendor.hpp"
 #include "firmware/c_board/app/src/utility/boot_mailbox.hpp"
@@ -34,9 +35,10 @@ App::App() {
     SystemClock_Config();
     utility::boot_mailbox.clear();
 
-    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-    DWT->CYCCNT = 0;
-    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+    // TIM9 must be initialized before TIM2.
+    MX_TIM9_Init();
+    MX_TIM2_Init();
+    timer::timer.init();
 
     MX_GPIO_Init();
     MX_DMA_Init();
