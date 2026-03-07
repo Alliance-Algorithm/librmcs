@@ -1,131 +1,96 @@
 #pragma once
 
-#include <algorithm>
-#include <atomic>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <span>
 
-#include <main.h>
 #include <usart.h>
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
-#include "firmware/c_board/app/src/led/led.hpp"
+#include "core/src/utility/immovable.hpp"
+#include "firmware/c_board/app/src/uart/rx_buffer.hpp"
+#include "firmware/c_board/app/src/uart/tx_buffer.hpp"
+#include "firmware/c_board/app/src/usb/helper.hpp"
 #include "firmware/c_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::uart {
 
-class Uart {
+class Uart
+    : private core::utility::Immovable
+    , private TxBuffer
+    , private RxBuffer<Uart> {
+    friend class RxBuffer<Uart>;
+
 public:
-    using Lazy = utility::Lazy<Uart, UART_HandleTypeDef*, uint16_t>;
+    using Lazy = utility::Lazy<Uart, data::DataId, UART_HandleTypeDef*>;
 
-    explicit Uart(UART_HandleTypeDef* hal_uart_handle, uint16_t max_receive_size)
-        : hal_uart_handle_(hal_uart_handle)
-        , max_receive_size_(max_receive_size) {
-        core::utility::assert_always(max_receive_size_ <= 64);
-        core::utility::assert_always(trigger_hal_receive());
+    Uart(data::DataId data_id, UART_HandleTypeDef* hal_uart_handle)
+        : TxBuffer(hal_uart_handle)
+        , RxBuffer(hal_uart_handle)
+        , data_id_(data_id)
+        , hal_uart_handle_(hal_uart_handle) {}
+
+    void handle_downlink(const data::UartDataView& data) { TxBuffer::try_enqueue(data); }
+
+    void try_transmit() {
+        RxBuffer::try_dequeue();
+        TxBuffer::try_dequeue();
     }
 
-    void handle_downlink(const data::UartDataView& data) {
-        const size_t size = data.uart_data.size();
-        if (!size)
-            return;
+    void tx_complete_callback() { TxBuffer::tx_complete_callback(); }
 
-        const auto writing = buffer_writing_.load(std::memory_order::acquire);
-        auto& transmit_buffer = transmit_buffers_[writing];
-        const uint8_t written_size = transmit_buffer.written_size.load(std::memory_order::relaxed);
+    void uart_error_callback() {
+        const uint32_t error_code = hal_uart_handle_->ErrorCode;
 
-        size_t size_allowed = size;
-        const auto remaining_size = sizeof(transmit_buffer.data) - written_size;
-        size_allowed = std::min(size_allowed, remaining_size);
+        constexpr uint32_t rx_error_mask =
+            HAL_UART_ERROR_PE | HAL_UART_ERROR_NE | HAL_UART_ERROR_FE | HAL_UART_ERROR_ORE;
+        const bool has_rx_dma_error = hal_uart_handle_->hdmarx->ErrorCode != HAL_DMA_ERROR_NONE;
+        const bool has_tx_dma_error = hal_uart_handle_->hdmatx->ErrorCode != HAL_DMA_ERROR_NONE;
 
-        std::memcpy(&transmit_buffer.data[written_size], data.uart_data.data(), size_allowed);
-        transmit_buffer.written_size.store(
-            static_cast<uint8_t>(written_size + size_allowed), std::memory_order::release);
+        if ((error_code & rx_error_mask) != 0U || has_rx_dma_error)
+            RxBuffer::rx_error_callback();
 
-        if (size_allowed != size) [[unlikely]]
-            led::led->downlink_buffer_full();
+        if (has_tx_dma_error)
+            TxBuffer::tx_error_callback();
     }
 
-    bool try_transmit() {
-        // Under normal circumstances, the trigger_hal_receive function is called within the
-        // interrupt service routine (ISR). However, if the ISR fails to execute for any reason, the
-        // UART will stop receiving data. Therefore, it is necessary to compensate for this
-        // situation by using polling. If the UART is idle, receiving should be triggered again.
-        if (device_reception_ready()) [[unlikely]]
-            trigger_hal_receive();
+    void rx_dma_tc_callback() { RxBuffer::dma_tc_callback(); }
 
-        auto writing = buffer_writing_.load(std::memory_order::acquire);
-        if (transmit_buffers_[writing].written_size.load(std::memory_order::acquire) == 0)
-            return false;
-
-        if (!device_transmission_ready())
-            return false;
-
-        transmit_buffers_[!writing].written_size.store(0, std::memory_order::relaxed);
-        buffer_writing_.store(!writing, std::memory_order::release);
-
-        // Note: Must read written_size again here to avoid data loss.
-        core::utility::assert_always(
-            HAL_UART_Transmit_IT(
-                hal_uart_handle_, reinterpret_cast<uint8_t*>(transmit_buffers_[writing].data),
-                transmit_buffers_[writing].written_size.load(std::memory_order::acquire))
-            == HAL_OK);
-
-        return true;
+    void rx_dma_error_callback() {
+        hal_uart_handle_->ErrorCode |= HAL_UART_ERROR_DMA;
+        RxBuffer::rx_error_callback();
     }
 
-    void handle_uplink(
-        data::DataId field_id, core::protocol::Serializer& serializer, uint16_t size,
-        bool is_idle) {
-        if (!size) {
-            core::utility::assert_always(trigger_hal_receive());
-            return;
-        }
-
-        core::utility::assert_debug(
-            serializer.write_uart(
-                field_id,
-                {
-                    .uart_data = {receive_buffer_, size},
-                    .idle_delimited = is_idle,
-        })
-            != core::protocol::Serializer::SerializeResult::kInvalidArgument);
-
-        core::utility::assert_always(trigger_hal_receive());
-    }
+    void rx_event_callback() { RxBuffer::uart_idle_event_callback(); }
 
 private:
-    bool device_transmission_ready() const {
-        return hal_uart_handle_->gState == HAL_UART_STATE_READY;
-    }
-    bool device_reception_ready() const {
-        return hal_uart_handle_->RxState == HAL_UART_STATE_READY;
+    static void hal_rx_dma_tc_callback(DMA_HandleTypeDef* hal_dma_handle);
+
+    static void hal_rx_dma_error_callback(DMA_HandleTypeDef* hal_dma_handle);
+
+    void handle_uplink(
+        std::span<const std::byte> payload, std::span<const std::byte> payload2, bool is_idle) {
+        auto& serializer = usb::get_serializer();
+        const auto result = serializer.write_uart(
+            data_id_, {.uart_data = payload, .idle_delimited = is_idle}, payload2);
+
+        switch (result) {
+        case core::protocol::Serializer::SerializeResult::kSuccess:
+        case core::protocol::Serializer::SerializeResult::kBadAlloc: return;
+        case core::protocol::Serializer::SerializeResult::kInvalidArgument:
+            core::utility::assert_failed_always();
+            return;
+        }
     }
 
-    bool trigger_hal_receive() {
-        return HAL_UARTEx_ReceiveToIdle_IT(
-                   hal_uart_handle_, reinterpret_cast<uint8_t*>(receive_buffer_), max_receive_size_)
-            == HAL_OK;
-    }
-
+    data::DataId data_id_;
     UART_HandleTypeDef* hal_uart_handle_;
-
-    std::byte receive_buffer_[64];
-    uint16_t max_receive_size_;
-
-    struct {
-        std::atomic<uint8_t> written_size = 0;
-        std::byte data[128];
-    } transmit_buffers_[2];
-    std::atomic<uint8_t> buffer_writing_ = 0;
 };
 
-inline constinit Uart::Lazy uart1{&huart6, 15};
-inline constinit Uart::Lazy uart2{&huart1, 15};
-inline constinit Uart::Lazy uart_dbus{&huart3, 31};
+inline constinit Uart::Lazy uart1{data::DataId::kUart1, &huart6};
+inline constinit Uart::Lazy uart2{data::DataId::kUart2, &huart1};
+inline constinit Uart::Lazy uart_dbus{data::DataId::kUartDbus, &huart3};
 
 } // namespace librmcs::firmware::uart
