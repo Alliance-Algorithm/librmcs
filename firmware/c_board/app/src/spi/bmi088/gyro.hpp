@@ -74,7 +74,7 @@ public:
 
         // Reset all registers to reset value.
         write_register(RegisterAddress::kGyroSoftReset, 0xB6);
-        timer::timer->delay(30ms);
+        timer::timer->spin_wait(30ms);
 
         // "Who am I" check.
         core::utility::assert_always(read_and_confirm(RegisterAddress::kGyroChipId, 0x0F));

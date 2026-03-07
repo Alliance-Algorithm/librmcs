@@ -75,11 +75,11 @@ public:
 
         // Dummy read to switch accelerometer to SPI mode.
         read_register(RegisterAddress::kAccChipId);
-        timer::timer->delay(1ms);
+        timer::timer->spin_wait(1ms);
 
         // Reset all registers to reset value.
         write_register(RegisterAddress::kAccSoftReset, 0xB6);
-        timer::timer->delay(1ms);
+        timer::timer->spin_wait(1ms);
 
         // "Who am I" check.
         core::utility::assert_always(read_and_confirm(RegisterAddress::kAccChipId, 0x1E));
@@ -100,7 +100,7 @@ public:
         core::utility::assert_always(write_and_confirm(RegisterAddress::kAccPwrConf, 0x00));
         // Turn on the accelerometer.
         core::utility::assert_always(write_and_confirm(RegisterAddress::kAccPwrCtrl, 0x04));
-        timer::timer->delay(1ms); // Datasheet: wait >=450us after entering normal mode
+        timer::timer->spin_wait(1ms); // Datasheet: wait >=450us after entering normal mode
 
         spi_.unlock();
     }

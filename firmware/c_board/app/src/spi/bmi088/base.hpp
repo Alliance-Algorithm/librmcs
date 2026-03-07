@@ -53,7 +53,7 @@ protected:
         for (int i = kMaxRetries; i-- > 0;) {
             if (read_register(addr) == expected)
                 return true;
-            timer::timer->delay(1ms);
+            timer::timer->spin_wait(1ms);
         }
         return false;
     }
@@ -63,7 +63,7 @@ protected:
 
         for (int i = kMaxRetries; i-- > 0;) {
             write_register(addr, val);
-            timer::timer->delay(1ms);
+            timer::timer->spin_wait(1ms);
             if (read_register(addr) == val)
                 return true;
         }
