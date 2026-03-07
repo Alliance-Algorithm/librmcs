@@ -29,6 +29,7 @@ extern "C" {
 #include "main.h"
 
 /* USER CODE BEGIN Includes */
+#include "stm32f4xx_hal_dma.h" // IWYU pragma: export
 #include "stm32f4xx_hal_uart.h" // IWYU pragma: export
 /* USER CODE END Includes */
 
