@@ -10,7 +10,7 @@
 #include "core/src/utility/assert.hpp"
 #include "firmware/c_board/app/src/spi/bmi088/base.hpp"
 #include "firmware/c_board/app/src/spi/spi.hpp"
-#include "firmware/c_board/app/src/timer/delay.hpp"
+#include "firmware/c_board/app/src/timer/timer.hpp"
 #include "firmware/c_board/app/src/usb/vendor.hpp"
 #include "firmware/c_board/app/src/utility/lazy.hpp"
 
@@ -75,11 +75,11 @@ public:
 
         // Dummy read to switch accelerometer to SPI mode.
         read_register(RegisterAddress::kAccChipId);
-        timer::delay(1ms);
+        timer::timer->spin_wait(1ms);
 
         // Reset all registers to reset value.
         write_register(RegisterAddress::kAccSoftReset, 0xB6);
-        timer::delay(1ms);
+        timer::timer->spin_wait(1ms);
 
         // "Who am I" check.
         core::utility::assert_always(read_and_confirm(RegisterAddress::kAccChipId, 0x1E));
@@ -100,7 +100,7 @@ public:
         core::utility::assert_always(write_and_confirm(RegisterAddress::kAccPwrConf, 0x00));
         // Turn on the accelerometer.
         core::utility::assert_always(write_and_confirm(RegisterAddress::kAccPwrCtrl, 0x04));
-        timer::delay(1ms); // Datasheet: wait >=450us after entering normal mode
+        timer::timer->spin_wait(1ms); // Datasheet: wait >=450us after entering normal mode
 
         spi_.unlock();
     }

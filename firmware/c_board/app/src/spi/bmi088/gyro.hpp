@@ -10,7 +10,7 @@
 #include "core/src/utility/assert.hpp"
 #include "firmware/c_board/app/src/spi/bmi088/base.hpp"
 #include "firmware/c_board/app/src/spi/spi.hpp"
-#include "firmware/c_board/app/src/timer/delay.hpp"
+#include "firmware/c_board/app/src/timer/timer.hpp"
 #include "firmware/c_board/app/src/usb/vendor.hpp"
 #include "firmware/c_board/app/src/utility/lazy.hpp"
 
@@ -74,7 +74,7 @@ public:
 
         // Reset all registers to reset value.
         write_register(RegisterAddress::kGyroSoftReset, 0xB6);
-        timer::delay(30ms);
+        timer::timer->spin_wait(30ms);
 
         // "Who am I" check.
         core::utility::assert_always(read_and_confirm(RegisterAddress::kGyroChipId, 0x0F));
