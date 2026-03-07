@@ -38,19 +38,25 @@ void Uart::hal_rx_dma_error_callback(DMA_HandleTypeDef* hal_dma_handle) {
     get_uart_instance_from_dma(hal_dma_handle).rx_dma_error_callback();
 }
 
+// NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
 extern "C" void HAL_UART_TxCpltCallback(UART_HandleTypeDef* hal_uart_handle) {
     get_uart_instance(hal_uart_handle).tx_complete_callback();
 }
 
+// NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
 extern "C" void HAL_UART_ErrorCallback(UART_HandleTypeDef* hal_uart_handle) {
     get_uart_instance(hal_uart_handle).uart_error_callback();
 }
 
+// NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
 extern "C" void HAL_UART_AbortCpltCallback(UART_HandleTypeDef* hal_uart_handle) {
     get_uart_instance(hal_uart_handle).tx_complete_callback();
 }
 
-extern "C" void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* hal_uart_handle, uint16_t /*size*/) {
+// NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
+extern "C" void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* hal_uart_handle, uint16_t size) {
+    (void)size;
+
     if (HAL_UARTEx_GetRxEventType(hal_uart_handle) != HAL_UART_RXEVENT_IDLE)
         return;
 
