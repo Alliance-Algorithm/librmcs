@@ -11,8 +11,7 @@ namespace librmcs::firmware::timer {
 // Rewrite the Hal_Delay function to ensure that it works when interrupts are disabled,
 // while significantly improving accuracy.
 extern "C" void HAL_Delay(uint32_t delay) {
-    timer::timer->spin_wait(
-        timer::Timer::to_duration48_checked(std::chrono::milliseconds(delay)));
+    timer::timer->spin_wait(timer::Timer::to_duration48_checked(std::chrono::milliseconds(delay)));
 }
 
 // Hack this useless function to perform regular low-priority tasks, eliminating the need for a
