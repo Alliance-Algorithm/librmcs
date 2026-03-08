@@ -76,16 +76,10 @@ private:
     void handle_uplink(
         std::span<const std::byte> payload, std::span<const std::byte> payload2, bool is_idle) {
         auto& serializer = usb::get_serializer();
-        const auto result = serializer.write_uart(
-            data_id_, {.uart_data = payload, .idle_delimited = is_idle}, payload2);
-
-        switch (result) {
-        case core::protocol::Serializer::SerializeResult::kSuccess:
-        case core::protocol::Serializer::SerializeResult::kBadAlloc: return;
-        case core::protocol::Serializer::SerializeResult::kInvalidArgument:
-            core::utility::assert_failed_always();
-            return;
-        }
+        core::utility::assert_always(
+            serializer.write_uart(
+                data_id_, {.uart_data = payload, .idle_delimited = is_idle}, payload2)
+            != core::protocol::Serializer::SerializeResult::kInvalidArgument);
     }
 
     data::DataId data_id_;
