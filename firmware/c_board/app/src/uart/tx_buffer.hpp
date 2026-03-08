@@ -34,12 +34,14 @@ public:
     static_assert((kMaxIdleCheckpointCount & (kMaxIdleCheckpointCount - 1)) == 0);
 
     explicit TxBuffer(
-        UART_HandleTypeDef* hal_uart_handle,
+        UART_HandleTypeDef* hal_uart_handle, void (*dma_complete_callback)(DMA_HandleTypeDef*),
         void (*dma_error_callback)(DMA_HandleTypeDef*))
         : hal_uart_handle_(hal_uart_handle)
+        , dma_complete_callback_(dma_complete_callback)
         , dma_error_callback_(dma_error_callback) {
         core::utility::assert_always(hal_uart_handle_ != nullptr);
         core::utility::assert_always(tx_dma_handle() != nullptr);
+        bind_tx_dma_callbacks();
     }
 
     bool try_enqueue(const data::UartDataView& data_view) {
@@ -112,7 +114,7 @@ public:
 
         if (!is_idle_)
             is_idle_ =
-                timer::timer->check_expired(tx_complete_timepoint_, std::chrono::microseconds(200));
+                timer::timer->check_expired(tx_complete_timepoint_, std::chrono::microseconds(300));
 
         core::utility::assert_debug_lazy(
             [&]() noexcept { return (tx_dma_handle()->Instance->CR & DMA_SxCR_EN) == 0U; });
@@ -165,44 +167,62 @@ public:
             out = static_cast<IndexType>(out + static_cast<IndexType>(size));
             out_.store(out, std::memory_order::release);
 
-            core::utility::assert_always(
-                HAL_UART_Transmit_DMA(
-                    hal_uart_handle_, reinterpret_cast<const uint8_t*>(staging_buffer_.data()),
-                    static_cast<uint16_t>(size))
-                == HAL_OK);
-            bind_tx_dma_error_callback();
+            start_tx_dma(
+                reinterpret_cast<const uint8_t*>(staging_buffer_.data()),
+                static_cast<uint16_t>(size));
             return true;
         }
 
         // Non-strict path can stream directly from ring; commit progress on completion.
-        core::utility::assert_always(
-            HAL_UART_Transmit_DMA(
-                hal_uart_handle_, reinterpret_cast<const uint8_t*>(ring_buffer_.data() + offset),
-                static_cast<uint16_t>(slice))
-            == HAL_OK);
-        bind_tx_dma_error_callback();
+        start_tx_dma(
+            reinterpret_cast<const uint8_t*>(ring_buffer_.data() + offset),
+            static_cast<uint16_t>(slice));
         in_flight_ = static_cast<IndexType>(slice);
 
         return true;
     }
 
     void tx_complete_callback() {
+        // DMA writes the last byte into UART DR, then stop DMA requests from UART.
+        ATOMIC_CLEAR_BIT(hal_uart_handle_->Instance->CR3, USART_CR3_DMAT);
         tx_complete_timepoint_ = timer::timer->timepoint();
         is_busy_.store(false, std::memory_order::release);
     }
 
     void tx_error_callback() {
+        ATOMIC_CLEAR_BIT(hal_uart_handle_->Instance->CR3, USART_CR3_DMAT);
         core::utility::assert_debug_lazy([]() noexcept { return false; });
-        tx_complete_callback();
+        tx_complete_timepoint_ = timer::timer->timepoint();
+        is_busy_.store(false, std::memory_order::release);
     }
 
 private:
     DMA_HandleTypeDef* tx_dma_handle() const { return hal_uart_handle_->hdmatx; }
 
-    // HAL_UART_Transmit_DMA resets XferErrorCallback each call; re-bind ours after.
-    void bind_tx_dma_error_callback() { tx_dma_handle()->XferErrorCallback = dma_error_callback_; }
+    void bind_tx_dma_callbacks() {
+        auto* dma = tx_dma_handle();
+        dma->XferCpltCallback = dma_complete_callback_;
+        dma->XferErrorCallback = dma_error_callback_;
+        dma->XferHalfCpltCallback = nullptr;
+        dma->XferAbortCallback = nullptr;
+    }
+
+    void start_tx_dma(const uint8_t* data, uint16_t size) {
+        auto* dma = tx_dma_handle();
+        bind_tx_dma_callbacks();
+
+        core::utility::assert_always(
+            HAL_DMA_Start_IT(
+                dma, reinterpret_cast<uint32_t>(data),
+                reinterpret_cast<uint32_t>(&hal_uart_handle_->Instance->DR), size)
+            == HAL_OK);
+
+        __HAL_UART_CLEAR_FLAG(hal_uart_handle_, UART_FLAG_TC);
+        ATOMIC_SET_BIT(hal_uart_handle_->Instance->CR3, USART_CR3_DMAT);
+    }
 
     UART_HandleTypeDef* hal_uart_handle_;
+    void (*dma_complete_callback_)(DMA_HandleTypeDef*);
     void (*dma_error_callback_)(DMA_HandleTypeDef*);
 
     alignas(uint32_t) std::array<std::byte, kBufferSize> ring_buffer_{};

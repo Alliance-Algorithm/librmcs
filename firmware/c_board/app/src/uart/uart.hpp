@@ -28,7 +28,7 @@ public:
     using Lazy = utility::Lazy<Uart, data::DataId, UART_HandleTypeDef*>;
 
     Uart(data::DataId data_id, UART_HandleTypeDef* hal_uart_handle)
-        : TxBuffer(hal_uart_handle, &hal_tx_dma_error_callback)
+        : TxBuffer(hal_uart_handle, &hal_tx_dma_complete_callback, &hal_tx_dma_error_callback)
         , RxBuffer(hal_uart_handle)
         , data_id_(data_id)
         , hal_uart_handle_(hal_uart_handle) {}
@@ -60,12 +60,7 @@ public:
         RxBuffer::rx_error_callback();
     }
 
-    void tx_dma_error_callback() {
-        // Replicate UART_EndTxTransfer (HAL-internal) to restore gState for next transmit.
-        ATOMIC_CLEAR_BIT(hal_uart_handle_->Instance->CR1, (USART_CR1_TXEIE | USART_CR1_TCIE));
-        hal_uart_handle_->gState = HAL_UART_STATE_READY;
-        TxBuffer::tx_error_callback();
-    }
+    void tx_dma_error_callback() { TxBuffer::tx_error_callback(); }
 
     void rx_event_callback() { RxBuffer::uart_idle_event_callback(); }
 
@@ -73,6 +68,8 @@ private:
     static void hal_rx_dma_tc_callback(DMA_HandleTypeDef* hal_dma_handle);
 
     static void hal_rx_dma_error_callback(DMA_HandleTypeDef* hal_dma_handle);
+
+    static void hal_tx_dma_complete_callback(DMA_HandleTypeDef* hal_dma_handle);
 
     static void hal_tx_dma_error_callback(DMA_HandleTypeDef* hal_dma_handle);
 
