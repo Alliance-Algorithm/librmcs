@@ -4,31 +4,61 @@
 
 #include <usart.h>
 
-#include "core/include/librmcs/data/datas.hpp"
-#include "firmware/c_board/app/src/usb/helper.hpp"
+#include "core/src/utility/assert.hpp"
 
 namespace librmcs::firmware::uart {
 
+namespace {
+
+Uart& get_uart_instance(UART_HandleTypeDef* hal_uart_handle) {
+    if (hal_uart_handle == &huart1)
+        return *uart2;
+
+    if (hal_uart_handle == &huart3)
+        return *uart_dbus;
+
+    if (hal_uart_handle == &huart6)
+        return *uart1;
+
+    core::utility::assert_failed_debug();
+}
+
+Uart& get_uart_instance_from_dma(DMA_HandleTypeDef* hal_dma_handle) {
+    auto* hal_uart_handle = static_cast<UART_HandleTypeDef*>(hal_dma_handle->Parent);
+    return get_uart_instance(hal_uart_handle);
+}
+
+} // namespace
+
+void Uart::hal_rx_dma_tc_callback(DMA_HandleTypeDef* hal_dma_handle) {
+    get_uart_instance_from_dma(hal_dma_handle).rx_dma_tc_callback();
+}
+
+void Uart::hal_rx_dma_error_callback(DMA_HandleTypeDef* hal_dma_handle) {
+    get_uart_instance_from_dma(hal_dma_handle).rx_dma_error_callback();
+}
+
+void Uart::hal_tx_dma_complete_callback(DMA_HandleTypeDef* hal_dma_handle) {
+    get_uart_instance_from_dma(hal_dma_handle).tx_complete_callback();
+}
+
+void Uart::hal_tx_dma_error_callback(DMA_HandleTypeDef* hal_dma_handle) {
+    get_uart_instance_from_dma(hal_dma_handle).tx_dma_error_callback();
+}
+
+// NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
+extern "C" void HAL_UART_ErrorCallback(UART_HandleTypeDef* hal_uart_handle) {
+    get_uart_instance(hal_uart_handle).uart_error_callback();
+}
+
 // NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
 extern "C" void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* hal_uart_handle, uint16_t size) {
-    Uart* uart;
-    data::DataId field_id;
+    (void)size;
 
-    if (hal_uart_handle == &huart1) {
-        uart = uart2.get();
-        field_id = data::DataId::kUart2;
-    } else if (hal_uart_handle == &huart3) {
-        uart = uart_dbus.get();
-        field_id = data::DataId::kUartDbus;
-    } else if (hal_uart_handle == &huart6) {
-        uart = uart1.get();
-        field_id = data::DataId::kUart1;
-    } else {
+    if (HAL_UARTEx_GetRxEventType(hal_uart_handle) != HAL_UART_RXEVENT_IDLE)
         return;
-    }
 
-    const bool idle_delimited = HAL_UARTEx_GetRxEventType(hal_uart_handle) == HAL_UART_RXEVENT_IDLE;
-    uart->handle_uplink(field_id, usb::get_serializer(), size, idle_delimited);
+    get_uart_instance(hal_uart_handle).rx_event_callback();
 }
 
 } // namespace librmcs::firmware::uart

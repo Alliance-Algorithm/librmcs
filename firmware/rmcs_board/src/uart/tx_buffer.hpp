@@ -52,41 +52,40 @@ public:
         if (size > writable)
             return false;
 
-        auto offset = in & kBufferMask;
-
         if (data_view.idle_delimited) {
-            const auto begin_idle = static_cast<BufferIndexType>(offset);
-            const auto end_idle = static_cast<BufferIndexType>((offset + size) & kBufferMask);
+            const auto begin_idle = in;
+            const auto end_idle =
+                static_cast<BufferIndexType>(in + static_cast<BufferIndexType>(size));
 
-            // Check if the previous packet ended exactly where this one starts.
-            if (auto* back = idle_buffer_.peek_back(); back && *back == begin_idle) {
-                // Optimization: Deduplicate shared boundary.
-                // The existing 'back' serves as 'begin' for this packet.
+            // Optimization: Reuse the logical idle boundary at the current producer position.
+            if (idle_boundary_before_in_) {
                 if (size) {
                     // Non-empty: Only append the new 'end'.
-                    if (!idle_buffer_.push_back(end_idle))
+                    if (!idle_checkpoints_.push_back(end_idle))
                         return false;
                 }
-                // If ZLP (size==0): 'begin' == 'end' == 'back'. Existing checkpoint suffices.
+                // If ZLP (size==0): the existing checkpoint already enforces the idle wait.
             } else {
                 if (size) {
                     // Non-empty: Push [begin, end] atomically to ensure isolation on both sides.
-                    if (!idle_buffer_.push_back_n(
+                    if (idle_checkpoints_.push_back_n(
                             [&, i = 0]() mutable noexcept {
                                 return (i++ == 0) ? begin_idle : end_idle;
                             },
-                            2, true)) {
+                            2, true)
+                        != 2) {
                         return false;
                     }
                 } else {
                     // ZLP: 'begin' == 'end'. Push single checkpoint to force an IDLE wait.
-                    if (!idle_buffer_.push_back(begin_idle))
+                    if (!idle_checkpoints_.push_back(begin_idle))
                         return false;
                 }
             }
         }
 
         if (size) {
+            auto offset = in & kBufferMask;
             auto slice = std::min(size, kBufferSize - offset);
             std::memcpy(data_buffer_.data() + offset, data_view.uart_data.data(), slice);
             std::memcpy(data_buffer_.data(), data_view.uart_data.data() + slice, size - slice);
@@ -94,6 +93,11 @@ public:
             in_.store(
                 static_cast<BufferIndexType>(in + static_cast<BufferIndexType>(size)),
                 std::memory_order::release);
+
+            idle_boundary_before_in_ = data_view.idle_delimited;
+        } else {
+            // Zero-length non-idle packets should not clear an existing boundary.
+            idle_boundary_before_in_ |= data_view.idle_delimited;
         }
 
         return true;
@@ -119,8 +123,12 @@ public:
         size_t size;
         do {
             size = readable;
-            if (auto* idle = idle_buffer_.peek_front())
-                size = static_cast<BufferIndexType>(*idle - offset) & kBufferMask;
+            if (auto* idle = idle_checkpoints_.peek_front()) {
+                const auto distance =
+                    static_cast<size_t>(static_cast<BufferIndexType>(*idle - out));
+                core::utility::assert_debug(distance <= readable);
+                size = distance;
+            }
 
             if (size)
                 break;
@@ -128,7 +136,7 @@ public:
             if (tx_triggered_ && !uart_is_txline_idle(uart_base_))
                 return false;
 
-            idle_buffer_.pop_front([](const BufferIndexType&) noexcept {});
+            idle_checkpoints_.pop_front([](const BufferIndexType&) noexcept {});
         } while (true);
         tx_triggered_ = true;
         uart_clear_txline_idle_flag(uart_base_);
@@ -217,8 +225,9 @@ private:
     static_assert(std::atomic<BufferIndexType>::is_always_lock_free);
     BufferIndexType in_flight_ = 0;
 
+    bool idle_boundary_before_in_ = false;
     bool tx_triggered_ = false;
-    utility::RingBuffer<BufferIndexType, kMaxIdleCount> idle_buffer_;
+    utility::RingBuffer<BufferIndexType, kMaxIdleCount> idle_checkpoints_;
 };
 
 } // namespace librmcs::firmware::uart

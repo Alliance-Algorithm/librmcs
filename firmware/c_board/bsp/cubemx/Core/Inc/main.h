@@ -50,7 +50,8 @@ extern "C" {
 #endif
 
 #ifdef HAL_DMA_MODULE_ENABLED
-# include "stm32f4xx_hal_dma.h" // IWYU pragma: export
+# include "stm32f4xx_hal_dma.h"    // IWYU pragma: export
+# include "stm32f4xx_hal_dma_ex.h" // IWYU pragma: export
 #endif
 
 #ifdef HAL_CORTEX_MODULE_ENABLED
