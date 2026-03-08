@@ -10,6 +10,7 @@
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
+#include "firmware/c_board/app/src/led/led.hpp"
 #include "firmware/c_board/app/src/uart/rx_buffer.hpp"
 #include "firmware/c_board/app/src/uart/tx_buffer.hpp"
 #include "firmware/c_board/app/src/usb/helper.hpp"
@@ -27,12 +28,15 @@ public:
     using Lazy = utility::Lazy<Uart, data::DataId, UART_HandleTypeDef*>;
 
     Uart(data::DataId data_id, UART_HandleTypeDef* hal_uart_handle)
-        : TxBuffer(hal_uart_handle)
+        : TxBuffer(hal_uart_handle, &hal_tx_dma_error_callback)
         , RxBuffer(hal_uart_handle)
         , data_id_(data_id)
         , hal_uart_handle_(hal_uart_handle) {}
 
-    void handle_downlink(const data::UartDataView& data) { TxBuffer::try_enqueue(data); }
+    void handle_downlink(const data::UartDataView& data) {
+        if (!TxBuffer::try_enqueue(data))
+            led::led->downlink_buffer_full();
+    }
 
     void try_transmit() {
         RxBuffer::try_dequeue();
@@ -42,18 +46,11 @@ public:
     void tx_complete_callback() { TxBuffer::tx_complete_callback(); }
 
     void uart_error_callback() {
-        const uint32_t error_code = hal_uart_handle_->ErrorCode;
-
         constexpr uint32_t rx_error_mask =
             HAL_UART_ERROR_PE | HAL_UART_ERROR_NE | HAL_UART_ERROR_FE | HAL_UART_ERROR_ORE;
-        const bool has_rx_dma_error = hal_uart_handle_->hdmarx->ErrorCode != HAL_DMA_ERROR_NONE;
-        const bool has_tx_dma_error = hal_uart_handle_->hdmatx->ErrorCode != HAL_DMA_ERROR_NONE;
 
-        if ((error_code & rx_error_mask) != 0U || has_rx_dma_error)
+        if ((hal_uart_handle_->ErrorCode & rx_error_mask) != 0U)
             RxBuffer::rx_error_callback();
-
-        if (has_tx_dma_error)
-            TxBuffer::tx_error_callback();
     }
 
     void rx_dma_tc_callback() { RxBuffer::dma_tc_callback(); }
@@ -63,12 +60,21 @@ public:
         RxBuffer::rx_error_callback();
     }
 
+    void tx_dma_error_callback() {
+        // Replicate UART_EndTxTransfer (HAL-internal) to restore gState for next transmit.
+        ATOMIC_CLEAR_BIT(hal_uart_handle_->Instance->CR1, (USART_CR1_TXEIE | USART_CR1_TCIE));
+        hal_uart_handle_->gState = HAL_UART_STATE_READY;
+        TxBuffer::tx_error_callback();
+    }
+
     void rx_event_callback() { RxBuffer::uart_idle_event_callback(); }
 
 private:
     static void hal_rx_dma_tc_callback(DMA_HandleTypeDef* hal_dma_handle);
 
     static void hal_rx_dma_error_callback(DMA_HandleTypeDef* hal_dma_handle);
+
+    static void hal_tx_dma_error_callback(DMA_HandleTypeDef* hal_dma_handle);
 
     void handle_uplink(
         std::span<const std::byte> payload, std::span<const std::byte> payload2, bool is_idle) {

@@ -14,7 +14,6 @@
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/utility/assert.hpp"
-#include "firmware/c_board/app/src/led/led.hpp"
 #include "firmware/c_board/app/src/timer/timer.hpp"
 #include "firmware/c_board/app/src/utility/ring_buffer.hpp"
 
@@ -34,8 +33,11 @@ public:
     static constexpr size_t kMaxIdleCheckpointCount = 256;
     static_assert((kMaxIdleCheckpointCount & (kMaxIdleCheckpointCount - 1)) == 0);
 
-    explicit TxBuffer(UART_HandleTypeDef* hal_uart_handle)
-        : hal_uart_handle_(hal_uart_handle) {
+    explicit TxBuffer(
+        UART_HandleTypeDef* hal_uart_handle,
+        void (*dma_error_callback)(DMA_HandleTypeDef*))
+        : hal_uart_handle_(hal_uart_handle)
+        , dma_error_callback_(dma_error_callback) {
         core::utility::assert_always(hal_uart_handle_ != nullptr);
         core::utility::assert_always(tx_dma_handle() != nullptr);
     }
@@ -46,10 +48,8 @@ public:
 
         const auto size = data_view.uart_data.size();
         const auto writable = kBufferSize - static_cast<size_t>(static_cast<IndexType>(in - out));
-        if (size > writable) {
-            led::led->downlink_buffer_full();
+        if (size > writable)
             return false;
-        }
 
         const auto offset = in & kBufferMask;
 
@@ -61,10 +61,8 @@ public:
             if (idle_boundary_before_in_) {
                 if (size) {
                     // Non-empty: Only append the new 'end'.
-                    if (!idle_checkpoints_.push_back(end_boundary)) {
-                        led::led->downlink_buffer_full();
+                    if (!idle_checkpoints_.push_back(end_boundary))
                         return false;
-                    }
                 }
                 // If ZLP (size==0): the existing checkpoint already enforces the idle wait.
             } else {
@@ -76,15 +74,12 @@ public:
                             },
                             2, true)
                         != 2) {
-                        led::led->downlink_buffer_full();
                         return false;
                     }
                 } else {
                     // ZLP: 'begin' == 'end'. Push single checkpoint to force an IDLE wait.
-                    if (!idle_checkpoints_.push_back(begin_boundary)) {
-                        led::led->downlink_buffer_full();
+                    if (!idle_checkpoints_.push_back(begin_boundary))
                         return false;
-                    }
                 }
             }
         }
@@ -175,6 +170,7 @@ public:
                     hal_uart_handle_, reinterpret_cast<const uint8_t*>(staging_buffer_.data()),
                     static_cast<uint16_t>(size))
                 == HAL_OK);
+            bind_tx_dma_error_callback();
             return true;
         }
 
@@ -184,6 +180,7 @@ public:
                 hal_uart_handle_, reinterpret_cast<const uint8_t*>(ring_buffer_.data() + offset),
                 static_cast<uint16_t>(slice))
             == HAL_OK);
+        bind_tx_dma_error_callback();
         in_flight_ = static_cast<IndexType>(slice);
 
         return true;
@@ -202,7 +199,11 @@ public:
 private:
     DMA_HandleTypeDef* tx_dma_handle() const { return hal_uart_handle_->hdmatx; }
 
+    // HAL_UART_Transmit_DMA resets XferErrorCallback each call; re-bind ours after.
+    void bind_tx_dma_error_callback() { tx_dma_handle()->XferErrorCallback = dma_error_callback_; }
+
     UART_HandleTypeDef* hal_uart_handle_;
+    void (*dma_error_callback_)(DMA_HandleTypeDef*);
 
     alignas(uint32_t) std::array<std::byte, kBufferSize> ring_buffer_{};
     alignas(uint32_t) std::array<std::byte, kStagingBufferSize> staging_buffer_{};

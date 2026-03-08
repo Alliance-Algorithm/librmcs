@@ -38,6 +38,10 @@ void Uart::hal_rx_dma_error_callback(DMA_HandleTypeDef* hal_dma_handle) {
     get_uart_instance_from_dma(hal_dma_handle).rx_dma_error_callback();
 }
 
+void Uart::hal_tx_dma_error_callback(DMA_HandleTypeDef* hal_dma_handle) {
+    get_uart_instance_from_dma(hal_dma_handle).tx_dma_error_callback();
+}
+
 // NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
 extern "C" void HAL_UART_TxCpltCallback(UART_HandleTypeDef* hal_uart_handle) {
     get_uart_instance(hal_uart_handle).tx_complete_callback();
@@ -46,11 +50,6 @@ extern "C" void HAL_UART_TxCpltCallback(UART_HandleTypeDef* hal_uart_handle) {
 // NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
 extern "C" void HAL_UART_ErrorCallback(UART_HandleTypeDef* hal_uart_handle) {
     get_uart_instance(hal_uart_handle).uart_error_callback();
-}
-
-// NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
-extern "C" void HAL_UART_AbortCpltCallback(UART_HandleTypeDef* hal_uart_handle) {
-    get_uart_instance(hal_uart_handle).tx_complete_callback();
 }
 
 // NOLINTNEXTLINE(readability-inconsistent-declaration-parameter-name)
