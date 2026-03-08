@@ -28,7 +28,11 @@ App::App() {
     can::can1.init();
     can::can2.init();
     can::can3.init();
+    uart::uart0.init();
+    uart::uart1.init();
+    uart::uart2.init();
     uart::uart3.init();
+    uart::uart_dbus.init();
 
     spi::bmi088::accelerometer.init();
     spi::bmi088::gyroscope.init();
@@ -43,7 +47,11 @@ App::App() {
     while (true) {
         tud_task();
         usb::vendor->try_transmit();
+        uart::uart0->try_transmit();
+        uart::uart1->try_transmit();
+        uart::uart2->try_transmit();
         uart::uart3->try_transmit();
+        uart::uart_dbus->try_transmit();
     }
 }
 

@@ -103,8 +103,11 @@ private:
     void uart_deserialized_callback(
         core::protocol::FieldId id, const data::UartDataView& data) override {
         switch (id) {
+        case data::DataId::kUartDbus: uart::uart_dbus->handle_downlink(data); break;
+        case data::DataId::kUart0: uart::uart0->handle_downlink(data); break;
+        case data::DataId::kUart1: uart::uart1->handle_downlink(data); break;
+        case data::DataId::kUart2: uart::uart2->handle_downlink(data); break;
         case data::DataId::kUart3: uart::uart3->handle_downlink(data); break;
-        // TODO: Handle other UART events
         default: core::utility::assert_failed_always();
         }
     }
