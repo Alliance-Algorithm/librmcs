@@ -50,6 +50,19 @@ public:
             return *this;
         }
 
+        PacketBuilder& gpio_digital_transmit(const librmcs::data::GpioDigitalDataView& data) {
+            if (data.channel < 1 || data.channel > 7 || !builder_.write_gpio_digital(data))
+                [[unlikely]]
+                throw std::invalid_argument{"GPIO digital transmission failed: Invalid GPIO data"};
+            return *this;
+        }
+        PacketBuilder& gpio_analog_transmit(const librmcs::data::GpioAnalogDataView& data) {
+            if (data.channel < 1 || data.channel > 7 || !builder_.write_gpio_analog(data))
+                [[unlikely]]
+                throw std::invalid_argument{"GPIO analog transmission failed: Invalid GPIO data"};
+            return *this;
+        }
+
     private:
         explicit PacketBuilder(host::protocol::Handler& handler) noexcept
             : builder_(handler.start_transmit()) {}

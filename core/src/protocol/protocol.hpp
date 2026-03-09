@@ -82,6 +82,26 @@ struct UartHeaderExtended
     , layouts::UartHeaderLayout
     , layouts::UartHeaderExtendedLayout {};
 
+struct GpioHeader : utility::Bitfield<2> {
+    enum class PayloadEnum : uint8_t {
+        kDigitalWriteLow = 0b0000,
+        kDigitalWriteHigh = 0b0001,
+        kAnalogWrite = 0b0010,
+        kDigitalRead = 0b0100,
+        kAnalogRead = 0b0110,
+        kDigitalReadResultLow = 0b1000,
+        kDigitalReadResultHigh = 0b1001,
+        kAnalogReadResult = 0b1010,
+    };
+
+    using PayloadType = utility::BitfieldMember<4, 4, PayloadEnum>;
+    using Channel = utility::BitfieldMember<8, 8>;
+};
+
+struct GpioAnalogPayload : utility::Bitfield<2> {
+    using Value = utility::BitfieldMember<0, 16, uint16_t>;
+};
+
 struct ImuHeader : utility::Bitfield<1> {
     enum class PayloadEnum : uint8_t {
         kAccelerometer = 0,
