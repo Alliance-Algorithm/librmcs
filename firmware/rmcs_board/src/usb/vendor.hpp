@@ -112,6 +112,14 @@ private:
         }
     }
 
+    void gpio_digital_deserialized_callback(const data::GpioDigitalDataView& data) override {
+        (void)data;
+    }
+
+    void gpio_analog_deserialized_callback(const data::GpioAnalogDataView& data) override {
+        (void)data;
+    }
+
     void accelerometer_deserialized_callback(const data::AccelerometerDataView& data) override {
         (void)data;
     }

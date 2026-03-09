@@ -47,6 +47,16 @@ public:
             logging::get_logger().error("Unexpected uart field id: ", static_cast<int>(id));
     }
 
+    void gpio_digital_deserialized_callback(const data::GpioDigitalDataView& data) override {
+        (void)data;
+        logging::get_logger().error("Unexpected gpio digital field in uplink");
+    }
+
+    void gpio_analog_deserialized_callback(const data::GpioAnalogDataView& data) override {
+        (void)data;
+        logging::get_logger().error("Unexpected gpio analog field in uplink");
+    }
+
     void accelerometer_deserialized_callback(const data::AccelerometerDataView& data) override {
         callback_.accelerometer_receive_callback(data);
     }
@@ -90,6 +100,14 @@ struct PacketBuilderImpl {
 
     [[nodiscard]] bool write_uart(data::DataId field_id, const data::UartDataView& view) noexcept {
         return process_result(serializer_.write_uart(field_id, view));
+    }
+
+    [[nodiscard]] bool write_gpio_digital(const data::GpioDigitalDataView& view) noexcept {
+        return process_result(serializer_.write_gpio_digital(view));
+    }
+
+    [[nodiscard]] bool write_gpio_analog(const data::GpioAnalogDataView& view) noexcept {
+        return process_result(serializer_.write_gpio_analog(view));
     }
 
     [[nodiscard]] bool write_imu_accelerometer(const data::AccelerometerDataView& view) noexcept {
@@ -141,6 +159,14 @@ bool Handler::PacketBuilder::write_can(
 bool Handler::PacketBuilder::write_uart(
     data::DataId field_id, const data::UartDataView& view) noexcept {
     return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))->write_uart(field_id, view);
+}
+
+bool Handler::PacketBuilder::write_gpio_digital(const data::GpioDigitalDataView& view) noexcept {
+    return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))->write_gpio_digital(view);
+}
+
+bool Handler::PacketBuilder::write_gpio_analog(const data::GpioAnalogDataView& view) noexcept {
+    return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))->write_gpio_analog(view);
 }
 
 bool Handler::PacketBuilder::write_imu_accelerometer(

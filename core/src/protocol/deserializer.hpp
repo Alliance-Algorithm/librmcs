@@ -27,6 +27,10 @@ public:
 
     virtual void uart_deserialized_callback(FieldId id, const data::UartDataView& data) = 0;
 
+    virtual void gpio_digital_deserialized_callback(const data::GpioDigitalDataView& data) = 0;
+
+    virtual void gpio_analog_deserialized_callback(const data::GpioAnalogDataView& data) = 0;
+
     virtual void accelerometer_deserialized_callback(const data::AccelerometerDataView& data) = 0;
 
     virtual void gyroscope_deserialized_callback(const data::GyroscopeDataView& data) = 0;
@@ -100,6 +104,8 @@ private:
     coroutine::LifoTask<bool> process_can_field(FieldId field_id);
 
     coroutine::LifoTask<bool> process_uart_field(FieldId field_id);
+
+    coroutine::LifoTask<bool> process_gpio_field(FieldId field_id);
 
     coroutine::LifoTask<bool> process_imu_field(FieldId field_id);
 

@@ -16,6 +16,7 @@
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
 #include "firmware/c_board/app/src/can/can.hpp"
+#include "firmware/c_board/app/src/gpio/gpio.hpp"
 #include "firmware/c_board/app/src/uart/uart.hpp"
 #include "firmware/c_board/app/src/usb/interrupt_safe_buffer.hpp"
 #include "firmware/c_board/app/src/usb/usb_descriptors.hpp"
@@ -99,6 +100,14 @@ private:
         case data::DataId::kUart2: uart::uart2->handle_downlink(data); break;
         default: core::utility::assert_failed_always();
         }
+    }
+
+    void gpio_digital_deserialized_callback(const data::GpioDigitalDataView& data) override {
+        gpio::gpio->handle_digital_write(data);
+    }
+
+    void gpio_analog_deserialized_callback(const data::GpioAnalogDataView& data) override {
+        gpio::gpio->handle_analog_write(data);
     }
 
     void accelerometer_deserialized_callback(const data::AccelerometerDataView& data) override {

@@ -11,6 +11,7 @@
 #include <usb_otg.h>
 
 #include "firmware/c_board/app/src/can/can.hpp"
+#include "firmware/c_board/app/src/gpio/gpio.hpp"
 #include "firmware/c_board/app/src/led/led.hpp"
 #include "firmware/c_board/app/src/spi/bmi088/accel.hpp"
 #include "firmware/c_board/app/src/spi/bmi088/gyro.hpp"
@@ -41,6 +42,8 @@ App::App() {
     timer::timer.init();
 
     MX_GPIO_Init();
+    MX_TIM1_Init();
+    MX_TIM8_Init();
     MX_DMA_Init();
     MX_SPI1_Init();
     MX_CAN1_Init();
@@ -58,6 +61,7 @@ App::App() {
     uart::uart1.init();
     uart::uart2.init();
     uart::uart_dbus.init();
+    gpio::gpio.init();
     spi::bmi088::accelerometer.init();
     spi::bmi088::gyroscope.init();
 }

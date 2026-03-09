@@ -42,6 +42,16 @@ struct UartDataView {
     bool idle_delimited = false;
 };
 
+struct GpioDigitalDataView {
+    uint8_t channel;
+    bool high;
+};
+
+struct GpioAnalogDataView {
+    uint8_t channel;
+    uint16_t value;
+};
+
 struct AccelerometerDataView {
     int16_t x;
     int16_t y;

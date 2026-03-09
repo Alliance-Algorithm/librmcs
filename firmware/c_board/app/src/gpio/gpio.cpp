@@ -1,3 +1,5 @@
+#include "firmware/c_board/app/src/gpio/gpio.hpp"
+
 #include <cstdint>
 
 #include <main.h>

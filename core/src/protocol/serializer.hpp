@@ -120,6 +120,53 @@ public:
         return SerializeResult::kSuccess;
     }
 
+    SerializeResult write_gpio_digital(const data::GpioDigitalDataView& view) noexcept {
+        const auto payload_type = view.high ? GpioHeader::PayloadEnum::kDigitalWriteHigh
+                                            : GpioHeader::PayloadEnum::kDigitalWriteLow;
+        const std::size_t required = required_gpio_size(FieldId::kGpio, payload_type);
+        LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
+
+        auto dst = buffer_.allocate(required);
+        LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
+        utility::assert_debug(dst.size() == required);
+        std::byte* cursor = dst.data();
+
+        write_field_header(cursor, FieldId::kGpio);
+
+        auto header = GpioHeader::Ref(cursor);
+        cursor += sizeof(GpioHeader);
+        header.set<GpioHeader::PayloadType>(payload_type);
+        header.set<GpioHeader::Channel>(view.channel);
+
+        utility::assert_debug(cursor == dst.data() + dst.size());
+        return SerializeResult::kSuccess;
+    }
+
+    SerializeResult write_gpio_analog(const data::GpioAnalogDataView& view) noexcept {
+        const std::size_t required =
+            required_gpio_size(FieldId::kGpio, GpioHeader::PayloadEnum::kAnalogWrite);
+        LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
+
+        auto dst = buffer_.allocate(required);
+        LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
+        utility::assert_debug(dst.size() == required);
+        std::byte* cursor = dst.data();
+
+        write_field_header(cursor, FieldId::kGpio);
+
+        auto header = GpioHeader::Ref(cursor);
+        cursor += sizeof(GpioHeader);
+        header.set<GpioHeader::PayloadType>(GpioHeader::PayloadEnum::kAnalogWrite);
+        header.set<GpioHeader::Channel>(view.channel);
+
+        auto payload = GpioAnalogPayload::Ref(cursor);
+        cursor += sizeof(GpioAnalogPayload);
+        payload.set<GpioAnalogPayload::Value>(view.value);
+
+        utility::assert_debug(cursor == dst.data() + dst.size());
+        return SerializeResult::kSuccess;
+    }
+
     SerializeResult write_imu_accelerometer(const data::AccelerometerDataView& view) noexcept {
         const std::size_t required = required_imu_size(FieldId::kImu, ImuPayload::kAccelerometer);
         LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
@@ -227,6 +274,26 @@ private:
 
         const std::size_t total = (field_header_bytes + uart_header_bytes - 1) + uart_data_length;
         LIBRMCS_VERIFY_LIKELY(total <= kProtocolBufferSize, 0);
+
+        return total;
+    }
+
+    static std::size_t
+        required_gpio_size(FieldId field_id, GpioHeader::PayloadEnum payload) noexcept {
+        const std::size_t field_header_bytes = required_field_header_size(field_id);
+        const std::size_t gpio_header_bytes = sizeof(GpioHeader);
+        std::size_t payload_bytes = 0;
+        switch (payload) {
+        case GpioHeader::PayloadEnum::kDigitalWriteLow:
+        case GpioHeader::PayloadEnum::kDigitalWriteHigh: payload_bytes = 0; break;
+        case GpioHeader::PayloadEnum::kAnalogWrite:
+            payload_bytes = sizeof(GpioAnalogPayload);
+            break;
+        default: return 0;
+        }
+
+        const std::size_t total = (field_header_bytes + gpio_header_bytes - 1) + payload_bytes;
+        utility::assert_debug(total <= kProtocolBufferSize);
 
         return total;
     }

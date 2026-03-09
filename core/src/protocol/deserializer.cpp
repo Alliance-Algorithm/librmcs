@@ -51,6 +51,7 @@ coroutine::LifoTask<void> Deserializer::process_stream() {
         case FieldId::kUart1:
         case FieldId::kUart2:
         case FieldId::kUart3: success = co_await process_uart_field(id); break;
+        case FieldId::kGpio: success = co_await process_gpio_field(id); break;
         case FieldId::kImu: success = co_await process_imu_field(id); break;
         default: break;
         }
@@ -146,6 +147,49 @@ coroutine::LifoTask<bool> Deserializer::process_uart_field(FieldId field_id) {
     }
 
     callback_.uart_deserialized_callback(field_id, data_view);
+
+    co_return true;
+}
+
+coroutine::LifoTask<bool> Deserializer::process_gpio_field(FieldId) {
+    GpioHeader::PayloadEnum payload_type;
+    std::uint8_t channel = 0;
+    {
+        const auto* header_bytes = co_await peek_bytes(sizeof(GpioHeader));
+        if (!header_bytes) [[unlikely]]
+            co_return false;
+
+        auto header = GpioHeader::CRef{header_bytes};
+        payload_type = header.get<GpioHeader::PayloadType>();
+        channel = header.get<GpioHeader::Channel>();
+        consume_peeked();
+    }
+
+    switch (payload_type) {
+    case GpioHeader::PayloadEnum::kDigitalWriteLow:
+    case GpioHeader::PayloadEnum::kDigitalWriteHigh: {
+        data::GpioDigitalDataView data_view{};
+        data_view.channel = channel;
+        data_view.high = payload_type == GpioHeader::PayloadEnum::kDigitalWriteHigh;
+        callback_.gpio_digital_deserialized_callback(data_view);
+        break;
+    }
+    case GpioHeader::PayloadEnum::kAnalogWrite: {
+        const auto* payload_bytes = co_await peek_bytes(sizeof(GpioAnalogPayload));
+        if (!payload_bytes) [[unlikely]]
+            co_return false;
+
+        auto payload = GpioAnalogPayload::CRef{payload_bytes};
+        data::GpioAnalogDataView data_view{};
+        data_view.channel = channel;
+        data_view.value = payload.get<GpioAnalogPayload::Value>();
+        consume_peeked();
+
+        callback_.gpio_analog_deserialized_callback(data_view);
+        break;
+    }
+    default: co_return false;
+    }
 
     co_return true;
 }
