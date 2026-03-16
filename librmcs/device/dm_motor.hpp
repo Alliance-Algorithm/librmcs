@@ -203,7 +203,7 @@ public:
         if (std::isnan(control_torque)) {
             return generate_disable_command();
         }
-        return generate_mit_command(0.0, 0.0, control_torque, 0.0, 0.0);
+        return generate_mit_command(0.0, 0.0, to_command_torque(control_torque), 0.0, 0.0);
     }
 
     uint64_t generate_angle_command(
@@ -215,14 +215,12 @@ public:
     }
 
 private:
-    int to_command_torque(double torque) const {
-        double command_torque = torque_to_command_torque_coefficient_ * torque;
-        return double_to_uint(command_torque, -max_torque_, max_torque_, 12);
+    double to_command_torque(double torque) const {
+        return torque_to_command_torque_coefficient_ * torque;
     }
 
-    int to_command_velocity(double velocity) const {
-        double command_velocity = velocity_to_command_velocity_coefficient_ * velocity;
-        return double_to_uint(command_velocity, -max_velocity_, max_velocity_, 12);
+    double to_command_velocity(double velocity) const {
+        return velocity_to_command_velocity_coefficient_ * velocity;
     }
 
     static double uint_to_double(int x_int, double x_min, double x_max, int bits) {
