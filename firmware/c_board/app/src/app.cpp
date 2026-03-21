@@ -72,6 +72,7 @@ App::App() {
     while (true) {
         tud_task();
 
+        gpio::gpio->poll_periodic_input_samples();
         usb::vendor->try_transmit();
         can::can1->try_transmit();
         usb::vendor->try_transmit();
