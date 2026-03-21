@@ -42,7 +42,8 @@ extern "C" {
 #endif
 
 #ifdef HAL_GPIO_MODULE_ENABLED
-# include "stm32f4xx_hal_gpio.h" // IWYU pragma: export
+# include "stm32f4xx_hal_gpio.h"   // IWYU pragma: export
+#include "stm32f4xx_hal_gpio_ex.h" // IWYU pragma: export
 #endif
 
 #ifdef HAL_EXTI_MODULE_ENABLED
@@ -268,12 +269,12 @@ void SystemClock_Config(void);
 #define SPI1_MISO_GPIO_Port GPIOB
 #define SPI1_SCK_Pin GPIO_PIN_3
 #define SPI1_SCK_GPIO_Port GPIOB
-#define PWM7_Pin GPIO_PIN_7
-#define PWM7_GPIO_Port GPIOI
-#define PWM6_Pin GPIO_PIN_6
-#define PWM6_GPIO_Port GPIOI
-#define PWM5_Pin GPIO_PIN_6
-#define PWM5_GPIO_Port GPIOC
+#define CHANNEL7_Pin GPIO_PIN_7
+#define CHANNEL7_GPIO_Port GPIOI
+#define CHANNEL6_Pin GPIO_PIN_6
+#define CHANNEL6_GPIO_Port GPIOI
+#define CHANNEL5_Pin GPIO_PIN_6
+#define CHANNEL5_GPIO_Port GPIOC
 #define LED_R_Pin GPIO_PIN_12
 #define LED_R_GPIO_Port GPIOH
 #define LED_G_Pin GPIO_PIN_11
@@ -285,17 +286,17 @@ void SystemClock_Config(void);
 #define INT1_ACC_Pin GPIO_PIN_4
 #define INT1_ACC_GPIO_Port GPIOC
 #define INT1_ACC_EXTI_IRQn EXTI4_IRQn
-#define PWM3_Pin GPIO_PIN_13
-#define PWM3_GPIO_Port GPIOE
+#define CHANNEL3_Pin GPIO_PIN_13
+#define CHANNEL3_GPIO_Port GPIOE
 #define INT1_GYRO_Pin GPIO_PIN_5
 #define INT1_GYRO_GPIO_Port GPIOC
 #define INT1_GYRO_EXTI_IRQn EXTI9_5_IRQn
-#define PWM1_Pin GPIO_PIN_9
-#define PWM1_GPIO_Port GPIOE
-#define PWM2_Pin GPIO_PIN_11
-#define PWM2_GPIO_Port GPIOE
-#define PWM4_Pin GPIO_PIN_14
-#define PWM4_GPIO_Port GPIOE
+#define CHANNEL1_Pin GPIO_PIN_9
+#define CHANNEL1_GPIO_Port GPIOE
+#define CHANNEL2_Pin GPIO_PIN_11
+#define CHANNEL2_GPIO_Port GPIOE
+#define CHANNEL4_Pin GPIO_PIN_14
+#define CHANNEL4_GPIO_Port GPIOE
 #define SPI1_MOSI_Pin GPIO_PIN_7
 #define SPI1_MOSI_GPIO_Port GPIOA
 #define CS1_GYRO_Pin GPIO_PIN_0

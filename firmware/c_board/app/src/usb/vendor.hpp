@@ -102,12 +102,22 @@ private:
         }
     }
 
-    void gpio_digital_deserialized_callback(const data::GpioDigitalDataView& data) override {
+    void gpio_digital_data_deserialized_callback(const data::GpioDigitalDataView& data) override {
         gpio::gpio->handle_digital_write(data);
     }
 
-    void gpio_analog_deserialized_callback(const data::GpioAnalogDataView& data) override {
+    void gpio_analog_data_deserialized_callback(const data::GpioAnalogDataView& data) override {
         gpio::gpio->handle_analog_write(data);
+    }
+
+    void gpio_digital_read_config_deserialized_callback(
+        const data::GpioReadConfigView& data) override {
+        gpio::gpio->handle_digital_read(data);
+    }
+
+    void gpio_analog_read_config_deserialized_callback(
+        const data::GpioReadConfigView& data) override {
+        (void)data;
     }
 
     void accelerometer_deserialized_callback(const data::AccelerometerDataView& data) override {

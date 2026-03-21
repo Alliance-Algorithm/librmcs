@@ -50,14 +50,22 @@ public:
             return *this;
         }
 
-        PacketBuilder& gpio_digital_transmit(const librmcs::data::GpioDigitalDataView& data) {
-            if (data.channel < 1 || data.channel > 7 || !builder_.write_gpio_digital(data))
+        PacketBuilder& gpio_digital_write(const librmcs::data::GpioDigitalDataView& data) {
+            if (data.channel < 1 || data.channel > 7 || !builder_.write_gpio_digital_data(data))
                 [[unlikely]]
                 throw std::invalid_argument{"GPIO digital transmission failed: Invalid GPIO data"};
             return *this;
         }
-        PacketBuilder& gpio_analog_transmit(const librmcs::data::GpioAnalogDataView& data) {
-            if (data.channel < 1 || data.channel > 7 || !builder_.write_gpio_analog(data))
+        PacketBuilder& gpio_digital_read(const librmcs::data::GpioReadConfigView& data) {
+            if (data.channel < 1 || data.channel > 7
+                || (data.channel == 6 && (data.rising_edge || data.falling_edge))
+                || !builder_.write_gpio_digital_read_config(data)) [[unlikely]]
+                throw std::invalid_argument{
+                    "GPIO digital read configuration transmission failed: Invalid GPIO data"};
+            return *this;
+        }
+        PacketBuilder& gpio_analog_write(const librmcs::data::GpioAnalogDataView& data) {
+            if (data.channel < 1 || data.channel > 7 || !builder_.write_gpio_analog_data(data))
                 [[unlikely]]
                 throw std::invalid_argument{"GPIO analog transmission failed: Invalid GPIO data"};
             return *this;
@@ -95,6 +103,14 @@ private:
     virtual void dbus_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
     virtual void uart1_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
     virtual void uart2_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
+
+    void
+        gpio_digital_read_result_callback(const librmcs::data::GpioDigitalDataView& data) override {
+        (void)data;
+    }
+    void gpio_analog_read_result_callback(const librmcs::data::GpioAnalogDataView& data) override {
+        (void)data;
+    }
 
     void accelerometer_receive_callback(const librmcs::data::AccelerometerDataView& data) override {
         (void)data;

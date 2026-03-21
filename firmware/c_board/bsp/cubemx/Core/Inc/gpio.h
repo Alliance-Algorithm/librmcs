@@ -29,7 +29,8 @@ extern "C" {
 #include "main.h"
 
 /* USER CODE BEGIN Includes */
-#include "stm32f4xx_hal_gpio.h" // IWYU pragma: export
+#include "stm32f4xx_hal_gpio.h"    // IWYU pragma: export
+#include "stm32f4xx_hal_gpio_ex.h" // IWYU pragma: export
 /* USER CODE END Includes */
 
 /* USER CODE BEGIN Private defines */
