@@ -9,6 +9,7 @@
 #include <hpm_gpiom_soc_drv.h>
 #include <hpm_ioc_regs.h>
 #include <hpm_iomux.h>
+#include <hpm_mchtmr_drv.h>
 #include <hpm_pmic_iomux.h>
 #include <hpm_soc.h>
 #include <hpm_soc_irq.h>
@@ -58,14 +59,18 @@ void init_bmi088_interrupts() {
 SDK_DECLARE_EXT_ISR_M(IRQn_GPIO0_B, gpio_bmi088_int_gyro_isr)
 void gpio_bmi088_int_gyro_isr() {
     if (gpio_check_clear_interrupt_flag(HPM_GPIO0, GPIO_DI_GPIOB, kBmi088IntGyroPin)) {
-        spi::bmi088::gyroscope->data_ready_callback();
+        const uint32_t capture_timestamp_quarter_us =
+            static_cast<uint32_t>(mchtmr_get_count(HPM_MCHTMR) / 6U);
+        spi::bmi088::gyroscope->data_ready_callback(capture_timestamp_quarter_us);
     }
 }
 
 SDK_DECLARE_EXT_ISR_M(IRQn_GPIO0_Y, gpio_bmi088_int_accel_isr)
 void gpio_bmi088_int_accel_isr() {
     if (gpio_check_clear_interrupt_flag(HPM_GPIO0, GPIO_DI_GPIOY, kBmi088IntAccelPin)) {
-        spi::bmi088::accelerometer->data_ready_callback();
+        const uint32_t capture_timestamp_quarter_us =
+            static_cast<uint32_t>(mchtmr_get_count(HPM_MCHTMR) / 6U);
+        spi::bmi088::accelerometer->data_ready_callback(capture_timestamp_quarter_us);
     }
 }
 

@@ -118,16 +118,18 @@ struct ImuHeader : utility::Bitfield<1> {
     using PayloadType = utility::BitfieldMember<4, 4, PayloadEnum>;
 };
 
-struct ImuAccelerometerPayload : utility::Bitfield<6> {
+struct ImuAccelerometerPayload : utility::Bitfield<8> {
     using X = utility::BitfieldMember<0, 16, int16_t>;
     using Y = utility::BitfieldMember<16, 16, int16_t>;
     using Z = utility::BitfieldMember<32, 16, int16_t>;
+    using TimestampDiffQuarterUs = utility::BitfieldMember<48, 16, uint16_t>;
 };
 
-struct ImuGyroscopePayload : utility::Bitfield<6> {
+struct ImuGyroscopePayload : utility::Bitfield<8> {
     using X = utility::BitfieldMember<0, 16, int16_t>;
     using Y = utility::BitfieldMember<16, 16, int16_t>;
     using Z = utility::BitfieldMember<32, 16, int16_t>;
+    using TimestampDiffQuarterUs = utility::BitfieldMember<48, 16, uint16_t>;
 };
 
 } // namespace librmcs::core::protocol
