@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 #include <board.h>
 #include <hpm_gpio_regs.h>
@@ -44,6 +45,8 @@ class Gyroscope final
     , private Bmi088Base<GyroscopeTraits> {
 public:
     using Lazy = utility::Lazy<Gyroscope, Spi::Lazy*, ChipSelectPin>;
+
+    static constexpr uint16_t kFirstFrameTimestampDiffQuarterUs = 1'000'000 / 2000 * 4;
 
     enum class DataRange : uint8_t {
         k2000 = 0x00,
@@ -98,22 +101,60 @@ public:
         spi_.unlock();
     }
 
-    void data_ready_callback() { read_async(RegisterAddress::kRateXLsb, 6); }
+    void data_ready_callback(uint32_t capture_timestamp_quarter_us) {
+        if (read_async(RegisterAddress::kRateXLsb, 6)) {
+            pending_capture_timestamp_quarter_us_ = capture_timestamp_quarter_us;
+            has_pending_capture_timestamp_ = true;
+        }
+    }
 
 private:
     void transmit_receive_async_callback(std::size_t size) override {
-        if (size) [[likely]] {
+        core::utility::assert_debug(!size || has_pending_capture_timestamp_);
+        if (size && has_pending_capture_timestamp_) [[likely]] {
             auto& data = parse_rx_data(spi_.rx_buffer, size);
-            handle_uplink(usb::vendor->serializer(), data);
+            handle_uplink(usb::vendor->serializer(), data, pending_capture_timestamp_quarter_us_);
         }
+        has_pending_capture_timestamp_ = false;
         spi_.unlock();
     }
 
-    static void handle_uplink(core::protocol::Serializer& serializer, Data& data) {
+    void handle_uplink(
+        core::protocol::Serializer& serializer, Data& data, uint32_t capture_timestamp_quarter_us) {
+        const uint16_t timestamp_diff_quarter_us =
+            calculate_timestamp_diff_quarter_us(capture_timestamp_quarter_us);
+        const auto result = serializer.write_imu_gyroscope({
+            .x = data.x,
+            .y = data.y,
+            .z = data.z,
+            .timestamp_diff_quarter_us = timestamp_diff_quarter_us,
+        });
         core::utility::assert_debug(
-            serializer.write_imu_gyroscope({.x = data.x, .y = data.y, .z = data.z})
-            != core::protocol::Serializer::SerializeResult::kInvalidArgument);
+            result != core::protocol::Serializer::SerializeResult::kInvalidArgument);
+        if (result == core::protocol::Serializer::SerializeResult::kSuccess) {
+            last_success_capture_timestamp_quarter_us_ = capture_timestamp_quarter_us;
+            has_last_success_capture_timestamp_ = true;
+        }
     }
+
+    uint16_t calculate_timestamp_diff_quarter_us(uint32_t capture_timestamp_quarter_us) const {
+        if (!has_last_success_capture_timestamp_)
+            return kFirstFrameTimestampDiffQuarterUs;
+
+        return saturate_timestamp_diff_quarter_us(
+            capture_timestamp_quarter_us - last_success_capture_timestamp_quarter_us_);
+    }
+
+    static uint16_t saturate_timestamp_diff_quarter_us(uint32_t timestamp_diff_quarter_us) {
+        if (timestamp_diff_quarter_us > std::numeric_limits<uint16_t>::max())
+            return std::numeric_limits<uint16_t>::max();
+        return static_cast<uint16_t>(timestamp_diff_quarter_us);
+    }
+
+    uint32_t pending_capture_timestamp_quarter_us_ = 0;
+    uint32_t last_success_capture_timestamp_quarter_us_ = 0;
+    bool has_pending_capture_timestamp_ = false;
+    bool has_last_success_capture_timestamp_ = false;
 };
 
 inline Gyroscope::Lazy gyroscope(
