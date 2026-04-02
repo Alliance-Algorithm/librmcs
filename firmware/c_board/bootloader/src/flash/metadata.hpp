@@ -31,9 +31,11 @@ public:
         } else if (latest_valid_slot_state_ == DataSlotState::kFlashing) {
             return;
         } else if (latest_valid_slot_state_ == DataSlotState::kReady) {
-            latest_valid_slot_++;
-            if (reinterpret_cast<uintptr_t>(latest_valid_slot_) >= kMetadataEndAddress)
+            auto next_addr = reinterpret_cast<uintptr_t>(latest_valid_slot_) + sizeof(DataSlot);
+            if (next_addr >= kMetadataEndAddress)
                 erase_and_rescan();
+            else
+                latest_valid_slot_ = reinterpret_cast<DataSlot*>(next_addr);
         }
 
         latest_valid_slot_->enter_flashing_state();
@@ -162,7 +164,8 @@ private:
             case DataSlotState::kFlashing:
             case DataSlotState::kReady: {
                 if (!latest_valid_slot_
-                    || (latest_valid_slot_ + 1 == &slot
+                    || (reinterpret_cast<uintptr_t>(latest_valid_slot_) + sizeof(DataSlot)
+                            == reinterpret_cast<uintptr_t>(&slot)
                         && latest_valid_slot_state_ == DataSlotState::kReady)) {
                     latest_valid_slot_ = &slot;
                     latest_valid_slot_state_ = state;

@@ -62,9 +62,6 @@ public:
         if (block_num != expected_block_)
             return fail(DFU_STATUS_ERR_ADDRESS);
 
-        if ((downloaded_size_ & 0x3U) != 0U)
-            return fail(DFU_STATUS_ERR_PROG);
-
         const uint64_t write_address_64 = static_cast<uint64_t>(flash::kAppStartAddress)
                                         + static_cast<uint64_t>(downloaded_size_);
         if (write_address_64 >= static_cast<uint64_t>(flash::kAppEndAddress))
@@ -99,15 +96,18 @@ public:
 
         flash_writer_.finish_session();
 
-        if (!flash::is_vector_table_valid())
+        if (!flash::validate_candidate_image(downloaded_size_))
             return fail(DFU_STATUS_ERR_FIRMWARE);
 
         const uint32_t image_crc32 =
             flash::compute_image_crc32(flash::kAppStartAddress, downloaded_size_);
-        flash::Metadata::get_instance().finish_flashing(downloaded_size_, image_crc32);
+        auto& metadata = flash::Metadata::get_instance();
+        metadata.finish_flashing(downloaded_size_, image_crc32);
 
-        if (!flash::validate_app_image())
+        if (!metadata.is_ready() || metadata.image_size() != downloaded_size_
+            || metadata.image_crc32() != image_crc32) {
             return fail(DFU_STATUS_ERR_FIRMWARE);
+        }
 
         reset_transfer_state();
         reset_requested_ = true;
@@ -153,6 +153,7 @@ private:
     }
 
     void reset_transfer_state() {
+        flash_writer_.abort_session();
         expected_block_ = 0U;
         downloaded_size_ = 0U;
         session_started_ = false;
