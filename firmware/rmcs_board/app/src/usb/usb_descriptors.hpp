@@ -17,7 +17,7 @@
 #include <tusb_option.h>
 
 #include "core/src/utility/assert.hpp"
-#include "firmware/rmcs_board/src/utility/lazy.hpp"
+#include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::usb {
 

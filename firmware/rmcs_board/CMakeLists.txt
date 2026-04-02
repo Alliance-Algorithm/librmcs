@@ -1,106 +1,75 @@
 cmake_minimum_required(VERSION 3.28)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
-set(APP_NAME "librmcs-firmware")
+project(rmcs_board_superbuild LANGUAGES NONE)
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/../common/cmake/librmcs_firmware.cmake")
 
 set(BOARD "hpm5300evk" CACHE STRING "Target board")
 set(RV_ARCH "rv32imafdcb" CACHE STRING "RISC-V arch")
 set(RV_ABI "ilp32d" CACHE STRING "RISC-V ABI")
 set(HPM_BUILD_TYPE "flash_xip" CACHE STRING "HPM build type")
 
-set(CONFIG_DMA_MGR 1)
-set(CONFIG_TINYUSB 1)
-set(CONFIG_USB_DEVICE 1)
-set(CONFIG_USB_DEVICE_VENDOR 1)
-
-if(NOT DEFINED ENV{HPM_SDK_BASE} OR "$ENV{HPM_SDK_BASE}" STREQUAL "")
-    set(ENV{HPM_SDK_BASE} "${CMAKE_CURRENT_SOURCE_DIR}/bsp/hpm_sdk")
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "debug")
 endif()
-find_package(hpm-sdk REQUIRED HINTS "$ENV{HPM_SDK_BASE}")
 
-project(librmcs-firmware VERSION 3 LANGUAGES C CXX ASM)
+librmcs_setup_project_context(PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 
-set(LIBRMCS_PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
-cmake_path(ABSOLUTE_PATH LIBRMCS_PROJECT_ROOT NORMALIZE)
+function(add_rmcs_board_subbuild target_name source_subdir)
+    set(source_dir "${CMAKE_CURRENT_SOURCE_DIR}/${source_subdir}")
+    set(binary_dir "${CMAKE_CURRENT_BINARY_DIR}/${source_subdir}")
+    set(compile_commands_file "${binary_dir}/compile_commands.json")
 
-if(NOT DEFINED LIBRMCS_PROJECT_VERSION OR LIBRMCS_PROJECT_VERSION STREQUAL "")
-    execute_process(
-        COMMAND ".scripts/generate_version"
-        WORKING_DIRECTORY "${LIBRMCS_PROJECT_ROOT}"
-        OUTPUT_VARIABLE LIBRMCS_PROJECT_VERSION
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        COMMAND_ERROR_IS_FATAL ANY
+    set(configure_args
+        -G "${CMAKE_GENERATOR}"
+        -S "${source_dir}"
+        -B "${binary_dir}"
+        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        -DBOARD=${BOARD}
+        -DRV_ARCH=${RV_ARCH}
+        -DRV_ABI=${RV_ABI}
+        -DHPM_BUILD_TYPE=${HPM_BUILD_TYPE}
+        -DHOST_DEBUGGER=${HOST_DEBUGGER}
+        -DSOURCE_PATH_MAP=${LIBRMCS_SOURCE_PATH_MAP}
+        -DLIBRMCS_PROJECT_VERSION=${LIBRMCS_PROJECT_VERSION}
     )
-endif()
-message(STATUS "Librmcs project version: ${LIBRMCS_PROJECT_VERSION}")
-
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_STANDARD_REQUIRED True)
-
-set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_C_EXTENSIONS OFF)
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-sdk_compile_options(-Wall -Wextra -Wpedantic -fvisibility=hidden)
-sdk_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>)
-sdk_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
-sdk_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fno-unwind-tables>)
-sdk_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fno-asynchronous-unwind-tables>)
-sdk_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fno-threadsafe-statics>)
-sdk_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fno-use-cxa-atexit>)
-
-option(HOST_DEBUGGER "Debugger runs outside Dev Container (Docker)" OFF)
-set(SOURCE_PATH_MAP "" CACHE PATH "(In container) Map container source path to a host-visible path for debugger")
-
-if(HOST_DEBUGGER AND SOURCE_PATH_MAP STREQUAL "")
-    if(DEFINED ENV{HOST_WORKSPACE_FOLDER} AND NOT "$ENV{HOST_WORKSPACE_FOLDER}" STREQUAL "")
-        set(SOURCE_PATH_MAP "$ENV{HOST_WORKSPACE_FOLDER}")
-    else()
-        message(FATAL_ERROR "HOST_WORKSPACE_FOLDER is not set")
+    if(CMAKE_MAKE_PROGRAM)
+        list(APPEND configure_args -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM})
     endif()
-endif()
-if(NOT SOURCE_PATH_MAP STREQUAL "")
-    set(SOURCE_PATH_MAP "${SOURCE_PATH_MAP}/")
-    cmake_path(NORMAL_PATH SOURCE_PATH_MAP)
 
-    sdk_compile_options(
-        "-fdebug-prefix-map=${LIBRMCS_PROJECT_ROOT}=${SOURCE_PATH_MAP}"
-        "-ffile-prefix-map=${LIBRMCS_PROJECT_ROOT}=${SOURCE_PATH_MAP}"
+    add_custom_target(
+        ${target_name}
+        BYPRODUCTS "${compile_commands_file}"
+        COMMAND ${CMAKE_COMMAND} ${configure_args}
+        COMMAND ${CMAKE_COMMAND} --build "${binary_dir}"
+        USES_TERMINAL
+        VERBATIM
     )
-endif()
+endfunction()
 
-# HPM SDK forcibly converts CMAKE_BUILD_TYPE to lowercase. God knows why.
-if(CMAKE_BUILD_TYPE STREQUAL "debug")
-    sdk_compile_options(-Og)
-endif()
+add_rmcs_board_subbuild(rmcs_board_app app)
 
-sdk_compile_definitions(-DLIBRMCS_PROJECT_VERSION_STRING="${LIBRMCS_PROJECT_VERSION}")
-sdk_compile_definitions(-DCFG_TUSB_MCU=OPT_MCU_HPM)
-sdk_compile_definitions(-DUSB_HOST_MCU_CORE=HPM_CORE0)
+set(RMCS_BOARD_APP_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/app/compile_commands.json")
+set(RMCS_BOARD_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
 
-sdk_inc("${CMAKE_CURRENT_SOURCE_DIR}/include")
-
-sdk_app_inc("${LIBRMCS_PROJECT_ROOT}")
-
-file(GLOB_RECURSE PROJECT_SOURCE CONFIGURE_DEPENDS
-    "${LIBRMCS_PROJECT_ROOT}/core/src/*.cpp"
-    "${LIBRMCS_PROJECT_ROOT}/core/src/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
+add_custom_command(
+    OUTPUT "${RMCS_BOARD_COMPILE_COMMANDS}"
+    COMMAND
+    ${CMAKE_COMMAND}
+    -E copy_if_different
+    "${RMCS_BOARD_APP_COMPILE_COMMANDS}"
+    "${RMCS_BOARD_COMPILE_COMMANDS}"
+    DEPENDS
+        rmcs_board_app
+        "${RMCS_BOARD_APP_COMPILE_COMMANDS}"
+    COMMENT "Copying rmcs_board compile commands"
+    VERBATIM
 )
-sdk_app_src(${PROJECT_SOURCE})
 
-set_property(TARGET app PROPERTY CXX_STANDARD 23)
-set_property(TARGET app PROPERTY CXX_STANDARD_REQUIRED ON)
-set_property(TARGET app PROPERTY CXX_EXTENSIONS OFF)
+add_custom_target(
+    rmcs_board_compile_commands
+    DEPENDS "${RMCS_BOARD_COMPILE_COMMANDS}"
+)
 
-# Move SDK includes into SYSTEM to suppress third-party warnings
-get_target_property(_hpm_incs ${HPM_SDK_LIB_ITF} INTERFACE_INCLUDE_DIRECTORIES)
-if(_hpm_incs)
-    set_target_properties(${HPM_SDK_LIB_ITF} PROPERTIES
-        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_hpm_incs}")
-endif()
+add_custom_target(rmcs_board ALL DEPENDS rmcs_board_compile_commands)

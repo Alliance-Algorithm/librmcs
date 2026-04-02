@@ -1,4 +1,4 @@
-#include "firmware/rmcs_board/src/can/can.hpp"
+#include "firmware/rmcs_board/app/src/can/can.hpp"
 
 #include <cstdint>
 
@@ -8,7 +8,7 @@
 #include <hpm_soc_irq.h>
 
 #include "core/include/librmcs/data/datas.hpp"
-#include "firmware/rmcs_board/src/usb/vendor.hpp"
+#include "firmware/rmcs_board/app/src/usb/vendor.hpp"
 
 namespace librmcs::firmware::can {
 

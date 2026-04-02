@@ -11,11 +11,9 @@ RUN --mount=type=bind,target=/src,source=.,readonly \
         build_dir="/tmp/build-${board}"; \
         cmake --preset release -S "firmware/${board}" -B "${build_dir}"; \
         cmake --build "${build_dir}"; \
-        elf_path="${build_dir}/output/librmcs-firmware.elf"; \
-        if [ ! -f "${elf_path}" ]; then \
-            elf_path="${build_dir}/librmcs-firmware.elf"; \
-        fi; \
-        cp "${elf_path}" "/output/librmcs-firmware-${board}-${LIBRMCS_PROJECT_VERSION}.elf"; \
+        output_dir="${build_dir}/app/output"; \
+        cp "${output_dir}/rmcs_board_app.elf" \
+            "/output/librmcs-firmware-${board}-${LIBRMCS_PROJECT_VERSION}.elf"; \
     done \
     && for board in c_board; do \
         build_dir="/tmp/build-${board}"; \

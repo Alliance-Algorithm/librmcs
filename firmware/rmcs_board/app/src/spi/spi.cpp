@@ -1,4 +1,4 @@
-#include "firmware/rmcs_board/src/spi/spi.hpp"
+#include "firmware/rmcs_board/app/src/spi/spi.hpp"
 
 #include <cstdint>
 

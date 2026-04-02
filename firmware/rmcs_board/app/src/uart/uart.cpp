@@ -1,4 +1,4 @@
-#include "firmware/rmcs_board/src/uart/uart.hpp"
+#include "firmware/rmcs_board/app/src/uart/uart.hpp"
 
 #include <hpm_soc.h>
 #include <hpm_soc_irq.h>
