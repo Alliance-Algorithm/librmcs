@@ -22,7 +22,7 @@ cmake --build firmware/c_board/build --target c_board_app c_board_bootloader
 
 ```bash
 .scripts/clang-format-check --fix    # 应用格式修复
-.scripts/clang-tidy-check            # 静态分析（需在 CMake configure 之后运行）
+.scripts/clang-tidy-check            # 静态分析（需在 CMake build 之后运行）
 ```
 
 `.scripts/clang-tidy-check --fix` 可触发 clang-tidy 自动修复，但部分修复可能不符合预期，需手动调整。

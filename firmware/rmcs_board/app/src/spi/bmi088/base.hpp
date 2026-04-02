@@ -9,7 +9,7 @@
 #include <board.h>
 
 #include "core/src/utility/assert.hpp"
-#include "firmware/rmcs_board/src/spi/spi.hpp"
+#include "firmware/rmcs_board/app/src/spi/spi.hpp"
 
 namespace librmcs::firmware::spi::bmi088 {
 

@@ -1,17 +1,17 @@
-#include "firmware/rmcs_board/src/app.hpp"
+#include "firmware/rmcs_board/app/src/app.hpp"
 
 #include <board.h>
 #include <device/usbd.h>
 #include <hpm_dma_mgr.h>
 #include <hpm_soc.h>
 
-#include "firmware/rmcs_board/src/can/can.hpp"
-#include "firmware/rmcs_board/src/gpio/gpio.hpp"
-#include "firmware/rmcs_board/src/spi/bmi088/accel.hpp"
-#include "firmware/rmcs_board/src/spi/bmi088/gyro.hpp"
-#include "firmware/rmcs_board/src/uart/uart.hpp"
-#include "firmware/rmcs_board/src/usb/vendor.hpp"
-#include "firmware/rmcs_board/src/utility/interrupt_lock.hpp"
+#include "firmware/rmcs_board/app/src/can/can.hpp"
+#include "firmware/rmcs_board/app/src/gpio/gpio.hpp"
+#include "firmware/rmcs_board/app/src/spi/bmi088/accel.hpp"
+#include "firmware/rmcs_board/app/src/spi/bmi088/gyro.hpp"
+#include "firmware/rmcs_board/app/src/uart/uart.hpp"
+#include "firmware/rmcs_board/app/src/usb/vendor.hpp"
+#include "firmware/rmcs_board/app/src/utility/interrupt_lock.hpp"
 
 int main() { librmcs::firmware::app.init().run(); }
 

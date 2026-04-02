@@ -15,8 +15,8 @@ rmcs_board:
   folders:
     - core/src
     - core/include
-    - firmware/rmcs_board/src
-    - firmware/rmcs_board/include
+    - firmware/rmcs_board/app/src
+    - firmware/rmcs_board/app/include
 
 c_board:
   cmake: firmware/c_board/CMakeLists.txt

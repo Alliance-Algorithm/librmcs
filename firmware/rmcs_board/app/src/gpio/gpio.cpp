@@ -1,4 +1,4 @@
-#include "firmware/rmcs_board/src/gpio/gpio.hpp"
+#include "firmware/rmcs_board/app/src/gpio/gpio.hpp"
 
 #include <cstdint>
 
@@ -13,8 +13,8 @@
 #include <hpm_soc.h>
 #include <hpm_soc_irq.h>
 
-#include "firmware/rmcs_board/src/spi/bmi088/accel.hpp"
-#include "firmware/rmcs_board/src/spi/bmi088/gyro.hpp"
+#include "firmware/rmcs_board/app/src/spi/bmi088/accel.hpp"
+#include "firmware/rmcs_board/app/src/spi/bmi088/gyro.hpp"
 
 namespace {
 

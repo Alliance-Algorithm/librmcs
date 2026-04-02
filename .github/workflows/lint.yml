@@ -30,11 +30,20 @@ jobs:
       - name: Configure host
         run: cmake --preset linux-debug -S host
 
+      - name: Build host
+        run: cmake --build host/build
+
       - name: Configure firmware/rmcs_board
         run: cmake --preset debug -S firmware/rmcs_board
 
+      - name: Build firmware/rmcs_board
+        run: cmake --build firmware/rmcs_board/build
+
       - name: Configure firmware/c_board
         run: cmake --preset debug -S firmware/c_board
+
+      - name: Build firmware/c_board
+        run: cmake --build firmware/c_board/build --target c_board_app c_board_bootloader
 
       - name: Run clang-tidy check
         run: .scripts/clang-tidy-check

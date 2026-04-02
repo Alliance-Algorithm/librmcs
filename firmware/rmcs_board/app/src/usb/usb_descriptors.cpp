@@ -1,4 +1,4 @@
-#include "firmware/rmcs_board/src/usb/usb_descriptors.hpp"
+#include "firmware/rmcs_board/app/src/usb/usb_descriptors.hpp"
 
 #include <cstdint>
 

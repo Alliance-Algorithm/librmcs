@@ -7,7 +7,7 @@
 #include <utility>
 
 #include "core/src/utility/assert.hpp"
-#include "firmware/rmcs_board/src/utility/interrupt_lock.hpp"
+#include "firmware/rmcs_board/app/src/utility/interrupt_lock.hpp"
 
 namespace librmcs::firmware::utility {
 

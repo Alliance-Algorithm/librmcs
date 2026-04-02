@@ -9,10 +9,10 @@
 
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
-#include "firmware/rmcs_board/src/spi/bmi088/base.hpp"
-#include "firmware/rmcs_board/src/spi/spi.hpp"
-#include "firmware/rmcs_board/src/usb/vendor.hpp"
-#include "firmware/rmcs_board/src/utility/lazy.hpp"
+#include "firmware/rmcs_board/app/src/spi/bmi088/base.hpp"
+#include "firmware/rmcs_board/app/src/spi/spi.hpp"
+#include "firmware/rmcs_board/app/src/usb/vendor.hpp"
+#include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::spi::bmi088 {
 

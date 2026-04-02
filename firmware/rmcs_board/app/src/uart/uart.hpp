@@ -17,10 +17,10 @@
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
-#include "firmware/rmcs_board/src/uart/rx_buffer.hpp"
-#include "firmware/rmcs_board/src/uart/tx_buffer.hpp"
-#include "firmware/rmcs_board/src/usb/helper.hpp"
-#include "firmware/rmcs_board/src/utility/lazy.hpp"
+#include "firmware/rmcs_board/app/src/uart/rx_buffer.hpp"
+#include "firmware/rmcs_board/app/src/uart/tx_buffer.hpp"
+#include "firmware/rmcs_board/app/src/usb/helper.hpp"
+#include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::uart {
 
