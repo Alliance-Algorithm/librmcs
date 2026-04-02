@@ -17,6 +17,8 @@ rmcs_board:
     - core/include
     - firmware/rmcs_board/app/src
     - firmware/rmcs_board/app/include
+    - firmware/rmcs_board/bootloader/src
+    - firmware/rmcs_board/bootloader/include
 
 c_board:
   cmake: firmware/c_board/CMakeLists.txt

@@ -8,7 +8,6 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/../common/cmake/librmcs_firmware.cmake")
 set(BOARD "hpm5300evk" CACHE STRING "Target board")
 set(RV_ARCH "rv32imafdcb" CACHE STRING "RISC-V arch")
 set(RV_ABI "ilp32d" CACHE STRING "RISC-V ABI")
-set(HPM_BUILD_TYPE "flash_xip" CACHE STRING "HPM build type")
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "debug")
@@ -29,7 +28,6 @@ function(add_rmcs_board_subbuild target_name source_subdir)
         -DBOARD=${BOARD}
         -DRV_ARCH=${RV_ARCH}
         -DRV_ABI=${RV_ABI}
-        -DHPM_BUILD_TYPE=${HPM_BUILD_TYPE}
         -DHOST_DEBUGGER=${HOST_DEBUGGER}
         -DSOURCE_PATH_MAP=${LIBRMCS_SOURCE_PATH_MAP}
         -DLIBRMCS_PROJECT_VERSION=${LIBRMCS_PROJECT_VERSION}
@@ -49,27 +47,31 @@ function(add_rmcs_board_subbuild target_name source_subdir)
 endfunction()
 
 add_rmcs_board_subbuild(rmcs_board_app app)
+add_rmcs_board_subbuild(rmcs_board_bootloader bootloader)
 
 set(RMCS_BOARD_APP_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/app/compile_commands.json")
-set(RMCS_BOARD_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
+set(RMCS_BOARD_BOOTLOADER_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/bootloader/compile_commands.json")
+set(RMCS_BOARD_MERGED_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
 
 add_custom_command(
-    OUTPUT "${RMCS_BOARD_COMPILE_COMMANDS}"
+    OUTPUT "${RMCS_BOARD_MERGED_COMPILE_COMMANDS}"
     COMMAND
     ${CMAKE_COMMAND}
-    -E copy_if_different
-    "${RMCS_BOARD_APP_COMPILE_COMMANDS}"
-    "${RMCS_BOARD_COMPILE_COMMANDS}"
+    "-DOUTPUT_FILE=${RMCS_BOARD_MERGED_COMPILE_COMMANDS}"
+    "-DINPUT_FILES=${RMCS_BOARD_APP_COMPILE_COMMANDS};${RMCS_BOARD_BOOTLOADER_COMPILE_COMMANDS}"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/merge_compile_commands.cmake"
     DEPENDS
         rmcs_board_app
+        rmcs_board_bootloader
         "${RMCS_BOARD_APP_COMPILE_COMMANDS}"
-    COMMENT "Copying rmcs_board compile commands"
+        "${RMCS_BOARD_BOOTLOADER_COMPILE_COMMANDS}"
+    COMMENT "Merging rmcs_board compile commands"
     VERBATIM
 )
 
 add_custom_target(
     rmcs_board_compile_commands
-    DEPENDS "${RMCS_BOARD_COMPILE_COMMANDS}"
+    DEPENDS "${RMCS_BOARD_MERGED_COMPILE_COMMANDS}"
 )
 
 add_custom_target(rmcs_board ALL DEPENDS rmcs_board_compile_commands)

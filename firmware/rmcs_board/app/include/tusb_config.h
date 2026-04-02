@@ -64,11 +64,13 @@ extern "C" {
 #endif
 
 //------------- CLASS -------------//
-#define CFG_TUD_CDC    0
-#define CFG_TUD_MSC    0
-#define CFG_TUD_HID    0
-#define CFG_TUD_MIDI   0
-#define CFG_TUD_VENDOR 1
+#define CFG_TUD_CDC         0
+#define CFG_TUD_MSC         0
+#define CFG_TUD_HID         0
+#define CFG_TUD_MIDI        0
+#define CFG_TUD_VENDOR      1
+#define CFG_TUD_DFU_RUNTIME 1
+#define CFG_TUD_DFU         0
 
 #define CFG_TUD_VENDOR_EPSIZE 512
 

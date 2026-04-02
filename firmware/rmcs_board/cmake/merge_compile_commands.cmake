@@ -1,0 +1,41 @@
+if(NOT DEFINED OUTPUT_FILE OR "${OUTPUT_FILE}" STREQUAL "")
+    message(FATAL_ERROR "OUTPUT_FILE is required")
+endif()
+
+if(NOT DEFINED INPUT_FILES)
+    message(FATAL_ERROR "INPUT_FILES is required")
+endif()
+
+set(has_entries OFF)
+file(WRITE "${OUTPUT_FILE}" "[\n")
+
+foreach(input_file IN LISTS INPUT_FILES)
+    if(NOT EXISTS "${input_file}")
+        message(FATAL_ERROR "Compile commands file not found: ${input_file}")
+    endif()
+
+    file(READ "${input_file}" content)
+    string(STRIP "${content}" content)
+    if("${content}" STREQUAL "")
+        continue()
+    endif()
+
+    string(REGEX REPLACE "^[ \t\r\n]*\\[" "" body "${content}")
+    string(REGEX REPLACE "\\][ \t\r\n]*$" "" body "${body}")
+    string(STRIP "${body}" body)
+    if("${body}" STREQUAL "")
+        continue()
+    endif()
+
+    if(has_entries)
+        file(APPEND "${OUTPUT_FILE}" ",\n")
+    endif()
+    file(APPEND "${OUTPUT_FILE}" "${body}")
+    set(has_entries ON)
+endforeach()
+
+if(has_entries)
+    file(APPEND "${OUTPUT_FILE}" "\n]\n")
+else()
+    file(WRITE "${OUTPUT_FILE}" "[]\n")
+endif()
