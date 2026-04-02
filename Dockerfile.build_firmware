@@ -11,9 +11,10 @@ RUN --mount=type=bind,target=/src,source=.,readonly \
         build_dir="/tmp/build-${board}"; \
         cmake --preset release -S "firmware/${board}" -B "${build_dir}"; \
         cmake --build "${build_dir}"; \
-        output_dir="${build_dir}/app/output"; \
-        cp "${output_dir}/rmcs_board_app.elf" \
-            "/output/librmcs-firmware-${board}-${LIBRMCS_PROJECT_VERSION}.elf"; \
+        cp "${build_dir}/bootloader/output/rmcs_board_bootloader.elf" \
+            "/output/librmcs-bootloader-${board}.elf"; \
+        cp "${build_dir}/app/output/rmcs_board_app.dfu" \
+            "/output/librmcs-firmware-${board}-${LIBRMCS_PROJECT_VERSION}.dfu"; \
     done \
     && for board in c_board; do \
         build_dir="/tmp/build-${board}"; \

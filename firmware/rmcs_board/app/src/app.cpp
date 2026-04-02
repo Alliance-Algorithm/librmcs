@@ -11,6 +11,7 @@
 #include "firmware/rmcs_board/app/src/spi/bmi088/gyro.hpp"
 #include "firmware/rmcs_board/app/src/uart/uart.hpp"
 #include "firmware/rmcs_board/app/src/usb/vendor.hpp"
+#include "firmware/rmcs_board/app/src/utility/boot_mailbox.hpp"
 #include "firmware/rmcs_board/app/src/utility/interrupt_lock.hpp"
 
 int main() { librmcs::firmware::app.init().run(); }
@@ -23,6 +24,7 @@ App::App() {
     board_init();
     board_init_usb(HPM_USB0);
     dma_mgr_init();
+    boot::BootMailbox::clear();
 
     can::can0.init();
     can::can1.init();

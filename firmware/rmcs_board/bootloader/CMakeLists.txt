@@ -1,19 +1,17 @@
 cmake_minimum_required(VERSION 3.28)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
-set(APP_NAME "rmcs_board_app")
+set(APP_NAME "rmcs_board_bootloader")
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/../../common/cmake/librmcs_firmware.cmake")
 
 set(BOARD "hpm5300evk" CACHE STRING "Target board")
 set(RV_ARCH "rv32imafdcb" CACHE STRING "RISC-V arch")
 set(RV_ABI "ilp32d" CACHE STRING "RISC-V ABI")
-set(HPM_BUILD_TYPE "flash_uf2" CACHE STRING "HPM build type")
+set(HPM_BUILD_TYPE "flash_xip" CACHE STRING "HPM build type")
 
-set(CONFIG_DMA_MGR 1)
 set(CONFIG_TINYUSB 1)
 set(CONFIG_USB_DEVICE 1)
-set(CONFIG_USB_DEVICE_VENDOR 1)
 
 if(NOT DEFINED ENV{HPM_SDK_BASE} OR "$ENV{HPM_SDK_BASE}" STREQUAL "")
     set(ENV{HPM_SDK_BASE} "${CMAKE_CURRENT_SOURCE_DIR}/../bsp/hpm_sdk")
@@ -22,7 +20,7 @@ find_package(hpm-sdk REQUIRED HINTS "$ENV{HPM_SDK_BASE}")
 
 librmcs_setup_project_context(PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
 
-project(rmcs_board_app VERSION 3 LANGUAGES C CXX ASM)
+project(rmcs_board_bootloader VERSION 3 LANGUAGES C CXX ASM)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -55,15 +53,18 @@ sdk_inc("${CMAKE_CURRENT_SOURCE_DIR}/include")
 sdk_app_inc("${LIBRMCS_PROJECT_ROOT}")
 
 file(GLOB_RECURSE PROJECT_SOURCE CONFIGURE_DEPENDS
-    "${LIBRMCS_PROJECT_ROOT}/core/src/*.cpp"
-    "${LIBRMCS_PROJECT_ROOT}/core/src/*.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
 )
 sdk_app_src(${PROJECT_SOURCE})
-sdk_app_src("$ENV{HPM_SDK_BASE}/middleware/tinyusb/src/class/dfu/dfu_rt_device.c")
+sdk_app_src(
+    "$ENV{HPM_SDK_BASE}/middleware/tinyusb/src/device/usbd.c"
+    "$ENV{HPM_SDK_BASE}/middleware/tinyusb/src/device/usbd_control.c"
+    "$ENV{HPM_SDK_BASE}/middleware/tinyusb/src/portable/hpm/dcd_hpm.c"
+    "$ENV{HPM_SDK_BASE}/middleware/tinyusb/src/class/dfu/dfu_device.c"
+)
 
-sdk_linker_global_symbols("_uf2_bl_length=0x20000")
+sdk_linker_global_symbols("_flash_size=0x1F000")
 
 set_property(TARGET app PROPERTY CXX_STANDARD 23)
 set_property(TARGET app PROPERTY CXX_STANDARD_REQUIRED ON)
@@ -74,13 +75,3 @@ if(_hpm_incs)
     set_target_properties(${HPM_SDK_LIB_ITF} PROPERTIES
         INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_hpm_incs}")
 endif()
-
-librmcs_add_dfu_image(
-    TARGET ${APP_ELF_NAME}
-    INPUT_BINARY "${EXECUTABLE_OUTPUT_PATH}/${APP_BIN_NAME}"
-    OUTPUT_DFU "${EXECUTABLE_OUTPUT_PATH}/rmcs_board_app.dfu"
-    VENDOR_ID 0xA11C
-    PRODUCT_ID 0xAF01
-    DEVICE_ID 0x0300
-    COMMENT "Generating rmcs_board_app.dfu"
-)

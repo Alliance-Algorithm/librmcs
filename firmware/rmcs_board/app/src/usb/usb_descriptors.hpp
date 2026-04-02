@@ -9,6 +9,7 @@
 #include <string_view>
 #include <tuple>
 
+#include <class/dfu/dfu.h>
 #include <common/tusb_types.h>
 #include <device/usbd.h>
 #include <hpm_otp_drv.h>
@@ -52,6 +53,7 @@ public:
             case 1: str = kManufacturerString; break;
             case 2: str = kProductString; break;
             case 3: str = std::string_view{serial_string_.data(), serial_string_.size() - 1}; break;
+            case 4: str = kDfuRuntimeString; break;
             default: return nullptr;
             }
             constexpr auto max_size = std::min<size_t>(
@@ -157,10 +159,16 @@ private: // Device Descriptor
     };
 
 private: // Configuration Descriptor
-    static constexpr size_t kItfNumTotal = 1;
+         // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class)
+    enum InterfaceNumber : uint8_t {
+        kItfNumVendor = 0,
+        kItfNumDfuRuntime,
+        kItfNumTotal,
+    };
 
-    static constexpr size_t kConfigTotalLen =
-        TUD_CONFIG_DESC_LEN + CFG_TUD_VENDOR * TUD_VENDOR_DESC_LEN;
+    static constexpr size_t kConfigTotalLen = TUD_CONFIG_DESC_LEN
+                                            + CFG_TUD_VENDOR * TUD_VENDOR_DESC_LEN
+                                            + CFG_TUD_DFU_RUNTIME * TUD_DFU_RT_DESC_LEN;
 
     // Align endpoint numbering to STM32 HAL style:
     // EP1 OUT: data OUT, EP1 IN: data IN
@@ -173,7 +181,9 @@ private: // Configuration Descriptor
             1, kItfNumTotal, 0, kConfigTotalLen, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
 
         // Interface number, string index, EP data address (out, in) and size.
-        TUD_VENDOR_DESCRIPTOR(0, 0, kEpnumCdc0DataOut, kEpnumCdc0DataIn, 64),
+        TUD_VENDOR_DESCRIPTOR(kItfNumVendor, 0, kEpnumCdc0DataOut, kEpnumCdc0DataIn, 64),
+        TUD_DFU_RT_DESCRIPTOR(
+            kItfNumDfuRuntime, 4, DFU_ATTR_CAN_DOWNLOAD | DFU_ATTR_WILL_DETACH, 1000, 1024),
     };
     static_assert(sizeof(kConfigurationDescriptorFs) == kConfigTotalLen);
 
@@ -183,7 +193,9 @@ private: // Configuration Descriptor
             1, kItfNumTotal, 0, kConfigTotalLen, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
 
         // Interface number, string index, EP data address (out, in) and size.
-        TUD_VENDOR_DESCRIPTOR(0, 0, kEpnumCdc0DataOut, kEpnumCdc0DataIn, 512),
+        TUD_VENDOR_DESCRIPTOR(kItfNumVendor, 0, kEpnumCdc0DataOut, kEpnumCdc0DataIn, 512),
+        TUD_DFU_RT_DESCRIPTOR(
+            kItfNumDfuRuntime, 4, DFU_ATTR_CAN_DOWNLOAD | DFU_ATTR_WILL_DETACH, 1000, 1024),
     };
     static_assert(sizeof(kConfigurationDescriptorHs) == kConfigTotalLen);
 
@@ -192,6 +204,7 @@ private: // String Descriptor
     static constexpr std::string_view kManufacturerString = "Alliance RoboMaster Team.";
     static constexpr std::string_view kProductString =
         "RMCS Agent v" LIBRMCS_PROJECT_VERSION_STRING;
+    static constexpr std::string_view kDfuRuntimeString = "DFU Runtime";
     std::array<char, 43> serial_string_{"AF-0000-0000-0000-0000-0000-0000-0000-0000"};
 
     std::array<uint16_t, 128> descriptor_string_buffer_{};
