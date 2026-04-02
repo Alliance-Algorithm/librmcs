@@ -26,8 +26,8 @@ class UsbDescriptors {
 public:
     UsbDescriptors() { update_serial_string(); }
 
-    uint8_t const* get_device_descriptor() const {
-        return reinterpret_cast<uint8_t const*>(&device_descriptor_);
+    static uint8_t const* get_device_descriptor() {
+        return reinterpret_cast<uint8_t const*>(&kDeviceDescriptor);
     }
 
     static uint8_t const* get_configuration_descriptor(uint8_t index) {
@@ -137,12 +137,12 @@ private:
     }
 
 private: // Device Descriptor
-    tusb_desc_device_t const device_descriptor_ = {
+    static constexpr tusb_desc_device_t kDeviceDescriptor = {
         .bLength = sizeof(tusb_desc_device_t),
         .bDescriptorType = TUSB_DESC_DEVICE,
         .bcdUSB = 0x0200,
 
-        .bDeviceClass = TUSB_CLASS_VENDOR_SPECIFIC,
+        .bDeviceClass = TUSB_CLASS_UNSPECIFIED,
         .bDeviceSubClass = 0x00,
         .bDeviceProtocol = 0x00,
         .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,

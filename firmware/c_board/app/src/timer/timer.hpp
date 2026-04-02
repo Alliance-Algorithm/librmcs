@@ -45,7 +45,9 @@ public:
             HAL_TIM_Base_Start(kTimerHigh) == HAL_OK && HAL_TIM_Base_Start(kTimerLow) == HAL_OK);
     }
 
-    TimePoint timepoint() const { return TimePoint{Duration{timer_counter_low_}}; }
+    TimePoint timepoint() const {
+        return TimePoint{Duration{timer_counter_low_}};
+    }
 
     TimePoint48 timepoint48() const {
         uint32_t hi1, hi2, lo;
