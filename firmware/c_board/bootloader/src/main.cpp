@@ -21,10 +21,8 @@ int main() {
 
     const bool force_dfu = utility::boot_mailbox.consume_enter_dfu_request();
     if (!force_dfu) {
-        if (flash::validate_app_image()) {
+        if (flash::validate_app_image())
             utility::jump_to_app(flash::kAppStartAddress);
-            utility::assert_failed_always();
-        }
     }
 
     utility::assert_always(tusb_rhport_init(0, nullptr));

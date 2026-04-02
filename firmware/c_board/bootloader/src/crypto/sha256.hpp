@@ -13,7 +13,10 @@
               offered in this implementation.
               Algorithm specification can be found here:
                * http://csrc.nist.gov/publications/fips/fips180-2/fips180-2withchangenotice.pdf
-              This implementation uses little endian byte order.
+              This implementation uses big-endian (network) byte order:
+              sha256_transform reads message words as big-endian, and
+              sha256_final stores the bit length and digest in big-endian
+              order per the SHA-256 specification.
 *********************************************************************/
 
 #include <array>
@@ -22,7 +25,7 @@
 
 namespace librmcs::firmware::crypto {
 
-inline constexpr size_t kSha256BlockSize = 32U;
+inline constexpr size_t kSha256DigestSize = 32U;
 
 struct Sha256Ctx {
     std::array<uint8_t, 64> data{};
@@ -75,7 +78,7 @@ inline uint32_t small_sigma1(uint32_t x) {
 }
 
 inline void sha256_transform(Sha256Ctx* ctx, const uint8_t* data) {
-    std::array<uint32_t, 64> message_schedule{};
+    std::array<uint32_t, 64> message_schedule;
 
     for (uint32_t index = 0U; index < 16U; ++index) {
         const uint32_t data_offset = index * 4U;

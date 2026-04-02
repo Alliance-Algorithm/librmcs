@@ -17,39 +17,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(librmcs-firmware LANGUAGES C CXX ASM)
 
-set(LIBRMCS_PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
-cmake_path(ABSOLUTE_PATH LIBRMCS_PROJECT_ROOT NORMALIZE)
+include("${CMAKE_CURRENT_SOURCE_DIR}/../common/cmake/librmcs_firmware.cmake")
+librmcs_setup_project_context(PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 
-
-if(NOT DEFINED LIBRMCS_PROJECT_VERSION OR LIBRMCS_PROJECT_VERSION STREQUAL "")
-    execute_process(
-        COMMAND ".scripts/generate_version"
-        WORKING_DIRECTORY "${LIBRMCS_PROJECT_ROOT}"
-        OUTPUT_VARIABLE LIBRMCS_PROJECT_VERSION
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-        COMMAND_ERROR_IS_FATAL ANY
-    )
-endif()
-message(STATUS "Librmcs project version: ${LIBRMCS_PROJECT_VERSION}")
-
-
-option(HOST_DEBUGGER "Debugger runs outside Dev Container (Docker)" OFF)
-set(SOURCE_PATH_MAP "" CACHE PATH "(In container) Map container source path to a host-visible path for debugger")
-
-if(HOST_DEBUGGER AND SOURCE_PATH_MAP STREQUAL "")
-    if(DEFINED ENV{HOST_WORKSPACE_FOLDER} AND NOT "$ENV{HOST_WORKSPACE_FOLDER}" STREQUAL "")
-        set(SOURCE_PATH_MAP "$ENV{HOST_WORKSPACE_FOLDER}")
-    else()
-        message(FATAL_ERROR "HOST_WORKSPACE_FOLDER is not set")
-    endif()
-endif()
-if(NOT SOURCE_PATH_MAP STREQUAL "")
-    set(SOURCE_PATH_MAP "${SOURCE_PATH_MAP}/")
-    cmake_path(NORMAL_PATH SOURCE_PATH_MAP)
-    add_compile_options(
-        "-fdebug-prefix-map=${LIBRMCS_PROJECT_ROOT}=${SOURCE_PATH_MAP}"
-        "-ffile-prefix-map=${LIBRMCS_PROJECT_ROOT}=${SOURCE_PATH_MAP}"
-    )
+if(LIBRMCS_SOURCE_PATH_MAP_COMPILE_OPTIONS)
+    add_compile_options(${LIBRMCS_SOURCE_PATH_MAP_COMPILE_OPTIONS})
 endif()
 
 

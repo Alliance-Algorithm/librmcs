@@ -22,6 +22,8 @@ public:
 
     void begin_session() { clear_active_sector(); }
 
+    void abort_session() { clear_active_sector(); }
+
     void finish_session() {
         if (!has_active_sector_)
             return;
@@ -51,6 +53,7 @@ public:
             const size_t chunk_size =
                 (data.size() - input_offset < writable) ? (data.size() - input_offset) : writable;
 
+            utility::assert_debug(offset_in_sector == buffered_size_);
             std::memcpy(
                 sector_buffer_.data() + offset_in_sector, data.data() + input_offset, chunk_size);
             advance_buffer(offset_in_sector, chunk_size);

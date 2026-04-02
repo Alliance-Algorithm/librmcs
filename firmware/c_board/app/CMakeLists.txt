@@ -53,15 +53,13 @@ target_link_libraries(c_board_app PRIVATE
 
 c_board_apply_target_options(c_board_app "STM32F407XX_APP.ld")
 
-add_custom_command(TARGET c_board_app POST_BUILD
-    COMMAND ${CMAKE_OBJCOPY} -O binary
-            $<TARGET_FILE:c_board_app>
-            $<TARGET_FILE_DIR:c_board_app>/c_board_app.bin
-    COMMAND ${LIBRMCS_PROJECT_ROOT}/.scripts/append_image_hash
-            -o $<TARGET_FILE_DIR:c_board_app>/c_board_app.dfu
-            $<TARGET_FILE_DIR:c_board_app>/c_board_app.bin
-    COMMAND dfu-suffix -v 0xA11C -p 0xD401 -d 0x0300
-            -a $<TARGET_FILE_DIR:c_board_app>/c_board_app.dfu
-            > /dev/null
+librmcs_add_dfu_image(
+    TARGET c_board_app
+    INPUT_ELF $<TARGET_FILE:c_board_app>
+    OUTPUT_BINARY $<TARGET_FILE_DIR:c_board_app>/c_board_app.bin
+    OUTPUT_DFU $<TARGET_FILE_DIR:c_board_app>/c_board_app.dfu
+    VENDOR_ID 0xA11C
+    PRODUCT_ID 0xD401
+    DEVICE_ID 0x0300
     COMMENT "Generating c_board_app.dfu"
 )

@@ -4,6 +4,8 @@
 
 #include <main.h>
 
+#include "firmware/c_board/bootloader/src/utility/assert.hpp"
+
 namespace librmcs::firmware::utility {
 
 inline void jump_to_app(uint32_t app_address) {
@@ -43,7 +45,7 @@ inline void jump_to_app(uint32_t app_address) {
     __ISB();
 
     app_reset_handler();
-    __builtin_unreachable();
+    assert_failed_always();
 }
 
 } // namespace librmcs::firmware::utility
