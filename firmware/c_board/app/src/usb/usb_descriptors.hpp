@@ -126,7 +126,7 @@ private: // Device Descriptor
         .bDescriptorType = TUSB_DESC_DEVICE,
         .bcdUSB = 0x0200,
 
-        .bDeviceClass = TUSB_CLASS_VENDOR_SPECIFIC,
+        .bDeviceClass = TUSB_CLASS_UNSPECIFIED,
         .bDeviceSubClass = 0x00,
         .bDeviceProtocol = 0x00,
         .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
