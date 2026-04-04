@@ -92,19 +92,19 @@ RUN VERSION=15.2.rel1 \
 ENV GNUARM_TOOLCHAIN_PATH=/opt/arm-none-eabi
 ENV PATH="${GNUARM_TOOLCHAIN_PATH}/bin:${PATH}"
 
-# Install latest LLVM tools
-RUN wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc \
-    && echo "deb https://apt.llvm.org/noble/ llvm-toolchain-noble main" > /etc/apt/sources.list.d/llvm.list \
+# Install LLVM tools
+RUN LLVM_VERSION=22 \
+    && wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc \
+    && echo "deb https://apt.llvm.org/noble/ llvm-toolchain-noble-${LLVM_VERSION} main" > /etc/apt/sources.list.d/llvm.list \
     && apt-get update \
-    && version=$(apt-cache search clangd- | grep clangd- | awk -F' ' '{print $1}' | sort -V | tail -1 | cut -d- -f2) \
     && apt-get install -y --no-install-recommends \
-    clangd-$version clang-tidy-$version clang-format-$version \
+    clangd-${LLVM_VERSION} clang-tidy-${LLVM_VERSION} clang-format-${LLVM_VERSION} \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* \
-    && update-alternatives --install /usr/bin/clangd clangd /usr/bin/clangd-$version 50 \
-    && update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-$version 50 \
-    && update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-$version 50
+    && update-alternatives --install /usr/bin/clangd clangd /usr/bin/clangd-${LLVM_VERSION} 50 \
+    && update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-${LLVM_VERSION} 50 \
+    && update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-${LLVM_VERSION} 50
 
 FROM ci AS develop
 
