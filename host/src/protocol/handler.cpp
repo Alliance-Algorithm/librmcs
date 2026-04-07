@@ -76,6 +76,33 @@ public:
         callback_.gyroscope_receive_callback(data);
     }
 
+    void i2c_write_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        (void)data;
+        logging::get_logger().error("Unexpected i2c write field in uplink: ", static_cast<int>(id));
+    }
+
+    void i2c_read_config_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cReadConfigView& data) override {
+        (void)data;
+        logging::get_logger().error(
+            "Unexpected i2c read request field in uplink: ", static_cast<int>(id));
+    }
+
+    void i2c_read_result_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        if (!callback_.i2c_receive_callback(id, data))
+            logging::get_logger().error("Unexpected i2c field id: ", static_cast<int>(id));
+    }
+
+    void i2c_error_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        logging::get_logger().error(
+            "I2C operation failed on field {} for slave address 0x{:02x}", static_cast<int>(id),
+            static_cast<int>(data.slave_address));
+        callback_.i2c_error_callback(id, data.slave_address);
+    }
+
     void error_callback() override {
         logging::get_logger().error("Deserializer encountered an error while parsing input");
     }
@@ -132,6 +159,20 @@ struct PacketBuilderImpl {
 
     [[nodiscard]] bool write_imu_gyroscope(const data::GyroscopeDataView& view) noexcept {
         return process_result(serializer_.write_imu_gyroscope(view));
+    }
+
+    [[nodiscard]] bool write_i2c(data::DataId field_id, const data::I2cDataView& view) noexcept {
+        return process_result(serializer_.write_i2c_write(field_id, view));
+    }
+
+    [[nodiscard]] bool
+        write_i2c_read_config(data::DataId field_id, const data::I2cReadConfigView& view) noexcept {
+        return process_result(serializer_.write_i2c_read_config(field_id, view));
+    }
+
+    [[nodiscard]] bool
+        write_i2c_read_result(data::DataId field_id, const data::I2cDataView& view) noexcept {
+        return process_result(serializer_.write_i2c_read_result(field_id, view));
     }
 
 private:
@@ -202,6 +243,23 @@ bool Handler::PacketBuilder::write_imu_accelerometer(
 
 bool Handler::PacketBuilder::write_imu_gyroscope(const data::GyroscopeDataView& view) noexcept {
     return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))->write_imu_gyroscope(view);
+}
+
+bool Handler::PacketBuilder::write_i2c(
+    data::DataId field_id, const data::I2cDataView& view) noexcept {
+    return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))->write_i2c(field_id, view);
+}
+
+bool Handler::PacketBuilder::write_i2c_read_config(
+    data::DataId field_id, const data::I2cReadConfigView& view) noexcept {
+    return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))
+        ->write_i2c_read_config(field_id, view);
+}
+
+bool Handler::PacketBuilder::write_i2c_read_result(
+    data::DataId field_id, const data::I2cDataView& view) noexcept {
+    return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))
+        ->write_i2c_read_result(field_id, view);
 }
 
 Handler::Handler(

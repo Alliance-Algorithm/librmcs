@@ -127,6 +127,30 @@ private:
         (void)data;
     }
 
+    void i2c_write_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        (void)id;
+        (void)data;
+    }
+
+    void i2c_read_config_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cReadConfigView& data) override {
+        (void)id;
+        (void)data;
+    }
+
+    void i2c_read_result_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        (void)id;
+        (void)data;
+    }
+
+    void i2c_error_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        (void)id;
+        (void)data;
+    }
+
     void error_callback() override { core::utility::assert_failed_always(); }
 
     core::protocol::Deserializer deserializer_{*this};

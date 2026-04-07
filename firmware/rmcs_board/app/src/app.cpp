@@ -5,6 +5,7 @@
 #include <hpm_dma_mgr.h>
 
 #include "firmware/rmcs_board/app/src/can/can.hpp"
+#include "firmware/rmcs_board/app/src/i2c/i2c.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/accel.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/gyro.hpp"
 #include "firmware/rmcs_board/app/src/uart/uart.hpp"
@@ -30,6 +31,7 @@ App::App() {
         can.init();
 
     uart::uart_dbus.init();
+    i2c::i2c0.init();
     for (auto& board_uart : uart::uart_array)
         board_uart.init();
 
