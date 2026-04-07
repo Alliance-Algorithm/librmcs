@@ -18,6 +18,7 @@
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
 #include "firmware/rmcs_board/app/src/can/can.hpp"
+#include "firmware/rmcs_board/app/src/i2c/i2c.hpp"
 #include "firmware/rmcs_board/app/src/uart/uart.hpp"
 #include "firmware/rmcs_board/app/src/usb/interrupt_safe_buffer.hpp"
 #include "firmware/rmcs_board/app/src/usb/usb_descriptors.hpp"
@@ -136,6 +137,36 @@ private:
 
     void gyroscope_deserialized_callback(const data::GyroscopeDataView& data) override {
         (void)data;
+    }
+
+    void i2c_write_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        switch (id) {
+        case data::DataId::kI2c0: i2c::i2c0->handle_downlink_write(data); break;
+        default: core::utility::assert_failed_always();
+        }
+    }
+
+    void i2c_read_config_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cReadConfigView& data) override {
+        switch (id) {
+        case data::DataId::kI2c0: i2c::i2c0->handle_downlink_read_config(data); break;
+        default: core::utility::assert_failed_always();
+        }
+    }
+
+    void i2c_read_result_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        (void)id;
+        (void)data;
+        core::utility::assert_failed_always();
+    }
+
+    void i2c_error_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        (void)id;
+        (void)data;
+        core::utility::assert_failed_always();
     }
 
     void error_callback() override { core::utility::assert_failed_always(); }

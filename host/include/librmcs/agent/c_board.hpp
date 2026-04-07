@@ -120,6 +120,17 @@ private:
         (void)data;
     }
 
+    bool i2c_receive_callback(data::DataId id, const data::I2cDataView& data) final {
+        (void)id;
+        (void)data;
+        return false;
+    }
+
+    void i2c_error_callback(data::DataId id, uint8_t slave_address) final {
+        (void)id;
+        (void)slave_address;
+    }
+
     host::protocol::Handler handler_;
 };
 

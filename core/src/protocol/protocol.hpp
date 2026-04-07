@@ -130,4 +130,19 @@ struct ImuGyroscopePayload : utility::Bitfield<6> {
     using Z = utility::BitfieldMember<32, 16, int16_t>;
 };
 
+struct I2cHeader : utility::Bitfield<3> {
+    enum class PayloadEnum : uint8_t {
+        kWrite = 0,
+        kReadRequest = 1,
+        kReadResult = 2,
+        kError = 3,
+    };
+
+    using PayloadType = utility::BitfieldMember<4, 2, PayloadEnum>;
+    using HasRegister = utility::BitfieldMember<6, 1>;
+    using ErrorFlag = utility::BitfieldMember<7, 1>;
+    using SlaveAddress = utility::BitfieldMember<8, 7>;
+    using DataLength = utility::BitfieldMember<15, 9>;
+};
+
 } // namespace librmcs::core::protocol
