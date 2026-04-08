@@ -23,6 +23,7 @@ set(MX_Application_Src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/gpio.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/can.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/dma.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/i2c.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/spi.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/tim.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/usart.c
@@ -51,6 +52,8 @@ set(STM32_Drivers_Src
     ${LIBRMCS_STM32_HAL_DRIVER_ROOT}/Src/stm32f4xx_hal_cortex.c
     ${LIBRMCS_STM32_HAL_DRIVER_ROOT}/Src/stm32f4xx_hal.c
     ${LIBRMCS_STM32_HAL_DRIVER_ROOT}/Src/stm32f4xx_hal_exti.c
+    ${LIBRMCS_STM32_HAL_DRIVER_ROOT}/Src/stm32f4xx_hal_i2c.c
+    ${LIBRMCS_STM32_HAL_DRIVER_ROOT}/Src/stm32f4xx_hal_i2c_ex.c
     ${LIBRMCS_STM32_HAL_DRIVER_ROOT}/Src/stm32f4xx_hal_spi.c
     ${LIBRMCS_STM32_HAL_DRIVER_ROOT}/Src/stm32f4xx_hal_tim.c
     ${LIBRMCS_STM32_HAL_DRIVER_ROOT}/Src/stm32f4xx_hal_tim_ex.c
