@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <stdexcept>
 #include <string_view>
 
@@ -48,6 +49,19 @@ public:
         PacketBuilder& uart2_transmit(const librmcs::data::UartDataView& data) {
             if (!builder_.write_uart(data::DataId::kUart2, data)) [[unlikely]]
                 throw std::invalid_argument{"UART2 transmission failed: Invalid UART data"};
+            return *this;
+        }
+
+        PacketBuilder& i2c0_write(const librmcs::data::I2cDataView& data) {
+            if (data.payload.empty() || !builder_.write_i2c(data::DataId::kI2c0, data)) [[unlikely]]
+                throw std::invalid_argument{"I2C0 write failed: Invalid I2C data"};
+            return *this;
+        }
+
+        PacketBuilder& i2c0_read(const librmcs::data::I2cReadConfigView& data) {
+            if (data.read_length == 0 || !builder_.write_i2c_read_config(data::DataId::kI2c0, data))
+                [[unlikely]]
+                throw std::invalid_argument{"I2C0 read failed: Invalid I2C read config"};
             return *this;
         }
 
@@ -121,15 +135,22 @@ private:
     }
 
     bool i2c_receive_callback(data::DataId id, const data::I2cDataView& data) final {
-        (void)id;
-        (void)data;
-        return false;
+        switch (id) {
+        case data::DataId::kI2c0: i2c0_receive_callback(data); return true;
+        default: return false;
+        }
     }
 
     void i2c_error_callback(data::DataId id, uint8_t slave_address) final {
-        (void)id;
-        (void)slave_address;
+        switch (id) {
+        case data::DataId::kI2c0: i2c0_error_callback(slave_address); break;
+        default: break;
+        }
     }
+
+    virtual void i2c0_receive_callback(const librmcs::data::I2cDataView& data) { (void)data; }
+
+    virtual void i2c0_error_callback(uint8_t slave_address) { (void)slave_address; }
 
     host::protocol::Handler handler_;
 };
