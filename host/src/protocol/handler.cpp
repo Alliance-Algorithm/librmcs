@@ -129,7 +129,7 @@ struct PacketBuilderImpl {
     PacketBuilderImpl& operator=(const PacketBuilderImpl&) = delete;
     ~PacketBuilderImpl() = default;
 
-    // `write_*` returns `true` if args are valid; it never reports transport/resource issues.
+    // Non-I2C writes keep the historical behavior:
     // - `kInvalidArgument` => `false` (user error)
     // - `kBadAlloc` => logged and ignored (`true`) (internal/transient)
     [[nodiscard]] bool write_can(data::DataId field_id, const data::CanDataView& view) noexcept {
@@ -162,17 +162,17 @@ struct PacketBuilderImpl {
     }
 
     [[nodiscard]] bool write_i2c(data::DataId field_id, const data::I2cDataView& view) noexcept {
-        return process_result(serializer_.write_i2c_write(field_id, view));
+        return process_result_strict(serializer_.write_i2c_write(field_id, view));
     }
 
     [[nodiscard]] bool
         write_i2c_read_config(data::DataId field_id, const data::I2cReadConfigView& view) noexcept {
-        return process_result(serializer_.write_i2c_read_config(field_id, view));
+        return process_result_strict(serializer_.write_i2c_read_config(field_id, view));
     }
 
     [[nodiscard]] bool
         write_i2c_read_result(data::DataId field_id, const data::I2cDataView& view) noexcept {
-        return process_result(serializer_.write_i2c_read_result(field_id, view));
+        return process_result_strict(serializer_.write_i2c_read_result(field_id, view));
     }
 
 private:
@@ -183,6 +183,19 @@ private:
         if (result == Serializer::SerializeResult::kBadAlloc) {
             logging::get_logger().error("Transmit buffer unavailable (acquire failed)");
             return true;
+        }
+        if (result == Serializer::SerializeResult::kInvalidArgument)
+            return false;
+        core::utility::assert_failed_debug();
+    }
+
+    static bool process_result_strict(core::protocol::Serializer::SerializeResult result) {
+        using core::protocol::Serializer;
+        if (result == Serializer::SerializeResult::kSuccess) [[likely]]
+            return true;
+        if (result == Serializer::SerializeResult::kBadAlloc) {
+            logging::get_logger().error("Transmit buffer unavailable (acquire failed)");
+            return false;
         }
         if (result == Serializer::SerializeResult::kInvalidArgument) {
             return false;

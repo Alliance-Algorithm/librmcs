@@ -50,6 +50,7 @@ App::App() {
     MX_SPI1_Init();
     MX_CAN1_Init();
     MX_CAN2_Init();
+    // c_board routes the protocol-facing logical I2C0 channel through STM32 I2C2.
     MX_I2C2_Init();
     MX_USART1_UART_Init();
     MX_USART3_UART_Init();
