@@ -33,6 +33,11 @@ public:
         if (data.payload.empty())
             return;
 
+        if (data.payload.size() > kMaxDataLength) {
+            write_error(data.slave_address);
+            return;
+        }
+
         const auto* payload = reinterpret_cast<const uint8_t*>(data.payload.data());
         hpm_stat_t status = status_fail;
         if (data.has_register) {
@@ -47,17 +52,16 @@ public:
         }
 
         if (status != status_success) {
-            auto& serializer = usb::get_serializer();
-            core::utility::assert_always(
-                serializer.write_i2c_error(data_id_, data.slave_address)
-                != core::protocol::Serializer::SerializeResult::kInvalidArgument);
+            write_error(data.slave_address);
             return;
         }
     }
 
     void handle_downlink_read_config(const data::I2cReadConfigView& data) {
-        if (data.read_length == 0 || data.read_length > kMaxDataLength)
+        if (data.read_length == 0 || data.read_length > kMaxDataLength) {
+            write_error(data.slave_address);
             return;
+        }
 
         auto* payload = reinterpret_cast<uint8_t*>(read_buffer_.data());
         hpm_stat_t status = status_fail;
@@ -72,9 +76,7 @@ public:
 
         auto& serializer = usb::get_serializer();
         if (status != status_success) {
-            core::utility::assert_always(
-                serializer.write_i2c_error(data_id_, data.slave_address)
-                != core::protocol::Serializer::SerializeResult::kInvalidArgument);
+            write_error(data.slave_address);
             return;
         }
 
@@ -92,6 +94,13 @@ public:
 
 private:
     static constexpr uint16_t kMaxDataLength = (1U << 9) - 1U;
+
+    void write_error(uint8_t slave_address) {
+        auto& serializer = usb::get_serializer();
+        core::utility::assert_always(
+            serializer.write_i2c_error(data_id_, slave_address)
+            != core::protocol::Serializer::SerializeResult::kInvalidArgument);
+    }
 
     const data::DataId data_id_;
     I2C_Type* i2c_base_;
