@@ -25,6 +25,8 @@ public:
         friend class RmcsBoard;
 
     public:
+        static constexpr uint16_t kI2cMaxDataLength = (1U << 9) - 1U;
+
         PacketBuilder& can0_transmit(const librmcs::data::CanDataView& data) {
             if (!builder_.write_can(data::DataId::kCan0, data)) [[unlikely]]
                 throw std::invalid_argument{"CAN0 transmission failed: Invalid CAN data"};
@@ -73,14 +75,20 @@ public:
         }
 
         PacketBuilder& i2c0_write(const librmcs::data::I2cDataView& data) {
-            if (data.payload.empty() || !builder_.write_i2c(data::DataId::kI2c0, data))
+            if (data.payload.empty() || data.payload.size() > kI2cMaxDataLength
+                || data.slave_address > 0x7FU)
                 throw std::invalid_argument{"I2C0 write failed: Invalid I2C data"};
+            if (!builder_.write_i2c(data::DataId::kI2c0, data))
+                throw std::runtime_error{"I2C0 write failed: Transmit buffer unavailable"};
             return *this;
         }
 
         PacketBuilder& i2c0_read(const librmcs::data::I2cReadConfigView& data) {
-            if (data.read_length == 0 || !builder_.write_i2c_read_config(data::DataId::kI2c0, data))
+            if (data.read_length == 0 || data.read_length > kI2cMaxDataLength
+                || data.slave_address > 0x7FU)
                 throw std::invalid_argument{"I2C0 read failed: Invalid I2C read config"};
+            if (!builder_.write_i2c_read_config(data::DataId::kI2c0, data))
+                throw std::runtime_error{"I2C0 read failed: Transmit buffer unavailable"};
             return *this;
         }
 
