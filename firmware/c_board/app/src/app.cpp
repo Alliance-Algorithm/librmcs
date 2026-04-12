@@ -4,6 +4,7 @@
 #include <device/usbd.h>
 #include <dma.h>
 #include <gpio.h>
+#include <i2c.h>
 #include <main.h>
 #include <spi.h>
 #include <tim.h>
@@ -12,6 +13,7 @@
 
 #include "firmware/c_board/app/src/can/can.hpp"
 #include "firmware/c_board/app/src/gpio/gpio.hpp"
+#include "firmware/c_board/app/src/i2c/i2c.hpp"
 #include "firmware/c_board/app/src/led/led.hpp"
 #include "firmware/c_board/app/src/spi/bmi088/accel.hpp"
 #include "firmware/c_board/app/src/spi/bmi088/gyro.hpp"
@@ -48,6 +50,8 @@ App::App() {
     MX_SPI1_Init();
     MX_CAN1_Init();
     MX_CAN2_Init();
+    // c_board routes the protocol-facing logical I2C0 channel through STM32 I2C2.
+    MX_I2C2_Init();
     MX_USART1_UART_Init();
     MX_USART3_UART_Init();
     MX_USART6_UART_Init();
@@ -61,6 +65,7 @@ App::App() {
     uart::uart1.init();
     uart::uart2.init();
     uart::uart_dbus.init();
+    i2c::i2c0.init();
     gpio::gpio.init();
     spi::bmi088::accelerometer.init();
     spi::bmi088::gyroscope.init();
@@ -79,6 +84,7 @@ App::App() {
         can::can2->try_transmit();
         usb::vendor->try_transmit();
         spi::spi1->update();
+        i2c::i2c0->update();
         usb::vendor->try_transmit();
         uart::uart1->try_transmit();
         usb::vendor->try_transmit();

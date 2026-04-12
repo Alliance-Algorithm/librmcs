@@ -34,6 +34,13 @@ public:
 
         bool write_imu_gyroscope(const data::GyroscopeDataView& view) noexcept;
 
+        bool write_i2c(data::DataId field_id, const data::I2cDataView& view) noexcept;
+
+        bool write_i2c_read_config(
+            data::DataId field_id, const data::I2cReadConfigView& view) noexcept;
+
+        bool write_i2c_read_result(data::DataId field_id, const data::I2cDataView& view) noexcept;
+
     private:
         friend class Handler;
 

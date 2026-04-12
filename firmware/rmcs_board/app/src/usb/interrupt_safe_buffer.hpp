@@ -122,13 +122,10 @@ public:
 
     bool try_lock() { return !is_locked_.test_and_set(std::memory_order::relaxed); }
 
-    bool try_unlock_and_clear() {
+    bool try_unlock() {
         if (!is_locked_.test(std::memory_order::relaxed))
             return false;
 
-        // Unlocking drops stale queued batches from the last not-ready cycle before
-        // new ISR writes are accepted.
-        clear();
         is_locked_.clear(std::memory_order::relaxed);
         return true;
     }

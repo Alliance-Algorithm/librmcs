@@ -27,6 +27,8 @@ enum class DataId : uint8_t {
     kUart3 = 14,
 
     kImu = 15,
+
+    kI2c0 = 16,
 };
 
 struct CanDataView {
@@ -79,6 +81,28 @@ struct GyroscopeDataView {
     int16_t z;
 };
 
+struct I2cDataView {
+    uint8_t slave_address;
+    std::span<const std::byte> payload;
+    bool has_register = false;
+    uint8_t reg_address = 0;
+};
+
+struct I2cReadConfigView {
+    uint8_t slave_address;
+    uint16_t read_length = 0;
+    bool has_register = false;
+    uint8_t reg_address = 0;
+};
+
+struct I2cErrorView {
+    uint8_t slave_address;
+    uint16_t data_length = 0;
+    bool has_register = false;
+    uint8_t reg_address = 0;
+    bool is_read = false;
+};
+
 class DataCallback {
 public:
     DataCallback() = default;
@@ -100,6 +124,10 @@ public:
     virtual void accelerometer_receive_callback(const AccelerometerDataView& data) = 0;
 
     virtual void gyroscope_receive_callback(const GyroscopeDataView& data) = 0;
+
+    virtual bool i2c_receive_callback(DataId id, const I2cDataView& data) = 0;
+
+    virtual void i2c_error_callback(DataId id, uint8_t slave_address) = 0;
 };
 
 } // namespace librmcs::data

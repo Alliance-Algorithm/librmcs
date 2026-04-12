@@ -7,6 +7,7 @@
 
 #include "firmware/rmcs_board/app/src/can/can.hpp"
 #include "firmware/rmcs_board/app/src/gpio/gpio.hpp"
+#include "firmware/rmcs_board/app/src/i2c/i2c.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/accel.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/gyro.hpp"
 #include "firmware/rmcs_board/app/src/uart/uart.hpp"
@@ -35,6 +36,7 @@ App::App() {
     uart::uart2.init();
     uart::uart3.init();
     uart::uart_dbus.init();
+    i2c::i2c0.init();
 
     spi::bmi088::accelerometer.init();
     spi::bmi088::gyroscope.init();
@@ -48,6 +50,8 @@ App::App() {
 [[noreturn]] void App::run() {
     while (true) {
         tud_task();
+        usb::vendor->try_transmit();
+        i2c::i2c0->try_flush_uplink();
         usb::vendor->try_transmit();
         uart::uart0->try_transmit();
         uart::uart1->try_transmit();

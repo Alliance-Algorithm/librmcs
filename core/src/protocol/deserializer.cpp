@@ -53,6 +53,7 @@ coroutine::LifoTask<void> Deserializer::process_stream() {
         case FieldId::kUart3: success = co_await process_uart_field(id); break;
         case FieldId::kGpio: success = co_await process_gpio_field(id); break;
         case FieldId::kImu: success = co_await process_imu_field(id); break;
+        case FieldId::kI2c0: success = co_await process_i2c_field(id); break;
         default: break;
         }
         if (!success)
@@ -286,6 +287,107 @@ coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
     }
     default: co_return false;
     }
+    co_return true;
+}
+
+coroutine::LifoTask<bool> Deserializer::process_i2c_field(FieldId field_id) {
+    I2cHeader::PayloadEnum payload_type;
+    uint8_t slave_address = 0;
+    uint16_t data_length = 0;
+    bool has_register = false;
+    bool error_flag = false;
+    {
+        const auto* header_bytes = co_await peek_bytes(sizeof(I2cHeader));
+        if (!header_bytes) [[unlikely]]
+            co_return false;
+
+        auto header = I2cHeader::CRef{header_bytes};
+        payload_type = header.get<I2cHeader::PayloadType>();
+        has_register = header.get<I2cHeader::HasRegister>();
+        error_flag = header.get<I2cHeader::ErrorFlag>();
+        slave_address = header.get<I2cHeader::SlaveAddress>();
+        data_length = header.get<I2cHeader::DataLength>();
+        consume_peeked();
+    }
+
+    if (slave_address > 0x7F) [[unlikely]]
+        co_return false;
+
+    switch (payload_type) {
+    case I2cHeader::PayloadEnum::kWrite:
+    case I2cHeader::PayloadEnum::kReadResult: {
+        if (error_flag) [[unlikely]]
+            co_return false;
+
+        data::I2cDataView data_view{};
+        data_view.slave_address = slave_address;
+        data_view.has_register = has_register;
+
+        if (has_register) {
+            const auto* register_bytes = co_await peek_bytes(1);
+            if (!register_bytes) [[unlikely]]
+                co_return false;
+            data_view.reg_address = std::to_integer<uint8_t>(register_bytes[0]);
+            consume_peeked();
+        }
+
+        if (data_length) {
+            const auto* payload_bytes = co_await peek_bytes(data_length);
+            if (!payload_bytes) [[unlikely]]
+                co_return false;
+            data_view.payload = std::span<const std::byte>{payload_bytes, data_length};
+            consume_peeked();
+        } else {
+            data_view.payload = std::span<const std::byte>{};
+        }
+
+        if (payload_type == I2cHeader::PayloadEnum::kWrite) {
+            callback_.i2c_write_deserialized_callback(field_id, data_view);
+        } else {
+            callback_.i2c_read_result_deserialized_callback(field_id, data_view);
+        }
+        break;
+    }
+    case I2cHeader::PayloadEnum::kReadRequest: {
+        if (error_flag) [[unlikely]]
+            co_return false;
+
+        data::I2cReadConfigView data_view{};
+        data_view.slave_address = slave_address;
+        data_view.read_length = data_length;
+        data_view.has_register = has_register;
+
+        if (has_register) {
+            const auto* register_bytes = co_await peek_bytes(1);
+            if (!register_bytes) [[unlikely]]
+                co_return false;
+            data_view.reg_address = std::to_integer<uint8_t>(register_bytes[0]);
+            consume_peeked();
+        }
+
+        callback_.i2c_read_config_deserialized_callback(field_id, data_view);
+        break;
+    }
+    case I2cHeader::PayloadEnum::kError: {
+        data::I2cErrorView data_view{};
+        data_view.slave_address = slave_address;
+        data_view.data_length = data_length;
+        data_view.has_register = has_register;
+        data_view.is_read = error_flag;
+
+        if (has_register) {
+            const auto* register_bytes = co_await peek_bytes(1);
+            if (!register_bytes) [[unlikely]]
+                co_return false;
+            data_view.reg_address = std::to_integer<uint8_t>(register_bytes[0]);
+            consume_peeked();
+        }
+        callback_.i2c_error_deserialized_callback(field_id, data_view);
+        break;
+    }
+    default: co_return false;
+    }
+
     co_return true;
 }
 
