@@ -95,6 +95,14 @@ struct I2cReadConfigView {
     uint8_t reg_address = 0;
 };
 
+struct I2cErrorView {
+    uint8_t slave_address;
+    uint16_t data_length = 0;
+    bool has_register = false;
+    uint8_t reg_address = 0;
+    bool is_read = false;
+};
+
 class DataCallback {
 public:
     DataCallback() = default;

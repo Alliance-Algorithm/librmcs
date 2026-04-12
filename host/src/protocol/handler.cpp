@@ -96,10 +96,13 @@ public:
     }
 
     void i2c_error_deserialized_callback(
-        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        core::protocol::FieldId id, const data::I2cErrorView& data) override {
         logging::get_logger().error(
-            "I2C operation failed on field {} for slave address 0x{:02x}", static_cast<int>(id),
-            static_cast<int>(data.slave_address));
+            "I2C {} failed on field {} for slave address 0x{:02x} (reg={}, len={})",
+            data.is_read ? "read" : "write", static_cast<int>(id),
+            static_cast<int>(data.slave_address),
+            data.has_register ? static_cast<int>(data.reg_address) : -1,
+            static_cast<int>(data.data_length));
         callback_.i2c_error_callback(id, data.slave_address);
     }
 

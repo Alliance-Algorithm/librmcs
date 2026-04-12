@@ -49,7 +49,7 @@ public:
     virtual void
         i2c_read_result_deserialized_callback(FieldId id, const data::I2cDataView& data) = 0;
 
-    virtual void i2c_error_deserialized_callback(FieldId id, const data::I2cDataView& data) = 0;
+    virtual void i2c_error_deserialized_callback(FieldId id, const data::I2cErrorView& data) = 0;
 
     virtual void error_callback() = 0;
 };
