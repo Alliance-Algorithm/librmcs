@@ -56,7 +56,7 @@ public:
             return false;
 
         if (!transmitting_batch_) {
-            transmit_buffer_.try_unlock_and_clear();
+            transmit_buffer_.try_unlock();
             transmitting_batch_ = transmit_buffer_.pop_batch();
         }
         if (!transmitting_batch_)
@@ -149,17 +149,17 @@ private:
         core::protocol::FieldId id, const data::I2cDataView& data) override {
         (void)id;
         (void)data;
-        core::utility::assert_failed_always();
     }
 
     void i2c_error_deserialized_callback(
-        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        core::protocol::FieldId id, const data::I2cErrorView& data) override {
         (void)id;
         (void)data;
-        core::utility::assert_failed_always();
     }
 
-    void error_callback() override { core::utility::assert_failed_always(); }
+    void error_callback() override {
+        // Drop malformed downlink payloads instead of trapping the whole device.
+    }
 
     core::protocol::Deserializer deserializer_{*this};
 

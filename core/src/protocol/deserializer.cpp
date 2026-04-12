@@ -295,6 +295,7 @@ coroutine::LifoTask<bool> Deserializer::process_i2c_field(FieldId field_id) {
     uint8_t slave_address = 0;
     uint16_t data_length = 0;
     bool has_register = false;
+    bool error_flag = false;
     {
         const auto* header_bytes = co_await peek_bytes(sizeof(I2cHeader));
         if (!header_bytes) [[unlikely]]
@@ -303,6 +304,7 @@ coroutine::LifoTask<bool> Deserializer::process_i2c_field(FieldId field_id) {
         auto header = I2cHeader::CRef{header_bytes};
         payload_type = header.get<I2cHeader::PayloadType>();
         has_register = header.get<I2cHeader::HasRegister>();
+        error_flag = header.get<I2cHeader::ErrorFlag>();
         slave_address = header.get<I2cHeader::SlaveAddress>();
         data_length = header.get<I2cHeader::DataLength>();
         consume_peeked();
@@ -314,6 +316,9 @@ coroutine::LifoTask<bool> Deserializer::process_i2c_field(FieldId field_id) {
     switch (payload_type) {
     case I2cHeader::PayloadEnum::kWrite:
     case I2cHeader::PayloadEnum::kReadResult: {
+        if (error_flag) [[unlikely]]
+            co_return false;
+
         data::I2cDataView data_view{};
         data_view.slave_address = slave_address;
         data_view.has_register = has_register;
@@ -344,6 +349,9 @@ coroutine::LifoTask<bool> Deserializer::process_i2c_field(FieldId field_id) {
         break;
     }
     case I2cHeader::PayloadEnum::kReadRequest: {
+        if (error_flag) [[unlikely]]
+            co_return false;
+
         data::I2cReadConfigView data_view{};
         data_view.slave_address = slave_address;
         data_view.read_length = data_length;
@@ -361,10 +369,19 @@ coroutine::LifoTask<bool> Deserializer::process_i2c_field(FieldId field_id) {
         break;
     }
     case I2cHeader::PayloadEnum::kError: {
-        data::I2cDataView data_view{};
+        data::I2cErrorView data_view{};
         data_view.slave_address = slave_address;
-        data_view.payload = std::span<const std::byte>{};
-        data_view.has_register = false;
+        data_view.data_length = data_length;
+        data_view.has_register = has_register;
+        data_view.is_read = error_flag;
+
+        if (has_register) {
+            const auto* register_bytes = co_await peek_bytes(1);
+            if (!register_bytes) [[unlikely]]
+                co_return false;
+            data_view.reg_address = std::to_integer<uint8_t>(register_bytes[0]);
+            consume_peeked();
+        }
         callback_.i2c_error_deserialized_callback(field_id, data_view);
         break;
     }
