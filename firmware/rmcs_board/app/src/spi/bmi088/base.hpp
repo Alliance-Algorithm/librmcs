@@ -9,6 +9,7 @@
 #include <board.h>
 
 #include "core/src/utility/assert.hpp"
+#include "firmware/rmcs_board/app/src/gpio/gpio_pin.hpp"
 #include "firmware/rmcs_board/app/src/spi/spi.hpp"
 
 namespace librmcs::firmware::spi::bmi088 {
@@ -32,7 +33,7 @@ protected:
         int16_t z;
     };
 
-    explicit Bmi088Base(Spi::Lazy* spi, ChipSelectPin chip_select_pin)
+    explicit Bmi088Base(Spi::Lazy* spi, const GpioPin& chip_select_pin)
         : SpiModule(chip_select_pin)
         , spi_(spi->init()) {}
 

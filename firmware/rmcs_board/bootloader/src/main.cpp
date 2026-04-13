@@ -1,7 +1,6 @@
 #include <board.h>
 #include <common/tusb_types.h>
 #include <device/usbd.h>
-#include <hpm_soc.h>
 #include <tusb.h>
 
 #include "firmware/rmcs_board/bootloader/src/flash/validation.hpp"
@@ -14,14 +13,17 @@
 int main() {
     using namespace librmcs::firmware; // NOLINT(google-build-using-namespace)
 
-    // Reset-time clocks already run CPU0 at 360 MHz, so board_init() would only bump it to
-    // 480 MHz while adding avoidable startup latency on the direct-to-app path.
-    const bool force_dfu = boot::BootMailbox::consume_enter_dfu_request();
-    if (!force_dfu && flash::validate_app_image())
+#if LIBRMCS_BOOTLOADER_MODE_AUTO
+    if (!boot::BootMailbox::consume_enter_dfu_request() && flash::validate_app_image())
+#else
+    if (boot::BootMailbox::consume_boot_app_once_request() && flash::validate_app_image())
+#endif
         utility::jump_to_app();
 
+    // Reset-time clocks already run CPU0 at 360 MHz, so board_init() would only bump it to
+    // 480 MHz while adding avoidable startup latency on the direct-to-app path.
     board_init();
-    board_init_usb(HPM_USB0);
+    board_init_usb();
     (void)usb::get_usb_descriptors();
 
     const tusb_rhport_init_t init_config{

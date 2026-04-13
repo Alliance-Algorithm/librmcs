@@ -9,19 +9,19 @@
 
 namespace librmcs::agent {
 
-class RmcsBoard : private data::DataCallback {
+class RmcsBoardLite : private data::DataCallback {
 public:
-    explicit RmcsBoard(std::string_view serial_filter = {}, const AdvancedOptions& options = {})
-        : handler_(0xA11C, 0xAF01, serial_filter, options, *this) {}
+    explicit RmcsBoardLite(std::string_view serial_filter = {}, const AdvancedOptions& options = {})
+        : handler_(0xA11C, 0xA801, serial_filter, options, *this) {}
 
-    RmcsBoard(const RmcsBoard&) = delete;
-    RmcsBoard& operator=(const RmcsBoard&) = delete;
-    RmcsBoard(RmcsBoard&&) = delete;
-    RmcsBoard& operator=(RmcsBoard&&) = delete;
-    ~RmcsBoard() override = default;
+    RmcsBoardLite(const RmcsBoardLite&) = delete;
+    RmcsBoardLite& operator=(const RmcsBoardLite&) = delete;
+    RmcsBoardLite(RmcsBoardLite&&) = delete;
+    RmcsBoardLite& operator=(RmcsBoardLite&&) = delete;
+    ~RmcsBoardLite() override = default;
 
     class PacketBuilder {
-        friend class RmcsBoard;
+        friend class RmcsBoardLite;
 
     public:
         PacketBuilder& can0_transmit(const librmcs::data::CanDataView& data) {
@@ -60,16 +60,6 @@ public:
                 throw std::invalid_argument{"UART1 transmission failed: Invalid UART data"};
             return *this;
         }
-        PacketBuilder& uart2_transmit(const librmcs::data::UartDataView& data) {
-            if (!builder_.write_uart(data::DataId::kUart2, data)) [[unlikely]]
-                throw std::invalid_argument{"UART2 transmission failed: Invalid UART data"};
-            return *this;
-        }
-        PacketBuilder& uart3_transmit(const librmcs::data::UartDataView& data) {
-            if (!builder_.write_uart(data::DataId::kUart3, data)) [[unlikely]]
-                throw std::invalid_argument{"UART3 transmission failed: Invalid UART data"};
-            return *this;
-        }
 
     private:
         explicit PacketBuilder(host::protocol::Handler& handler) noexcept
@@ -100,8 +90,6 @@ private:
         case data::DataId::kUartDbus: dbus_receive_callback(data); return true;
         case data::DataId::kUart0: uart0_receive_callback(data); return true;
         case data::DataId::kUart1: uart1_receive_callback(data); return true;
-        case data::DataId::kUart2: uart2_receive_callback(data); return true;
-        case data::DataId::kUart3: uart3_receive_callback(data); return true;
         default: return false;
         }
     }
@@ -109,8 +97,6 @@ private:
     virtual void dbus_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
     virtual void uart0_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
     virtual void uart1_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
-    virtual void uart2_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
-    virtual void uart3_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
 
     void
         gpio_digital_read_result_callback(const librmcs::data::GpioDigitalDataView& data) override {

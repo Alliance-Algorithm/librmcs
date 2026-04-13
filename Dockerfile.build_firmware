@@ -4,19 +4,22 @@ SHELL ["/bin/bash", "-c"]
 
 WORKDIR /src
 RUN --mount=type=bind,target=/src,source=.,readonly \
-    set -euo pipefail \
-    && mkdir -p /output \
-    && LIBRMCS_PROJECT_VERSION="$(.scripts/generate_version)" \
-    && for board in rmcs_board; do \
-        build_dir="/tmp/build-${board}"; \
-        cmake --preset release -S "firmware/${board}" -B "${build_dir}"; \
-        cmake --build "${build_dir}"; \
-        cp "${build_dir}/bootloader/output/rmcs_board_bootloader.elf" \
-            "/output/librmcs-bootloader-${board}.elf"; \
-        cp "${build_dir}/app/output/rmcs_board_app.dfu" \
-            "/output/librmcs-firmware-${board}-${LIBRMCS_PROJECT_VERSION}.dfu"; \
-    done \
-    && for board in c_board; do \
+    set -euo pipefail; \
+    mkdir -p /output; \
+    LIBRMCS_PROJECT_VERSION="$(.scripts/generate_version)"; \
+    for board in rmcs_board; do \
+        for variant in pro lite; do \
+            build_dir="/tmp/build-${board}-${variant}"; \
+            artifact_name="${board}-${variant}"; \
+            cmake --preset release -S "firmware/${board}" -B "${build_dir}" -DBOARD="${variant}"; \
+            cmake --build "${build_dir}"; \
+            cp "${build_dir}/bootloader/output/rmcs_board_bootloader.elf" \
+                "/output/librmcs-bootloader-${artifact_name}.elf"; \
+            cp "${build_dir}/app/output/rmcs_board_app.dfu" \
+                "/output/librmcs-firmware-${artifact_name}-${LIBRMCS_PROJECT_VERSION}.dfu"; \
+        done; \
+    done; \
+    for board in c_board; do \
         build_dir="/tmp/build-${board}"; \
         cmake --preset release -S "firmware/${board}" -B "${build_dir}"; \
         cmake --build "${build_dir}"; \

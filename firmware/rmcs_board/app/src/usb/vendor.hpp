@@ -5,12 +5,12 @@
 #include <cstdint>
 #include <span>
 
-#include <board.h>
 #include <class/vendor/vendor_device.h>
 #include <common/tusb_types.h>
 #include <device/usbd.h>
 #include <tusb.h>
 
+#include "board_app.hpp"
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/deserializer.hpp"
 #include "core/src/protocol/protocol.hpp"
@@ -34,10 +34,10 @@ public:
     Vendor() {
         usb::usb_descriptors.init();
 
-        board_init_user_sw();
+        board::init_user_button_and_switch_pins();
         const tusb_rhport_init_t init_config{
             .role = TUSB_ROLE_DEVICE,
-            .speed = board_get_user_sw_status() ? TUSB_SPEED_FULL : TUSB_SPEED_HIGH,
+            .speed = board::kUserHsFsSwitchPin.is_active() ? TUSB_SPEED_HIGH : TUSB_SPEED_FULL,
         };
         core::utility::assert_always(tusb_rhport_init(0, &init_config));
     }
@@ -92,10 +92,10 @@ private:
     void can_deserialized_callback(
         core::protocol::FieldId id, const data::CanDataView& data) override {
         switch (id) {
-        case data::DataId::kCan0: can::can0->handle_downlink(data); break;
-        case data::DataId::kCan1: can::can1->handle_downlink(data); break;
-        case data::DataId::kCan2: can::can2->handle_downlink(data); break;
-        case data::DataId::kCan3: can::can3->handle_downlink(data); break;
+        case data::DataId::kCan0: can::can_array[0]->handle_downlink(data); break;
+        case data::DataId::kCan1: can::can_array[1]->handle_downlink(data); break;
+        case data::DataId::kCan2: can::can_array[2]->handle_downlink(data); break;
+        case data::DataId::kCan3: can::can_array[3]->handle_downlink(data); break;
         default: core::utility::assert_failed_always();
         }
     }
@@ -104,10 +104,14 @@ private:
         core::protocol::FieldId id, const data::UartDataView& data) override {
         switch (id) {
         case data::DataId::kUartDbus: uart::uart_dbus->handle_downlink(data); break;
-        case data::DataId::kUart0: uart::uart0->handle_downlink(data); break;
-        case data::DataId::kUart1: uart::uart1->handle_downlink(data); break;
-        case data::DataId::kUart2: uart::uart2->handle_downlink(data); break;
-        case data::DataId::kUart3: uart::uart3->handle_downlink(data); break;
+        case data::DataId::kUart0: uart::uart_array[0]->handle_downlink(data); break;
+        case data::DataId::kUart1: uart::uart_array[1]->handle_downlink(data); break;
+#ifdef BOARD_UART2
+        case data::DataId::kUart2: uart::uart_array[2]->handle_downlink(data); break;
+#endif
+#ifdef BOARD_UART3
+        case data::DataId::kUart3: uart::uart_array[3]->handle_downlink(data); break;
+#endif
         default: core::utility::assert_failed_always();
         }
     }

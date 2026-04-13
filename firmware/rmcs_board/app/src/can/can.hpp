@@ -3,32 +3,40 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 
-#include <board.h>
 #include <hpm_common.h>
 #include <hpm_mcan_drv.h>
 #include <hpm_mcan_regs.h>
 #include <hpm_mcan_soc.h>
 #include <hpm_soc.h>
 #include <hpm_soc_feature.h>
-#include <hpm_soc_irq.h>
 
+#include "board_app.hpp"
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/protocol.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
+#include "firmware/rmcs_board/app/src/usb/helper.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::can {
 
+struct HardwareConfig {
+    uint32_t base;
+    uint32_t irq_num;
+};
+
 class Can : private core::utility::Immovable {
 public:
-    using Lazy = utility::Lazy<Can, uintptr_t, uint32_t, uint32_t (*const)[], uint32_t>;
+    using Lazy = utility::Lazy<Can, data::DataId, HardwareConfig, uint32_t (*const)[], uint32_t>;
 
     explicit Can(
-        uintptr_t can_base, uint32_t irq_num, uint32_t (*const ram_base)[], uint32_t ram_size)
-        : can_base_(reinterpret_cast<MCAN_Type*>(can_base)) {
+        data::DataId data_id, HardwareConfig board_config, uint32_t (*const ram_base)[],
+        uint32_t ram_size)
+        : data_id_(data_id)
+        , can_base_(reinterpret_cast<MCAN_Type*>(board_config.base)) {
 
         const mcan_msg_buf_attr_t attr = {
             .ram_base = reinterpret_cast<uintptr_t>(ram_base),
@@ -37,8 +45,7 @@ public:
         auto status = mcan_set_msg_buf_attr(can_base_, &attr);
         core::utility::assert_always(status == status_success);
 
-        board_init_can(can_base_);
-        const uint32_t can_source_clock_freq = board_init_can_clock(can_base_);
+        const uint32_t can_source_clock_freq = board::init_can(can_base_);
 
         mcan_config_t config;
         mcan_get_default_config(can_base_, &config);
@@ -51,7 +58,7 @@ public:
 
         mcan_init(can_base_, &config, can_source_clock_freq);
         mcan_enable_interrupts(can_base_, MCAN_INT_RXFIFO0_NEW_MSG);
-        intc_m_enable_irq_with_priority(irq_num, 1);
+        intc_m_enable_irq_with_priority(board_config.irq_num, 1);
     }
 
     void handle_downlink(const data::CanDataView& data) {
@@ -91,26 +98,40 @@ public:
             != core::protocol::Serializer::SerializeResult::kInvalidArgument);
     }
 
+    void irq_handler() {
+        const uint32_t flags = mcan_get_interrupt_flags(can_base_);
+
+        if (!flags) [[unlikely]]
+            return;
+
+        if (flags & MCAN_INT_RXFIFO0_NEW_MSG) [[likely]]
+            handle_uplink(data_id_, usb::get_serializer());
+
+        mcan_clear_interrupt_flags(can_base_, flags);
+    }
+
 private:
+    const data::DataId data_id_;
     MCAN_Type* can_base_;
 };
 
-ATTR_PLACE_AT(".ahb_sram") inline uint32_t can0_msg_buffer[MCAN_MSG_BUF_SIZE_IN_WORDS];
-inline constinit Can::Lazy can0{
-    HPM_MCAN0_BASE, IRQn_MCAN0, &can0_msg_buffer, sizeof(can0_msg_buffer)};
-
-ATTR_PLACE_AT(".ahb_sram") inline uint32_t can1_msg_buffer[MCAN_MSG_BUF_SIZE_IN_WORDS];
-inline constinit Can::Lazy can1{
-    HPM_MCAN1_BASE, IRQn_MCAN1, &can1_msg_buffer, sizeof(can1_msg_buffer)};
-
-ATTR_PLACE_AT(".ahb_sram") inline uint32_t can2_msg_buffer[MCAN_MSG_BUF_SIZE_IN_WORDS];
-inline constinit Can::Lazy can2{
-    HPM_MCAN2_BASE, IRQn_MCAN2, &can2_msg_buffer, sizeof(can2_msg_buffer)};
-
-ATTR_PLACE_AT(".ahb_sram") inline uint32_t can3_msg_buffer[MCAN_MSG_BUF_SIZE_IN_WORDS];
-inline constinit Can::Lazy can3{
-    HPM_MCAN3_BASE, IRQn_MCAN3, &can3_msg_buffer, sizeof(can3_msg_buffer)};
-
+ATTR_PLACE_AT(".ahb_sram")
+inline constinit uint32_t can_msg_buffer[4][MCAN_MSG_BUF_SIZE_IN_WORDS]{};
 static_assert(MCAN_SOC_MSG_BUF_IN_AHB_RAM == 1);
+
+constexpr HardwareConfig kBoardConfigs[] = {
+    {.base = BOARD_CAN0(HPM_MCAN, _BASE), .irq_num = BOARD_CAN0(IRQn_MCAN, )},
+    {.base = BOARD_CAN1(HPM_MCAN, _BASE), .irq_num = BOARD_CAN1(IRQn_MCAN, )},
+    {.base = BOARD_CAN2(HPM_MCAN, _BASE), .irq_num = BOARD_CAN2(IRQn_MCAN, )},
+    {.base = BOARD_CAN3(HPM_MCAN, _BASE), .irq_num = BOARD_CAN3(IRQn_MCAN, )},
+};
+
+inline constinit Can::Lazy can_array[]{
+    Can::Lazy{data::DataId::kCan0, kBoardConfigs[0], &can_msg_buffer[0], sizeof(can_msg_buffer[0])},
+    Can::Lazy{data::DataId::kCan1, kBoardConfigs[1], &can_msg_buffer[1], sizeof(can_msg_buffer[1])},
+    Can::Lazy{data::DataId::kCan2, kBoardConfigs[2], &can_msg_buffer[2], sizeof(can_msg_buffer[2])},
+    Can::Lazy{data::DataId::kCan3, kBoardConfigs[3], &can_msg_buffer[3], sizeof(can_msg_buffer[3])},
+};
+constexpr size_t kCanCount = std::size(can_array);
 
 } // namespace librmcs::firmware::can
