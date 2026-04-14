@@ -78,21 +78,29 @@ public:
     }
 
     void tx_complete_callback() {
-        const auto state = transfer_state_.load(std::memory_order::acquire);
-        core::utility::assert_debug(state == TransferState::kWrite);
+        {
+            const utility::InterruptLockGuard guard;
+            if (transfer_state_.load(std::memory_order::relaxed) != TransferState::kWrite)
+                return;
 
-        finish_active_request();
+            finish_active_request_locked();
+        }
+
         try_start_next_request();
     }
 
     void rx_complete_callback() {
-        const auto state = transfer_state_.load(std::memory_order::acquire);
-        core::utility::assert_debug(state == TransferState::kRead);
+        Request request{};
+        {
+            const utility::InterruptLockGuard guard;
+            if (transfer_state_.load(std::memory_order::relaxed) != TransferState::kRead)
+                return;
 
-        const auto request = active_request_;
-        std::memcpy(read_result_buffer_.data(), read_dma_buffer_.data(), request.data_length);
+            request = active_request_;
+            std::memcpy(read_result_buffer_.data(), read_dma_buffer_.data(), request.data_length);
+            finish_active_request_locked();
+        }
 
-        finish_active_request();
         try_start_next_request();
         publish_read_result(
             request, {read_result_buffer_.data(), static_cast<std::size_t>(request.data_length)});

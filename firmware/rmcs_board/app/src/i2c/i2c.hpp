@@ -9,6 +9,7 @@
 #include <board.h>
 #include <hpm_common.h>
 #include <hpm_i2c_drv.h>
+#include <hpm_i2c_regs.h>
 #include <hpm_soc.h>
 
 #include "core/include/librmcs/data/datas.hpp"
