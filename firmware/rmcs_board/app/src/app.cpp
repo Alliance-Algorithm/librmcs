@@ -44,7 +44,6 @@ App::App() {
         tud_task();
         usb::vendor->try_transmit();
 
-        uart::uart_dbus->try_transmit();
         for (auto& board_uart : uart::uart_array)
             board_uart->try_transmit();
     }

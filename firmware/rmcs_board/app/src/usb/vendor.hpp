@@ -103,7 +103,6 @@ private:
     void uart_deserialized_callback(
         core::protocol::FieldId id, const data::UartDataView& data) override {
         switch (id) {
-        case data::DataId::kUartDbus: uart::uart_dbus->handle_downlink(data); break;
         case data::DataId::kUart0: uart::uart_array[0]->handle_downlink(data); break;
         case data::DataId::kUart1: uart::uart_array[1]->handle_downlink(data); break;
 #ifdef BOARD_UART2

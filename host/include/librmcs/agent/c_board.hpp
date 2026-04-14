@@ -35,11 +35,6 @@ public:
             return *this;
         }
 
-        PacketBuilder& dbus_transmit(const librmcs::data::UartDataView& data) {
-            if (!builder_.write_uart(data::DataId::kUartDbus, data)) [[unlikely]]
-                throw std::invalid_argument{"DBUS transmission failed: Invalid UART data"};
-            return *this;
-        }
         PacketBuilder& uart1_transmit(const librmcs::data::UartDataView& data) {
             if (!builder_.write_uart(data::DataId::kUart1, data)) [[unlikely]]
                 throw std::invalid_argument{"UART1 transmission failed: Invalid UART data"};
