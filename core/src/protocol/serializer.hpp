@@ -338,6 +338,7 @@ public:
         const std::size_t required = required_i2c_size(
             field_id, I2cHeader::PayloadEnum::kWrite, view.payload.size(), view.has_register);
         LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
+        LIBRMCS_VERIFY_LIKELY(!view.payload.empty(), SerializeResult::kInvalidArgument);
         LIBRMCS_VERIFY_LIKELY(view.slave_address <= 0x7F, SerializeResult::kInvalidArgument);
 
         auto dst = buffer_.allocate(required);
@@ -574,9 +575,9 @@ private:
         LIBRMCS_VERIFY_LIKELY(is_i2c_field_id(field_id), 0);
         LIBRMCS_VERIFY_LIKELY(data_len <= ((1U << 9) - 1U), 0);
         switch (payload) {
-        case I2cHeader::PayloadEnum::kWrite:
         case I2cHeader::PayloadEnum::kReadResult:
         case I2cHeader::PayloadEnum::kError: break;
+        case I2cHeader::PayloadEnum::kWrite: LIBRMCS_VERIFY_LIKELY(data_len != 0, 0); break;
         case I2cHeader::PayloadEnum::kReadRequest: LIBRMCS_VERIFY_LIKELY(data_len != 0, 0); break;
         default: return 0;
         }
