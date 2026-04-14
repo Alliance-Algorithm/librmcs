@@ -4,11 +4,11 @@
 #include <cstdint>
 
 #include <board.h>
-#include <hpm_gpio_regs.h>
-#include <hpm_soc.h>
 
+#include "board_app.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
+#include "firmware/rmcs_board/app/src/gpio/gpio_pin.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/base.hpp"
 #include "firmware/rmcs_board/app/src/spi/spi.hpp"
 #include "firmware/rmcs_board/app/src/usb/vendor.hpp"
@@ -51,7 +51,7 @@ class Accelerometer final
     : public AccelerometerTraits
     , private Bmi088Base<AccelerometerTraits> {
 public:
-    using Lazy = utility::Lazy<Accelerometer, Spi::Lazy*, ChipSelectPin>;
+    using Lazy = utility::Lazy<Accelerometer, Spi::Lazy*, GpioPin>;
 
     enum class Range : uint8_t { k3G = 0x00, k6G = 0x01, k12G = 0x02, k24G = 0x03 };
     enum class DataRate : uint8_t {
@@ -66,7 +66,7 @@ public:
     };
 
     explicit Accelerometer(
-        Spi::Lazy* spi, ChipSelectPin chip_select, Range range = Range::k6G,
+        Spi::Lazy* spi, const GpioPin& chip_select, Range range = Range::k6G,
         DataRate data_rate = DataRate::k1600Hz)
         : Bmi088Base(spi, chip_select) {
 
@@ -122,7 +122,6 @@ private:
     }
 };
 
-inline Accelerometer::Lazy accelerometer(
-    &spi::spi2, ChipSelectPin{.gpio_base = HPM_GPIO0_BASE, .port = GPIO_DO_GPIOB, .pin = 14});
+inline Accelerometer::Lazy accelerometer(&spi::spi_bmi088, board::kBmi088AccelChipSelectPin);
 
 } // namespace librmcs::firmware::spi::bmi088

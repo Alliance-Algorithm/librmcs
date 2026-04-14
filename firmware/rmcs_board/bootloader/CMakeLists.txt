@@ -3,12 +3,17 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 set(APP_NAME "rmcs_board_bootloader")
 
+if(NOT LIBRMCS_RMCS_BOARD_SUPERBUILDING)
+    message(FATAL_ERROR
+        "Do not configure firmware/rmcs_board/bootloader directly.\n"
+        "Use the rmcs_board superbuild instead:\n")
+endif()
+
 include("${CMAKE_CURRENT_SOURCE_DIR}/../../common/cmake/librmcs_firmware.cmake")
 
-set(BOARD "hpm5300evk" CACHE STRING "Target board")
-set(RV_ARCH "rv32imafdcb" CACHE STRING "RISC-V arch")
-set(RV_ABI "ilp32d" CACHE STRING "RISC-V ABI")
 set(HPM_BUILD_TYPE "flash_xip" CACHE STRING "HPM build type")
+set(BOARD_BOOTLOADER_MODE "auto" CACHE STRING "Bootloader mode (auto / manual)")
+set_property(CACHE BOARD_BOOTLOADER_MODE PROPERTY STRINGS auto manual)
 
 set(CONFIG_TINYUSB 1)
 set(CONFIG_USB_DEVICE 1)
@@ -45,9 +50,21 @@ if(CMAKE_BUILD_TYPE STREQUAL "debug")
     sdk_compile_options(-Og)
 endif()
 
+if(NOT "${BOARD_BOOTLOADER_MODE}" STREQUAL "auto"
+    AND NOT "${BOARD_BOOTLOADER_MODE}" STREQUAL "manual")
+    message(FATAL_ERROR "BOARD_BOOTLOADER_MODE must be auto or manual")
+endif()
+
+if("${BOARD_BOOTLOADER_MODE}" STREQUAL "auto")
+    set(bootloader_mode_auto 1)
+else()
+    set(bootloader_mode_auto 0)
+endif()
+
 sdk_compile_definitions(-DLIBRMCS_PROJECT_VERSION_STRING="${LIBRMCS_PROJECT_VERSION}")
 sdk_compile_definitions(-DCFG_TUSB_MCU=OPT_MCU_HPM)
 sdk_compile_definitions(-DUSB_HOST_MCU_CORE=HPM_CORE0)
+sdk_compile_definitions(-DLIBRMCS_BOOTLOADER_MODE_AUTO=${bootloader_mode_auto})
 
 sdk_inc("${CMAKE_CURRENT_SOURCE_DIR}/include")
 sdk_app_inc("${LIBRMCS_PROJECT_ROOT}")

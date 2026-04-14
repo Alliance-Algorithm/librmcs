@@ -2,17 +2,16 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <span>
 
-#include <board.h>
 #include <hpm_common.h>
-#include <hpm_dmamux_src.h>
 #include <hpm_soc.h>
 #include <hpm_soc_ip_feature.h>
-#include <hpm_soc_irq.h>
 #include <hpm_uart_drv.h>
 #include <hpm_uart_regs.h>
 
+#include "board_app.hpp"
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
@@ -24,6 +23,13 @@
 
 namespace librmcs::firmware::uart {
 
+struct HardwareConfig {
+    uint32_t base;
+    uint32_t irq_num;
+    uint32_t dma_src_tx;
+    uint32_t dma_src_rx;
+};
+
 class Uart
     : private core::utility::Immovable
     , private TxBuffer
@@ -31,24 +37,23 @@ class Uart
     friend class RxBuffer<Uart>;
 
 public:
-    using Lazy = utility::Lazy<
-        Uart, data::DataId, uintptr_t, uint32_t, uint32_t, uint32_t, uint32_t, parity_setting_t>;
+    using Lazy = utility::Lazy<Uart, data::DataId, HardwareConfig, uint32_t, parity_setting_t>;
 
     explicit Uart(
-        data::DataId data_id, uintptr_t uart_base, uint32_t irq_num, uint32_t tx_dmamux_src,
-        uint32_t rx_dmamux_src, uint32_t baudrate, parity_setting_t parity)
-        : TxBuffer(reinterpret_cast<UART_Type*>(uart_base), tx_dmamux_src)
-        , RxBuffer(reinterpret_cast<UART_Type*>(uart_base), rx_dmamux_src)
+        data::DataId data_id, HardwareConfig board_config, uint32_t baudrate,
+        parity_setting_t parity)
+        : TxBuffer(reinterpret_cast<UART_Type*>(board_config.base), board_config.dma_src_tx)
+        , RxBuffer(reinterpret_cast<UART_Type*>(board_config.base), board_config.dma_src_rx)
         , data_id_(data_id)
-        , uart_base_(reinterpret_cast<UART_Type*>(uart_base)) {
-        init_uart(irq_num, baudrate, parity);
+        , uart_base_(reinterpret_cast<UART_Type*>(board_config.base)) {
+        init_uart(board_config.irq_num, baudrate, parity);
     }
 
     void handle_downlink(const data::UartDataView& data) { TxBuffer::try_enqueue(data); }
 
     void try_transmit() { TxBuffer::try_dequeue(); }
 
-    void isr() {
+    void irq_handler() {
         if (uart_is_rxline_idle(uart_base_)) {
             uart_clear_rxline_idle_flag(uart_base_);
             RxBuffer::rx_idle_callback();
@@ -57,8 +62,7 @@ public:
 
 private:
     void init_uart(uint32_t irq_num, uint32_t baudrate, parity_setting_t parity) {
-        board_init_uart(uart_base_);
-        const uint32_t uart_clock = board_init_uart_clock(uart_base_);
+        const uint32_t uart_clock = board::init_uart(uart_base_);
 
         uart_config_t config{};
         uart_default_config(uart_base_, &config);
@@ -98,20 +102,50 @@ private:
     UART_Type* uart_base_;
 };
 
-inline constinit Uart::Lazy uart0{data::DataId::kUart0, HPM_UART0_BASE,       IRQn_UART0,
-                                  HPM_DMA_SRC_UART0_TX, HPM_DMA_SRC_UART0_RX, 115200,
-                                  parity_none};
-inline constinit Uart::Lazy uart1{data::DataId::kUart1, HPM_UART3_BASE,       IRQn_UART3,
-                                  HPM_DMA_SRC_UART3_TX, HPM_DMA_SRC_UART3_RX, 115200,
-                                  parity_none};
-inline constinit Uart::Lazy uart2{data::DataId::kUart2, HPM_UART5_BASE,       IRQn_UART5,
-                                  HPM_DMA_SRC_UART5_TX, HPM_DMA_SRC_UART5_RX, 115200,
-                                  parity_none};
-inline constinit Uart::Lazy uart3{data::DataId::kUart3, HPM_UART1_BASE,       IRQn_UART1,
-                                  HPM_DMA_SRC_UART1_TX, HPM_DMA_SRC_UART1_RX, 115200,
-                                  parity_none};
+constexpr HardwareConfig kDbusBoardConfig = {
+    .base = BOARD_UART_DBUS(HPM_UART, _BASE),
+    .irq_num = BOARD_UART_DBUS(IRQn_UART, ),
+    .dma_src_tx = BOARD_UART_DBUS(HPM_DMA_SRC_UART, _TX),
+    .dma_src_rx = BOARD_UART_DBUS(HPM_DMA_SRC_UART, _RX),
+};
+
+constexpr HardwareConfig kBoardConfigs[] = {
+    {.base = BOARD_UART0(HPM_UART, _BASE),
+     .irq_num = BOARD_UART0(IRQn_UART, ),
+     .dma_src_tx = BOARD_UART0(HPM_DMA_SRC_UART, _TX),
+     .dma_src_rx = BOARD_UART0(HPM_DMA_SRC_UART, _RX)},
+    {.base = BOARD_UART1(HPM_UART, _BASE),
+     .irq_num = BOARD_UART1(IRQn_UART, ),
+     .dma_src_tx = BOARD_UART1(HPM_DMA_SRC_UART, _TX),
+     .dma_src_rx = BOARD_UART1(HPM_DMA_SRC_UART, _RX)},
+#ifdef BOARD_UART2
+    {.base = BOARD_UART2(HPM_UART, _BASE),
+     .irq_num = BOARD_UART2(IRQn_UART, ),
+     .dma_src_tx = BOARD_UART2(HPM_DMA_SRC_UART, _TX),
+     .dma_src_rx = BOARD_UART2(HPM_DMA_SRC_UART, _RX)},
+#endif
+#ifdef BOARD_UART3
+    {.base = BOARD_UART3(HPM_UART, _BASE),
+     .irq_num = BOARD_UART3(IRQn_UART, ),
+     .dma_src_tx = BOARD_UART3(HPM_DMA_SRC_UART, _TX),
+     .dma_src_rx = BOARD_UART3(HPM_DMA_SRC_UART, _RX)},
+#endif
+};
+
 inline constinit Uart::Lazy uart_dbus{
-    data::DataId::kUartDbus, HPM_UART2_BASE, IRQn_UART2, HPM_DMA_SRC_UART2_TX,
-    HPM_DMA_SRC_UART2_RX,    100000,         parity_even};
+    data::DataId::kUartDbus, kDbusBoardConfig, 100000, parity_even};
+
+inline constinit Uart::Lazy uart_array[]{
+    Uart::Lazy{data::DataId::kUart0, kBoardConfigs[0], 115200, parity_none},
+    Uart::Lazy{data::DataId::kUart1, kBoardConfigs[1], 115200, parity_none},
+#ifdef BOARD_UART2
+    Uart::Lazy{data::DataId::kUart2, kBoardConfigs[2], 115200, parity_none},
+#endif
+#ifdef BOARD_UART3
+    Uart::Lazy{data::DataId::kUart3, kBoardConfigs[3], 115200, parity_none},
+#endif
+};
+
+constexpr size_t kUartCount = std::size(uart_array);
 
 } // namespace librmcs::firmware::uart

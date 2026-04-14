@@ -10,19 +10,19 @@
 
 namespace librmcs::agent {
 
-class RmcsBoard : private data::DataCallback {
+class RmcsBoardPro : private data::DataCallback {
 public:
-    explicit RmcsBoard(std::string_view serial_filter = {}, const AdvancedOptions& options = {})
+    explicit RmcsBoardPro(std::string_view serial_filter = {}, const AdvancedOptions& options = {})
         : handler_(0xA11C, 0xAF01, serial_filter, options, *this) {}
 
-    RmcsBoard(const RmcsBoard&) = delete;
-    RmcsBoard& operator=(const RmcsBoard&) = delete;
-    RmcsBoard(RmcsBoard&&) = delete;
-    RmcsBoard& operator=(RmcsBoard&&) = delete;
-    ~RmcsBoard() override = default;
+    RmcsBoardPro(const RmcsBoardPro&) = delete;
+    RmcsBoardPro& operator=(const RmcsBoardPro&) = delete;
+    RmcsBoardPro(RmcsBoardPro&&) = delete;
+    RmcsBoardPro& operator=(RmcsBoardPro&&) = delete;
+    ~RmcsBoardPro() override = default;
 
     class PacketBuilder {
-        friend class RmcsBoard;
+        friend class RmcsBoardPro;
 
     public:
         static constexpr uint16_t kI2cMaxDataLength = (1U << 9) - 1U;
@@ -48,11 +48,6 @@ public:
             return *this;
         }
 
-        PacketBuilder& dbus_transmit(const librmcs::data::UartDataView& data) {
-            if (!builder_.write_uart(data::DataId::kUartDbus, data)) [[unlikely]]
-                throw std::invalid_argument{"DBUS transmission failed: Invalid UART data"};
-            return *this;
-        }
         PacketBuilder& uart0_transmit(const librmcs::data::UartDataView& data) {
             if (!builder_.write_uart(data::DataId::kUart0, data)) [[unlikely]]
                 throw std::invalid_argument{"UART0 transmission failed: Invalid UART data"};

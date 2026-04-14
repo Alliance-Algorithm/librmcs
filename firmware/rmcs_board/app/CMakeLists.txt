@@ -3,22 +3,31 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 set(APP_NAME "rmcs_board_app")
 
+if(NOT LIBRMCS_RMCS_BOARD_SUPERBUILDING)
+    message(FATAL_ERROR
+        "Do not configure firmware/rmcs_board/app directly.\n"
+        "Use the rmcs_board superbuild instead:\n")
+endif()
+
 include("${CMAKE_CURRENT_SOURCE_DIR}/../../common/cmake/librmcs_firmware.cmake")
 
-set(BOARD "hpm5300evk" CACHE STRING "Target board")
-set(RV_ARCH "rv32imafdcb" CACHE STRING "RISC-V arch")
-set(RV_ABI "ilp32d" CACHE STRING "RISC-V ABI")
 set(HPM_BUILD_TYPE "flash_uf2" CACHE STRING "HPM build type")
 
 set(CONFIG_DMA_MGR 1)
 set(CONFIG_TINYUSB 1)
 set(CONFIG_USB_DEVICE 1)
 set(CONFIG_USB_DEVICE_VENDOR 1)
+set(LIBRMCS_BUILDING_FIRMWARE_APP 1)
 
 if(NOT DEFINED ENV{HPM_SDK_BASE} OR "$ENV{HPM_SDK_BASE}" STREQUAL "")
     set(ENV{HPM_SDK_BASE} "${CMAKE_CURRENT_SOURCE_DIR}/../bsp/hpm_sdk")
 endif()
 find_package(hpm-sdk REQUIRED HINTS "$ENV{HPM_SDK_BASE}")
+
+get_property(LIBRMCS_USB_PID GLOBAL PROPERTY LIBRMCS_USB_PID)
+if("${LIBRMCS_USB_PID}" STREQUAL "")
+    message(FATAL_ERROR "LIBRMCS_USB_PID must be set by the selected board")
+endif()
 
 librmcs_setup_project_context(PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
 
@@ -80,7 +89,7 @@ librmcs_add_dfu_image(
     INPUT_BINARY "${EXECUTABLE_OUTPUT_PATH}/${APP_BIN_NAME}"
     OUTPUT_DFU "${EXECUTABLE_OUTPUT_PATH}/rmcs_board_app.dfu"
     VENDOR_ID 0xA11C
-    PRODUCT_ID 0xAF01
+    PRODUCT_ID ${LIBRMCS_USB_PID}
     DEVICE_ID 0x0300
     COMMENT "Generating rmcs_board_app.dfu"
 )

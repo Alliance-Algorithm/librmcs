@@ -127,7 +127,7 @@ private: // Device Descriptor
         .bDeviceProtocol = 0x00,
         .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
         .idVendor = 0xA11C,
-        .idProduct = 0xAF01,
+        .idProduct = LIBRMCS_USB_PID,
         .bcdDevice = 0x0300,
         .iManufacturer = 0x01,
         .iProduct = 0x02,

@@ -3,7 +3,6 @@
 #include <board.h>
 #include <device/usbd.h>
 #include <hpm_dma_mgr.h>
-#include <hpm_soc.h>
 
 #include "firmware/rmcs_board/app/src/can/can.hpp"
 #include "firmware/rmcs_board/app/src/gpio/gpio.hpp"
@@ -23,26 +22,22 @@ App::App() {
     const utility::InterruptLockGuard guard;
 
     board_init();
-    board_init_usb(HPM_USB0);
+    board_init_usb();
     dma_mgr_init();
     boot::BootMailbox::clear();
 
-    can::can0.init();
-    can::can1.init();
-    can::can2.init();
-    can::can3.init();
-    uart::uart0.init();
-    uart::uart1.init();
-    uart::uart2.init();
-    uart::uart3.init();
+    usb::vendor.init();
+
+    for (auto& can : can::can_array)
+        can.init();
+
     uart::uart_dbus.init();
     i2c::i2c0.init();
+    for (auto& board_uart : uart::uart_array)
+        board_uart.init();
 
     spi::bmi088::accelerometer.init();
     spi::bmi088::gyroscope.init();
-    gpio::init_bmi088_interrupts();
-
-    usb::vendor.init();
 }
 
 // Non-static to ensure instantiation
@@ -53,11 +48,10 @@ App::App() {
         usb::vendor->try_transmit();
         i2c::i2c0->try_flush_uplink();
         usb::vendor->try_transmit();
-        uart::uart0->try_transmit();
-        uart::uart1->try_transmit();
-        uart::uart2->try_transmit();
-        uart::uart3->try_transmit();
         uart::uart_dbus->try_transmit();
+
+        for (auto& board_uart : uart::uart_array)
+            board_uart->try_transmit();
     }
 }
 

@@ -4,11 +4,11 @@
 #include <cstdint>
 
 #include <board.h>
-#include <hpm_gpio_regs.h>
-#include <hpm_soc.h>
 
+#include "board_app.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
+#include "firmware/rmcs_board/app/src/gpio/gpio_pin.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/base.hpp"
 #include "firmware/rmcs_board/app/src/spi/spi.hpp"
 #include "firmware/rmcs_board/app/src/usb/vendor.hpp"
@@ -43,7 +43,7 @@ class Gyroscope final
     : public GyroscopeTraits
     , private Bmi088Base<GyroscopeTraits> {
 public:
-    using Lazy = utility::Lazy<Gyroscope, Spi::Lazy*, ChipSelectPin>;
+    using Lazy = utility::Lazy<Gyroscope, Spi::Lazy*, GpioPin>;
 
     enum class DataRange : uint8_t {
         k2000 = 0x00,
@@ -64,7 +64,7 @@ public:
     };
 
     explicit Gyroscope(
-        Spi::Lazy* spi, ChipSelectPin chip_select, DataRange range = DataRange::k2000,
+        Spi::Lazy* spi, const GpioPin& chip_select, DataRange range = DataRange::k2000,
         DataRateAndBandwidth rate = DataRateAndBandwidth::k2000And230)
         : Bmi088Base(spi, chip_select) {
 
@@ -116,7 +116,6 @@ private:
     }
 };
 
-inline Gyroscope::Lazy gyroscope(
-    &spi::spi2, ChipSelectPin{.gpio_base = HPM_GPIO0_BASE, .port = GPIO_DO_GPIOB, .pin = 10});
+inline Gyroscope::Lazy gyroscope(&spi::spi_bmi088, board::kBmi088GyroChipSelectPin);
 
 } // namespace librmcs::firmware::spi::bmi088

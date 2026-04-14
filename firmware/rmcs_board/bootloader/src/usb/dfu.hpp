@@ -122,7 +122,12 @@ public:
 
     [[noreturn]] static void detach() {
         boot::BootMailbox::clear();
+
+#if LIBRMCS_BOOTLOADER_MODE_AUTO
         boot::BootMailbox::reboot();
+#else
+        boot::BootMailbox::reboot_to_app_once();
+#endif
     }
 
     void poll() const {

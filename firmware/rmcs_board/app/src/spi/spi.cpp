@@ -1,26 +1,9 @@
 #include "firmware/rmcs_board/app/src/spi/spi.hpp"
 
-#include <cstdint>
+#include "board_app.hpp"
 
-#include <hpm_soc.h>
-#include <hpm_soc_irq.h>
-#include <hpm_spi_drv.h>
-#include <hpm_spi_regs.h>
+namespace librmcs::firmware::board {
 
-namespace librmcs::firmware::spi {
+void spi_bmi088_irq_handler() { spi::spi_bmi088->irq_handler(); }
 
-SDK_DECLARE_EXT_ISR_M(IRQn_SPI2, spi2_isr)
-void spi2_isr() {
-    SPI_Type* base = HPM_SPI2;
-    const uint32_t flags = spi_get_interrupt_status(base);
-
-    if (!flags) [[unlikely]]
-        return;
-
-    if (flags & spi_end_int)
-        spi2->transmit_receive_async_callback();
-
-    spi_clear_interrupt_status(base, flags);
-}
-
-} // namespace librmcs::firmware::spi
+} // namespace librmcs::firmware::board

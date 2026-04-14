@@ -4,33 +4,24 @@
 #include <cstddef>
 #include <cstdint>
 
-#include <board.h>
 #include <hpm_common.h>
-#include <hpm_gpio_drv.h>
-#include <hpm_gpio_regs.h>
 #include <hpm_soc.h>
 #include <hpm_soc_feature.h>
-#include <hpm_soc_irq.h>
 #include <hpm_spi_drv.h>
 #include <hpm_spi_regs.h>
 
+#include "board_app.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
+#include "firmware/rmcs_board/app/src/gpio/gpio_pin.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::spi {
 
-struct ChipSelectPin {
-    uintptr_t gpio_base;
-    uint32_t port;
-    uint8_t pin;
-    bool active_low = true;
-};
-
 class SpiModule : private core::utility::Immovable {
 public:
     friend class Spi;
-    explicit SpiModule(ChipSelectPin chip_select_pin)
+    explicit SpiModule(const GpioPin& chip_select_pin)
         : chip_select_pin_(chip_select_pin) {}
 
     virtual ~SpiModule() = default;
@@ -38,7 +29,7 @@ public:
 protected:
     virtual void transmit_receive_async_callback(std::size_t size) = 0;
 
-    ChipSelectPin chip_select_pin_;
+    const GpioPin chip_select_pin_;
 };
 
 class Spi : private core::utility::Immovable {
@@ -49,10 +40,8 @@ public:
         : spi_base_(reinterpret_cast<SPI_Type*>(spi_base))
         , irq_num_(irq_num) {
 
-        board_init_spi_pins(spi_base_);
-
         spi_timing_config_t timing{};
-        timing.master_config.clk_src_freq_in_hz = board_init_spi_clock(spi_base_);
+        timing.master_config.clk_src_freq_in_hz = board::init_spi(spi_base_);
         timing.master_config.sclk_freq_in_hz = serial_clock_frequency;
         timing.master_config.cs2sclk = spi_cs2sclk_half_sclk_1;
         timing.master_config.csht = spi_csht_half_sclk_1;
@@ -132,6 +121,18 @@ public:
             module->transmit_receive_async_callback(tx_rx_size_);
     }
 
+    void irq_handler() {
+        const uint32_t flags = spi_get_interrupt_status(spi_base_);
+
+        if (!flags) [[unlikely]]
+            return;
+
+        if (flags & spi_end_int)
+            transmit_receive_async_callback();
+
+        spi_clear_interrupt_status(spi_base_, flags);
+    }
+
     void unlock() {
         core::utility::assert_debug_lazy([&]() noexcept { return is_locked(); });
         locking_.clear(std::memory_order::relaxed);
@@ -148,18 +149,14 @@ private:
         module_ = &module;
         tx_rx_size_ = size;
 
-        const auto& cs = module_->chip_select_pin_;
-        auto* gpio = reinterpret_cast<GPIO_Type*>(cs.gpio_base);
-        gpio_write_pin(gpio, cs.port, cs.pin, cs.active_low ? 0 : 1);
+        module_->chip_select_pin_.set_active(true);
     }
 
     SpiModule* finish_transfer() {
         if (!module_)
             return nullptr;
 
-        const auto& cs = module_->chip_select_pin_;
-        auto* gpio = reinterpret_cast<GPIO_Type*>(cs.gpio_base);
-        gpio_write_pin(gpio, cs.port, cs.pin, cs.active_low ? 1 : 0);
+        module_->chip_select_pin_.set_active(false);
 
         for (size_t i = 0; i < tx_rx_size_; i++)
             rx_buffer[i] = static_cast<std::byte>(spi_base_->DATA);
@@ -180,6 +177,7 @@ private:
     spi_control_config_t control_config_{};
 };
 
-inline constinit Spi::Lazy spi2{HPM_SPI2_BASE, IRQn_SPI2, 10'000'000}; // 10Mbps
+inline constinit Spi::Lazy spi_bmi088{
+    BOARD_SPI_BMI088(HPM_SPI, _BASE), BOARD_SPI_BMI088(IRQn_SPI, ), 10'000'000};
 
 } // namespace librmcs::firmware::spi

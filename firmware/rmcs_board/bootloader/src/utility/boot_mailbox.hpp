@@ -16,10 +16,15 @@ class BootMailbox {
 public:
     static void clear() { write_pair(0U, 0U); }
 
-    static bool consume_enter_dfu_request() {
-        const auto values = read_pair();
-        clear();
-        return values[0] == kMailboxMagic && values[1] == kMailboxRequestEnterDfu;
+    static bool consume_enter_dfu_request() { return consume_request(kMailboxRequestEnterDfu); }
+
+    static bool consume_boot_app_once_request() {
+        return consume_request(kMailboxRequestBootAppOnce);
+    }
+
+    [[noreturn]] static void reboot_to_app_once() {
+        write_pair(kMailboxMagic, kMailboxRequestBootAppOnce);
+        reboot();
     }
 
     [[noreturn]] static void reboot() {
@@ -31,8 +36,15 @@ public:
     }
 
 private:
-    static constexpr uint32_t kMailboxMagic = 0x524D4353U;           // "RMCS"
-    static constexpr uint32_t kMailboxRequestEnterDfu = 0x44465530U; // "DFU0"
+    static bool consume_request(uint32_t request) {
+        const auto values = read_pair();
+        clear();
+        return values[0] == kMailboxMagic && values[1] == request;
+    }
+
+    static constexpr uint32_t kMailboxMagic = 0x524D4353U;              // "RMCS"
+    static constexpr uint32_t kMailboxRequestEnterDfu = 0x44465530U;    // "DFU0"
+    static constexpr uint32_t kMailboxRequestBootAppOnce = 0x41505031U; // "APP1"
     static constexpr uint8_t kMagicGprIndex = 12U;
 
     static std::array<uint32_t, 2> read_pair() {
