@@ -103,7 +103,7 @@ public:
             static_cast<int>(data.slave_address),
             data.has_register ? static_cast<int>(data.reg_address) : -1,
             static_cast<int>(data.data_length));
-        callback_.i2c_error_callback(id, data.slave_address);
+        callback_.i2c_error_callback(id, data);
     }
 
     void error_callback() override {

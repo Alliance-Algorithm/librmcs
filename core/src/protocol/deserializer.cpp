@@ -351,6 +351,8 @@ coroutine::LifoTask<bool> Deserializer::process_i2c_field(FieldId field_id) {
     case I2cHeader::PayloadEnum::kReadRequest: {
         if (error_flag) [[unlikely]]
             co_return false;
+        if (data_length == 0) [[unlikely]]
+            co_return false;
 
         data::I2cReadConfigView data_view{};
         data_view.slave_address = slave_address;
