@@ -4,6 +4,8 @@
     "name": "librmcs-develop",
     "image": "qzhhhi/librmcs-develop:latest",
     "privileged": true,
+    // Avoid host-shell startup hooks during Dev Containers environment probing.
+    "userEnvProbe": "none",
     "mounts": [
         {
             "source": "/dev",
@@ -22,7 +24,8 @@
         }
     ],
     "onCreateCommand": "bash -c '[ -d /mnt/home/.codex ] && ln -sfn /mnt/home/.codex ~/.codex; [ -d /mnt/home/.claude ] && ln -sfn /mnt/home/.claude ~/.claude; true'",
-    "postCreateCommand": "bash -c '[ -d ~/.codex ] && sudo npm i -g @openai/codex; [ -d ~/.claude ] && curl -fsSL https://claude.ai/install.sh | bash && sudo ln -sf ~/.local/bin/claude /usr/local/bin/claude; true'",
+    // Personal CLI bootstrapping is opt-in to keep container creation fast and deterministic.
+    "postCreateCommand": "bash -c 'if [ \"${RMCS_DEVCONTAINER_INSTALL_USER_TOOLS:-0}\" = 1 ]; then if [ -d ~/.codex ] && ! command -v codex >/dev/null 2>&1; then sudo npm i -g @openai/codex; fi; if [ -d ~/.claude ] && ! command -v claude >/dev/null 2>&1; then curl -fsSL https://claude.ai/install.sh | bash && sudo ln -sf ~/.local/bin/claude /usr/local/bin/claude; fi; fi'",
     "containerEnv": {
         "DISPLAY": "${localEnv:DISPLAY}",
         "HTTP_PROXY": "${localEnv:HTTP_PROXY}",

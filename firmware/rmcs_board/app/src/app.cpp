@@ -45,7 +45,7 @@ App::App() {
     while (true) {
         tud_task();
         usb::vendor->try_transmit();
-        i2c::i2c0->try_flush_uplink();
+        i2c::i2c0->update();
         usb::vendor->try_transmit();
 
         for (auto& board_uart : uart::uart_array)

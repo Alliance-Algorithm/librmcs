@@ -9,6 +9,7 @@
 #include <span>
 
 #include <i2c.h>
+#include <main.h>
 #include <stm32f4xx_hal_def.h>
 #include <stm32f4xx_hal_dma.h>
 
@@ -71,6 +72,11 @@ public:
     void update() {
         try_flush_uplink();
 
+        data::I2cErrorView error{};
+        if (consume_deferred_recovery(error)) {
+            publish_error(error);
+        }
+
         if (transfer_state_.load(std::memory_order::acquire) != TransferState::kIdle)
             recover_timed_out_transfer();
 
@@ -107,14 +113,19 @@ public:
     }
 
     void error_callback() {
-        const auto state = transfer_state_.load(std::memory_order::acquire);
-        if (state == TransferState::kIdle)
-            return;
+        {
+            const utility::InterruptLockGuard guard;
+            if (transfer_state_.load(std::memory_order::relaxed) == TransferState::kIdle
+                || recovery_pending_.load(std::memory_order::relaxed)) {
+                return;
+            }
 
-        const auto error = make_error_view(active_request_);
-        finish_active_request();
-        try_start_next_request();
-        publish_error(error);
+            pending_recovery_error_ = make_error_view(active_request_);
+            recovery_pending_.store(true, std::memory_order::release);
+            transfer_start_timepoint_ = timer::Timer::TimePoint::min();
+            clear_stale_irq_sources_locked();
+            transfer_state_.store(TransferState::kIdle, std::memory_order::release);
+        }
     }
 
 private:
@@ -300,12 +311,16 @@ private:
     }
 
     void try_start_next_request() {
+        if (recovery_pending_.load(std::memory_order::acquire))
+            return;
         if (transfer_state_.load(std::memory_order::acquire) != TransferState::kIdle)
             return;
 
         Request request{};
         {
             const utility::InterruptLockGuard guard;
+            if (recovery_pending_.load(std::memory_order::relaxed))
+                return;
             if (transfer_state_.load(std::memory_order::relaxed) != TransferState::kIdle)
                 return;
 
@@ -398,7 +413,79 @@ private:
         abort_dma_if_enabled(hal_i2c_handle_->hdmatx);
         core::utility::assert_always(HAL_I2C_DeInit(hal_i2c_handle_) == HAL_OK);
         core::utility::assert_always(HAL_I2C_Init(hal_i2c_handle_) == HAL_OK);
+        clear_stale_irq_sources_locked();
         finish_active_request_locked();
+    }
+
+    static IRQn_Type i2c_event_irqn(const I2C_TypeDef* instance) {
+        if (instance == I2C1)
+            return I2C1_EV_IRQn;
+        if (instance == I2C2)
+            return I2C2_EV_IRQn;
+        if (instance == I2C3)
+            return I2C3_EV_IRQn;
+
+        core::utility::assert_failed_debug();
+    }
+
+    static IRQn_Type i2c_error_irqn(const I2C_TypeDef* instance) {
+        if (instance == I2C1)
+            return I2C1_ER_IRQn;
+        if (instance == I2C2)
+            return I2C2_ER_IRQn;
+        if (instance == I2C3)
+            return I2C3_ER_IRQn;
+
+        core::utility::assert_failed_debug();
+    }
+
+    static IRQn_Type dma_stream_irqn(const DMA_Stream_TypeDef* instance) {
+        if (instance == DMA1_Stream0)
+            return DMA1_Stream0_IRQn;
+        if (instance == DMA1_Stream1)
+            return DMA1_Stream1_IRQn;
+        if (instance == DMA1_Stream2)
+            return DMA1_Stream2_IRQn;
+        if (instance == DMA1_Stream3)
+            return DMA1_Stream3_IRQn;
+        if (instance == DMA1_Stream4)
+            return DMA1_Stream4_IRQn;
+        if (instance == DMA1_Stream5)
+            return DMA1_Stream5_IRQn;
+        if (instance == DMA1_Stream6)
+            return DMA1_Stream6_IRQn;
+        if (instance == DMA1_Stream7)
+            return DMA1_Stream7_IRQn;
+        if (instance == DMA2_Stream0)
+            return DMA2_Stream0_IRQn;
+        if (instance == DMA2_Stream1)
+            return DMA2_Stream1_IRQn;
+        if (instance == DMA2_Stream2)
+            return DMA2_Stream2_IRQn;
+        if (instance == DMA2_Stream3)
+            return DMA2_Stream3_IRQn;
+        if (instance == DMA2_Stream4)
+            return DMA2_Stream4_IRQn;
+        if (instance == DMA2_Stream5)
+            return DMA2_Stream5_IRQn;
+        if (instance == DMA2_Stream6)
+            return DMA2_Stream6_IRQn;
+        if (instance == DMA2_Stream7)
+            return DMA2_Stream7_IRQn;
+
+        core::utility::assert_failed_debug();
+    }
+
+    void clear_stale_irq_sources_locked() {
+        __HAL_I2C_DISABLE_IT(hal_i2c_handle_, I2C_IT_EVT | I2C_IT_BUF | I2C_IT_ERR);
+        CLEAR_BIT(hal_i2c_handle_->Instance->CR2, I2C_CR2_DMAEN);
+        __HAL_I2C_CLEAR_FLAG(
+            hal_i2c_handle_, I2C_FLAG_OVR | I2C_FLAG_AF | I2C_FLAG_ARLO | I2C_FLAG_BERR);
+
+        NVIC_ClearPendingIRQ(i2c_event_irqn(hal_i2c_handle_->Instance));
+        NVIC_ClearPendingIRQ(i2c_error_irqn(hal_i2c_handle_->Instance));
+        NVIC_ClearPendingIRQ(dma_stream_irqn(hal_i2c_handle_->hdmarx->Instance));
+        NVIC_ClearPendingIRQ(dma_stream_irqn(hal_i2c_handle_->hdmatx->Instance));
     }
 
     void finish_active_request_locked() {
@@ -406,6 +493,18 @@ private:
         active_request_ = {};
         transfer_start_timepoint_ = timer::Timer::TimePoint::min();
         transfer_state_.store(TransferState::kIdle, std::memory_order::release);
+    }
+
+    bool consume_deferred_recovery(data::I2cErrorView& error) {
+        const utility::InterruptLockGuard guard;
+        if (!recovery_pending_.load(std::memory_order::relaxed))
+            return false;
+
+        recovery_pending_.store(false, std::memory_order::relaxed);
+        error = pending_recovery_error_;
+        pending_recovery_error_ = {};
+        recover_active_request_locked();
+        return true;
     }
 
     bool enqueue_read_result_uplink(const Request& request, std::span<const std::byte> payload) {
@@ -563,6 +662,8 @@ private:
     utility::RingBuffer<Request, kRequestQueueSize> request_queue_;
     Request active_request_{};
     std::atomic<TransferState> transfer_state_{TransferState::kIdle};
+    std::atomic<bool> recovery_pending_{false};
+    data::I2cErrorView pending_recovery_error_{};
     timer::Timer::TimePoint transfer_start_timepoint_{timer::Timer::TimePoint::min()};
 
     uint8_t payload_chunk_head_{0};

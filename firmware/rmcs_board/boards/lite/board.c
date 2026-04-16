@@ -4,6 +4,7 @@
 
 #include <hpm_clock_drv.h>
 #include <hpm_common.h>
+#include <hpm_i2c_drv.h>
 #include <hpm_ioc_regs.h>
 #include <hpm_pcfg_drv.h>
 #include <hpm_pllctlv2_drv.h>
@@ -27,6 +28,9 @@ __attribute__((used)) const uint32_t kUf2Signature = BOARD_UF2_SIGNATURE;
 static inline void init_py_pins_as_soc_gpio(void);
 static inline void board_init_clock(void);
 static inline void board_init_usb_dp_dm_pins(void);
+static inline void board_init_i2c_pins(I2C_Type* ptr);
+static uint32_t board_init_i2c_clock(I2C_Type* ptr);
+static bool board_i2c_bus_clear(I2C_Type* ptr);
 
 void board_init(void) {
     init_py_pins_as_soc_gpio();
@@ -117,6 +121,40 @@ static inline void board_init_usb_dp_dm_pins(void) {
     }
 }
 
+static inline void board_init_i2c_pins(I2C_Type* ptr) {
+    if (ptr == HPM_I2C0) {
+        HPM_IOC->PAD[IOC_PAD_PA18].FUNC_CTL =
+            IOC_PA18_FUNC_CTL_I2C0_SCL | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;
+        HPM_IOC->PAD[IOC_PAD_PA18].PAD_CTL =
+            IOC_PAD_PAD_CTL_OD_SET(1) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1);
+
+        HPM_IOC->PAD[IOC_PAD_PA19].FUNC_CTL = IOC_PA19_FUNC_CTL_I2C0_SDA;
+        HPM_IOC->PAD[IOC_PAD_PA19].PAD_CTL =
+            IOC_PAD_PAD_CTL_OD_SET(1) | IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1);
+    }
+}
+
+static uint32_t board_init_i2c_clock(I2C_Type* ptr) {
+    if (ptr == HPM_I2C0) {
+        clock_add_to_group(clock_i2c0, 0);
+        return clock_get_frequency(clock_i2c0);
+    }
+
+    return 0;
+}
+
+static bool board_i2c_bus_clear(I2C_Type* ptr) {
+    if (i2c_get_line_scl_status(ptr) == false)
+        return false;
+    if (i2c_get_line_sda_status(ptr) == true)
+        return true;
+
+    i2c_gen_reset_signal(ptr, 9);
+    board_delay_ms(100);
+
+    return i2c_get_line_scl_status(ptr) && i2c_get_line_sda_status(ptr);
+}
+
 void board_init_usb(void) {
     // No USB_ID & USB_OC & USB_VBUS pinout in this board
     clock_add_to_group(clock_usb0, 0);
@@ -130,3 +168,18 @@ void board_init_usb(void) {
 void board_delay_us(uint32_t us) { clock_cpu_delay_us(us); }
 
 void board_delay_ms(uint32_t ms) { clock_cpu_delay_ms(ms); }
+
+bool board_init_i2c(I2C_Type* ptr) {
+    i2c_config_t config;
+    const uint32_t freq = board_init_i2c_clock(ptr);
+
+    if (freq == 0)
+        return false;
+
+    board_init_i2c_pins(ptr);
+    if (!board_i2c_bus_clear(ptr))
+        return false;
+    config.i2c_mode = i2c_mode_normal;
+    config.is_10bit_addressing = false;
+    return i2c_init_master(ptr, freq, &config) == status_success;
+}

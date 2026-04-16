@@ -4,6 +4,7 @@
 __pycache__/
 
 build/
+firmware/rmcs_board/build-lite/
 compile_commands.json
 
 .devcontainer/.zsh_history

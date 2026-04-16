@@ -14,6 +14,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/../../common/cmake/librmcs_firmware.cmake")
 set(HPM_BUILD_TYPE "flash_uf2" CACHE STRING "HPM build type")
 
 set(CONFIG_DMA_MGR 1)
+set(CONFIG_HPM_I2C 1)
 set(CONFIG_TINYUSB 1)
 set(CONFIG_USB_DEVICE 1)
 set(CONFIG_USB_DEVICE_VENDOR 1)

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include <hpm_common.h>
@@ -21,6 +22,7 @@ extern "C" {
 
 void board_init(void);
 void board_init_usb(void);
+bool board_init_i2c(I2C_Type* ptr);
 
 void board_delay_us(uint32_t us);
 void board_delay_ms(uint32_t ms);
