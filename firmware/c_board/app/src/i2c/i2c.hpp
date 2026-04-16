@@ -14,6 +14,7 @@
 #include <stm32f4xx_hal_dma.h>
 
 #include "core/include/librmcs/data/datas.hpp"
+#include "core/include/librmcs/protocol/i2c.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
@@ -129,7 +130,7 @@ public:
     }
 
 private:
-    static constexpr uint16_t kMaxDataLength = (1U << 9) - 1U;
+    static constexpr uint16_t kMaxDataLength = protocol::kI2cMaxDataLength;
     static constexpr size_t kRequestQueueSize = 32;
     static constexpr size_t kPendingUplinkQueueSize = 32;
     static constexpr size_t kPayloadChunkSize = 64;

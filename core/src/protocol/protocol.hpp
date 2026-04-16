@@ -1,8 +1,10 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "core/include/librmcs/data/datas.hpp"
+#include "core/include/librmcs/protocol/i2c.hpp"
 #include "core/src/utility/bitfield.hpp"
 
 namespace librmcs::core::protocol {
@@ -143,6 +145,12 @@ struct I2cHeader : utility::Bitfield<3> {
     using ErrorFlag = utility::BitfieldMember<7, 1>;
     using SlaveAddress = utility::BitfieldMember<8, 7>;
     using DataLength = utility::BitfieldMember<15, 9>;
+
+    static constexpr std::size_t kDataLengthBits = DataLength::kBitWidth;
+    static constexpr std::uint16_t kMaxDataLength = librmcs::protocol::kI2cMaxDataLength;
+
+    static_assert(kDataLengthBits == librmcs::protocol::kI2cDataLengthBits);
+    static_assert(kMaxDataLength == ((1U << kDataLengthBits) - 1U));
 };
 
 } // namespace librmcs::core::protocol

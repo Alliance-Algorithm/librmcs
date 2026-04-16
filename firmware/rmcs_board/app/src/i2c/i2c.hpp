@@ -21,6 +21,7 @@
 #include <hpm_soc_feature.h>
 
 #include "core/include/librmcs/data/datas.hpp"
+#include "core/include/librmcs/protocol/i2c.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
@@ -85,7 +86,7 @@ public:
     void dma_complete_callback() { dma_complete_.store(true, std::memory_order::release); }
 
 private:
-    static constexpr uint16_t kMaxDataLength = (1U << 9) - 1U;
+    static constexpr uint16_t kMaxDataLength = protocol::kI2cMaxDataLength;
     static constexpr size_t kRequestQueueSize = 32;
     static constexpr size_t kBlockedUplinkQueueSize = 4;
     static constexpr size_t kPendingUplinkQueueSize = 32;
@@ -443,7 +444,6 @@ private:
             blocked_uplink_tail_ = advance_blocked_uplink_index(blocked_uplink_tail_);
             blocked_uplink_count_ = static_cast<uint8_t>(blocked_uplink_count_ - 1);
         }
-        return true;
     }
 
     bool try_flush_retained_uplink() {

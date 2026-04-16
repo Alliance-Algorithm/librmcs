@@ -573,7 +573,7 @@ private:
         FieldId field_id, I2cHeader::PayloadEnum payload, std::size_t data_len,
         bool has_register) noexcept {
         LIBRMCS_VERIFY_LIKELY(is_i2c_field_id(field_id), 0);
-        LIBRMCS_VERIFY_LIKELY(data_len <= ((1U << 9) - 1U), 0);
+        LIBRMCS_VERIFY_LIKELY(data_len <= I2cHeader::kMaxDataLength, 0);
         switch (payload) {
         case I2cHeader::PayloadEnum::kWrite:
         case I2cHeader::PayloadEnum::kReadRequest: LIBRMCS_VERIFY_LIKELY(data_len != 0, 0); break;

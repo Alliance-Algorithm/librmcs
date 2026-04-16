@@ -127,11 +127,11 @@ public:
 
     virtual bool i2c_receive_callback(DataId id, const I2cDataView& data) = 0;
 
-    virtual void i2c_error_callback(DataId id, const I2cErrorView& data) {
-        i2c_error_callback(id, data.slave_address);
-    }
+    virtual void i2c_error_callback(DataId id, const I2cErrorView& data) = 0;
 
-    virtual void i2c_error_callback(DataId id, uint8_t slave_address) = 0;
+    virtual void i2c_error_callback(DataId id, uint8_t slave_address) {
+        i2c_error_callback(id, I2cErrorView{.slave_address = slave_address});
+    }
 };
 
 } // namespace librmcs::data
