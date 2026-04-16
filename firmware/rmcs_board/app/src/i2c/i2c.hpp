@@ -12,10 +12,13 @@
 #include <hpm_clock_drv.h>
 #include <hpm_common.h>
 #include <hpm_csr_drv.h>
+#include <hpm_dma_mgr.h>
 #include <hpm_i2c.h>
+#include <hpm_i2c_drv.h>
 #include <hpm_i2c_regs.h>
 #include <hpm_l1c_drv.h>
 #include <hpm_soc.h>
+#include <hpm_soc_feature.h>
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/serializer.hpp"
@@ -36,13 +39,10 @@ public:
 
     explicit I2c(data::DataId data_id, uintptr_t i2c_base)
         : data_id_(data_id)
-        , i2c_base_(reinterpret_cast<I2C_Type*>(i2c_base)) {
-        hpm_i2c_get_default_init_context(&i2c_context_);
-        i2c_context_.base = i2c_base_;
-
-        initialized_ = board_init_i2c(i2c_base_);
-        dma_ready_ = install_dma_callback();
-    }
+        , i2c_base_(reinterpret_cast<I2C_Type*>(i2c_base))
+        , i2c_context_(make_i2c_context(i2c_base_))
+        , initialized_(board_init_i2c(i2c_base_))
+        , dma_ready_(install_dma_callback_for_context(i2c_context_)) {}
 
     void handle_downlink_write(const data::I2cDataView& data) {
         if (data.payload.empty())
@@ -190,6 +190,23 @@ private:
         return static_cast<uint8_t>((index + 1) & kBlockedUplinkQueueMask);
     }
 
+    static hpm_i2c_context_t make_i2c_context(I2C_Type* i2c_base) {
+        hpm_i2c_context_t context{};
+        hpm_i2c_get_default_init_context(&context);
+        context.base = i2c_base;
+        return context;
+    }
+
+    static bool install_dma_callback_for_context(hpm_i2c_context_t& i2c_context) {
+        if (hpm_i2c_dma_mgr_install_callback(&i2c_context, i2c_dma_complete_callback)
+            != status_success) {
+            return false;
+        }
+
+        const auto* resource = hpm_i2c_get_dma_mgr_resource(&i2c_context);
+        return resource != nullptr && resource->base != nullptr;
+    }
+
     static void cache_writeback_buffer(const std::byte* buffer, uint32_t size) {
         if (!l1c_dc_is_enabled() || size == 0)
             return;
@@ -302,13 +319,7 @@ private:
         if (dma_ready_)
             return true;
 
-        if (hpm_i2c_dma_mgr_install_callback(&i2c_context_, i2c_dma_complete_callback)
-            != status_success) {
-            return false;
-        }
-
-        const auto* resource = hpm_i2c_get_dma_mgr_resource(&i2c_context_);
-        dma_ready_ = resource != nullptr && resource->base != nullptr;
+        dma_ready_ = install_dma_callback_for_context(i2c_context_);
         return dma_ready_;
     }
 
@@ -414,7 +425,7 @@ private:
 
     bool try_flush_blocked_uplink() {
         while (true) {
-            PendingUplink* blocked = nullptr;
+            const PendingUplink* blocked = nullptr;
             {
                 const utility::InterruptLockGuard guard;
                 if (blocked_uplink_count_ == 0)
@@ -654,7 +665,7 @@ private:
 
     void try_flush_uplink() {
         while (true) {
-            PendingUplink* pending = nullptr;
+            const PendingUplink* pending = nullptr;
             {
                 const utility::InterruptLockGuard guard;
                 if (pending_uplink_count_ == 0)
