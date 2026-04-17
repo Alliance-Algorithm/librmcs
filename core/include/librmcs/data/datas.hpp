@@ -129,7 +129,7 @@ public:
 
     virtual void i2c_error_callback(DataId id, const I2cErrorView& data) = 0;
 
-    void i2c_error_callback(DataId id, uint8_t slave_address) {
+    void i2c_error_from_slave_address(DataId id, uint8_t slave_address) {
         i2c_error_callback(id, I2cErrorView{.slave_address = slave_address});
     }
 };

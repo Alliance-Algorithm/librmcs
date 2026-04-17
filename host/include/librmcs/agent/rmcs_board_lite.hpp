@@ -144,14 +144,16 @@ private:
         }
     }
 
+protected:
     virtual void i2c0_receive_callback(const librmcs::data::I2cDataView& data) { (void)data; }
 
     virtual void i2c0_error_callback(const librmcs::data::I2cErrorView& data) { (void)data; }
 
-    void i2c0_error_callback(uint8_t slave_address) {
+    void i2c0_error_from_slave_address(uint8_t slave_address) {
         i2c0_error_callback(librmcs::data::I2cErrorView{.slave_address = slave_address});
     }
 
+private:
     host::protocol::Handler handler_;
 };
 
