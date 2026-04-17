@@ -164,7 +164,7 @@ protected:
     virtual void i2c0_error_callback(const librmcs::data::I2cErrorView& data) { (void)data; }
 
     void i2c0_error_from_slave_address(uint8_t slave_address) {
-        i2c0_error_callback(librmcs::data::I2cErrorView{.slave_address = slave_address});
+        data::DataCallback::i2c_error_from_slave_address(data::DataId::kI2c0, slave_address);
     }
 
 private:
