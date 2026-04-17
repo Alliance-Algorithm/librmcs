@@ -158,20 +158,11 @@ private:
         }
     }
 
-    void i2c_error_callback(data::DataId id, uint8_t slave_address) final {
-        switch (id) {
-        case data::DataId::kI2c0:
-            i2c0_error_callback(data::I2cErrorView{.slave_address = slave_address});
-            break;
-        default: break;
-        }
-    }
-
     virtual void i2c0_receive_callback(const librmcs::data::I2cDataView& data) { (void)data; }
 
     virtual void i2c0_error_callback(const librmcs::data::I2cErrorView& data) { (void)data; }
 
-    virtual void i2c0_error_callback(uint8_t slave_address) {
+    void i2c0_error_callback(uint8_t slave_address) {
         i2c0_error_callback(librmcs::data::I2cErrorView{.slave_address = slave_address});
     }
 
