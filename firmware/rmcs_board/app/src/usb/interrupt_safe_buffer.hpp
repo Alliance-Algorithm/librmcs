@@ -13,6 +13,10 @@
 
 namespace librmcs::firmware::usb {
 
+// Override this weak hook in board-specific code to surface uplink congestion.
+// The hook may run in interrupt context, so implementations must be IRQ-safe.
+extern "C" void librmcs_usb_uplink_buffer_full_hook() noexcept;
+
 class InterruptSafeBuffer final
     : public core::protocol::SerializeBuffer
     , private core::utility::Immovable {
@@ -42,7 +46,7 @@ public:
 
             auto writeable = kBatchCount - readable - 1;
             if (!writeable) {
-                // TODO: buffer full indication hook (LED/log); platform pending.
+                librmcs_usb_uplink_buffer_full_hook();
                 return {};
             }
 
@@ -89,7 +93,7 @@ public:
         if (batch.empty())
             return nullptr;
 
-        std::atomic_signal_fence(std::memory_order_release);
+        std::atomic_signal_fence(std::memory_order::release);
         out_.store(out + 1, std::memory_order::relaxed);
 
         return &batch;
@@ -116,7 +120,7 @@ public:
         for (size_t i = 0; i < readable - slice; i++)
             batches_[i].reset();
 
-        std::atomic_signal_fence(std::memory_order_release);
+        std::atomic_signal_fence(std::memory_order::release);
         out_.store(in, std::memory_order::relaxed);
     }
 

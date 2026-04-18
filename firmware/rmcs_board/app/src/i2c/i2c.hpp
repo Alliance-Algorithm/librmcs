@@ -17,7 +17,6 @@
 #include <hpm_i2c_drv.h>
 #include <hpm_i2c_regs.h>
 #include <hpm_l1c_drv.h>
-#include <hpm_soc.h>
 #include <hpm_soc_feature.h>
 
 #include "core/include/librmcs/data/datas.hpp"
@@ -717,13 +716,14 @@ private:
     std::array<PendingUplink, kPendingUplinkQueueSize> pending_uplinks_{};
 };
 
-// Convert I2C pointer to base address
-// Some boards define BOARD_APP_I2C_BASE as pointer (HPM_I2Cx), others don't define it
-#ifndef BOARD_APP_I2C_BASE
-inline constinit I2c::Lazy i2c0{data::DataId::kI2c0, HPM_I2C0_BASE};
-#else
+// Board headers should provide an integer-form I2C base address macro.
+#if defined(BOARD_APP_I2C_BASE_ADDR)
 inline constinit I2c::Lazy i2c0{
-    data::DataId::kI2c0, reinterpret_cast<uintptr_t>(BOARD_APP_I2C_BASE)};
+    data::DataId::kI2c0, static_cast<uintptr_t>(BOARD_APP_I2C_BASE_ADDR)};
+#elif defined(BOARD_APP_I2C_BASE)
+# error "BOARD_APP_I2C_BASE unsupported; define BOARD_APP_I2C_BASE_ADDR."
+#else
+inline constinit I2c::Lazy i2c0{data::DataId::kI2c0, static_cast<uintptr_t>(HPM_I2C0_BASE)};
 #endif
 
 } // namespace librmcs::firmware::i2c

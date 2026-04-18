@@ -160,12 +160,14 @@ private:
 
     void i2c_read_result_deserialized_callback(
         core::protocol::FieldId id, const data::I2cDataView& data) override {
+        // Downlink I2C read-result frames are ignored by design (uplink-only payload type).
         (void)id;
         (void)data;
     }
 
     void i2c_error_deserialized_callback(
         core::protocol::FieldId id, const data::I2cErrorView& data) override {
+        // Downlink I2C error frames are ignored by design (uplink-only payload type).
         (void)id;
         (void)data;
     }

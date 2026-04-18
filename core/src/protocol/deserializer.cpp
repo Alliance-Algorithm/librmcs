@@ -310,6 +310,8 @@ coroutine::LifoTask<bool> Deserializer::process_i2c_field(FieldId field_id) {
         consume_peeked();
     }
 
+    // Defense in depth: structurally unreachable with current 7-bit protocol layout,
+    // but keep a runtime guard in case future wire format changes bypass assumptions.
     if (slave_address > 0x7F) [[unlikely]]
         co_return false;
 

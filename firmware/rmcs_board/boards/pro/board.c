@@ -171,7 +171,7 @@ void board_delay_us(uint32_t us) { clock_cpu_delay_us(us); }
 void board_delay_ms(uint32_t ms) { clock_cpu_delay_ms(ms); }
 
 bool board_init_i2c(I2C_Type* ptr) {
-    i2c_config_t config;
+    i2c_config_t config = {.i2c_mode = i2c_mode_normal, .is_10bit_addressing = false};
     const uint32_t freq = board_init_i2c_clock(ptr);
 
     if (freq == 0)
@@ -180,7 +180,5 @@ bool board_init_i2c(I2C_Type* ptr) {
     board_init_i2c_pins(ptr);
     if (!board_i2c_bus_clear(ptr))
         return false;
-    config.i2c_mode = i2c_mode_normal;
-    config.is_10bit_addressing = false;
     return i2c_init_master(ptr, freq, &config) == status_success;
 }

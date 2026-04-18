@@ -146,9 +146,11 @@ struct I2cHeader : utility::Bitfield<3> {
     using SlaveAddress = utility::BitfieldMember<8, 7>;
     using DataLength = utility::BitfieldMember<15, 9>;
 
+    static constexpr std::size_t kSlaveAddressBits = SlaveAddress::kBitWidth;
     static constexpr std::size_t kDataLengthBits = DataLength::kBitWidth;
     static constexpr std::uint16_t kMaxDataLength = librmcs::protocol::kI2cMaxDataLength;
 
+    static_assert(kSlaveAddressBits == 7);
     static_assert(kDataLengthBits == librmcs::protocol::kI2cDataLengthBits);
     static_assert(kMaxDataLength == ((1U << kDataLengthBits) - 1U));
 };
