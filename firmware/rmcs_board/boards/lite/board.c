@@ -144,9 +144,7 @@ static uint32_t board_init_i2c_clock(I2C_Type* ptr) {
 }
 
 static bool board_i2c_bus_clear(I2C_Type* ptr) {
-    if (i2c_get_line_scl_status(ptr) == false)
-        return false;
-    if (i2c_get_line_sda_status(ptr) == true)
+    if (i2c_get_line_scl_status(ptr) && i2c_get_line_sda_status(ptr))
         return true;
 
     i2c_gen_reset_signal(ptr, 9);
