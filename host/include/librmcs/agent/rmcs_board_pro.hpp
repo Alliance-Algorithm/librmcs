@@ -1,17 +1,16 @@
 #pragma once
 
-#include <cstdint>
 #include <stdexcept>
 #include <string_view>
 
 #include <librmcs/agent/common.hpp>
+#include <librmcs/agent/detail/i2c0_common.hpp>
 #include <librmcs/data/datas.hpp>
 #include <librmcs/protocol/handler.hpp>
-#include <librmcs/protocol/i2c.hpp>
 
 namespace librmcs::agent {
 
-class RmcsBoardPro : private data::DataCallback {
+class RmcsBoardPro : private detail::SingleI2c0DataCallback {
 public:
     explicit RmcsBoardPro(std::string_view serial_filter = {}, const AdvancedOptions& options = {})
         : handler_(0xA11C, 0xAF01, serial_filter, options, *this) {}
@@ -22,77 +21,55 @@ public:
     RmcsBoardPro& operator=(RmcsBoardPro&&) = delete;
     ~RmcsBoardPro() override = default;
 
-    class PacketBuilder {
+    class PacketBuilder : public detail::I2c0PacketBuilderMixin<PacketBuilder> {
         friend class RmcsBoardPro;
 
     public:
-        static constexpr uint16_t kI2cMaxDataLength = librmcs::protocol::kI2cMaxDataLength;
-
         PacketBuilder& can0_transmit(const librmcs::data::CanDataView& data) {
-            if (!builder_.write_can(data::DataId::kCan0, data)) [[unlikely]]
+            if (!this->builder_.write_can(data::DataId::kCan0, data)) [[unlikely]]
                 throw std::invalid_argument{"CAN0 transmission failed: Invalid CAN data"};
             return *this;
         }
         PacketBuilder& can1_transmit(const librmcs::data::CanDataView& data) {
-            if (!builder_.write_can(data::DataId::kCan1, data)) [[unlikely]]
+            if (!this->builder_.write_can(data::DataId::kCan1, data)) [[unlikely]]
                 throw std::invalid_argument{"CAN1 transmission failed: Invalid CAN data"};
             return *this;
         }
         PacketBuilder& can2_transmit(const librmcs::data::CanDataView& data) {
-            if (!builder_.write_can(data::DataId::kCan2, data)) [[unlikely]]
+            if (!this->builder_.write_can(data::DataId::kCan2, data)) [[unlikely]]
                 throw std::invalid_argument{"CAN2 transmission failed: Invalid CAN data"};
             return *this;
         }
         PacketBuilder& can3_transmit(const librmcs::data::CanDataView& data) {
-            if (!builder_.write_can(data::DataId::kCan3, data)) [[unlikely]]
+            if (!this->builder_.write_can(data::DataId::kCan3, data)) [[unlikely]]
                 throw std::invalid_argument{"CAN3 transmission failed: Invalid CAN data"};
             return *this;
         }
 
         PacketBuilder& uart0_transmit(const librmcs::data::UartDataView& data) {
-            if (!builder_.write_uart(data::DataId::kUart0, data)) [[unlikely]]
+            if (!this->builder_.write_uart(data::DataId::kUart0, data)) [[unlikely]]
                 throw std::invalid_argument{"UART0 transmission failed: Invalid UART data"};
             return *this;
         }
         PacketBuilder& uart1_transmit(const librmcs::data::UartDataView& data) {
-            if (!builder_.write_uart(data::DataId::kUart1, data)) [[unlikely]]
+            if (!this->builder_.write_uart(data::DataId::kUart1, data)) [[unlikely]]
                 throw std::invalid_argument{"UART1 transmission failed: Invalid UART data"};
             return *this;
         }
         PacketBuilder& uart2_transmit(const librmcs::data::UartDataView& data) {
-            if (!builder_.write_uart(data::DataId::kUart2, data)) [[unlikely]]
+            if (!this->builder_.write_uart(data::DataId::kUart2, data)) [[unlikely]]
                 throw std::invalid_argument{"UART2 transmission failed: Invalid UART data"};
             return *this;
         }
         PacketBuilder& uart3_transmit(const librmcs::data::UartDataView& data) {
-            if (!builder_.write_uart(data::DataId::kUart3, data)) [[unlikely]]
+            if (!this->builder_.write_uart(data::DataId::kUart3, data)) [[unlikely]]
                 throw std::invalid_argument{"UART3 transmission failed: Invalid UART data"};
-            return *this;
-        }
-
-        PacketBuilder& i2c0_write(const librmcs::data::I2cDataView& data) {
-            if (data.payload.empty() || data.payload.size() > kI2cMaxDataLength
-                || data.slave_address > 0x7FU) [[unlikely]]
-                throw std::invalid_argument{"I2C0 write failed: Invalid I2C data"};
-            if (!builder_.write_i2c(data::DataId::kI2c0, data)) [[unlikely]]
-                throw std::runtime_error{"I2C0 write failed: Transmit buffer unavailable"};
-            return *this;
-        }
-
-        PacketBuilder& i2c0_read(const librmcs::data::I2cReadConfigView& data) {
-            if (data.read_length == 0 || data.read_length > kI2cMaxDataLength
-                || data.slave_address > 0x7FU) [[unlikely]]
-                throw std::invalid_argument{"I2C0 read failed: Invalid I2C read config"};
-            if (!builder_.write_i2c_read_config(data::DataId::kI2c0, data)) [[unlikely]]
-                throw std::runtime_error{"I2C0 read failed: Transmit buffer unavailable"};
             return *this;
         }
 
     private:
         explicit PacketBuilder(host::protocol::Handler& handler) noexcept
-            : builder_(handler.start_transmit()) {}
-
-        host::protocol::Handler::PacketBuilder builder_;
+            : detail::I2c0PacketBuilderMixin<PacketBuilder>(handler) {}
     };
     PacketBuilder start_transmit() noexcept { return PacketBuilder{handler_}; }
 
@@ -144,28 +121,10 @@ private:
         (void)data;
     }
 
-    bool i2c_receive_callback(data::DataId id, const data::I2cDataView& data) final {
-        switch (id) {
-        case data::DataId::kI2c0: i2c0_receive_callback(data); return true;
-        default: return false;
-        }
-    }
-
-    void i2c_error_callback(data::DataId id, const data::I2cErrorView& data) final {
-        switch (id) {
-        case data::DataId::kI2c0: i2c0_error_callback(data); break;
-        default: break;
-        }
-    }
-
 protected:
-    virtual void i2c0_receive_callback(const librmcs::data::I2cDataView& data) { (void)data; }
-
-    virtual void i2c0_error_callback(const librmcs::data::I2cErrorView& data) { (void)data; }
-
-    void i2c0_error_from_slave_address(uint8_t slave_address) {
-        data::DataCallback::i2c_error_from_slave_address(data::DataId::kI2c0, slave_address);
-    }
+    using detail::SingleI2c0DataCallback::i2c0_error_callback;
+    using detail::SingleI2c0DataCallback::i2c0_error_from_slave_address;
+    using detail::SingleI2c0DataCallback::i2c0_receive_callback;
 
 private:
     host::protocol::Handler handler_;
