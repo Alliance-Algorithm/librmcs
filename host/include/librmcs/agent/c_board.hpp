@@ -5,6 +5,7 @@
 #include <string_view>
 
 #include <librmcs/agent/common.hpp>
+#include <librmcs/agent/detail/i2c0_common.hpp>
 #include <librmcs/data/datas.hpp>
 #include <librmcs/protocol/handler.hpp>
 #include <librmcs/spec/c_board/gpio.hpp>
@@ -12,7 +13,7 @@
 
 namespace librmcs::agent {
 
-class CBoard : private data::DataCallback {
+class CBoard : private detail::SingleI2c0DataCallback {
 public:
     explicit CBoard(std::string_view serial_filter = {}, const AdvancedOptions& options = {})
         : handler_(0xA11C, 0xD401, serial_filter, options, *this) {}
@@ -23,28 +24,28 @@ public:
     CBoard& operator=(CBoard&&) = delete;
     ~CBoard() override = default;
 
-    class PacketBuilder {
+    class PacketBuilder : public detail::I2c0PacketBuilderMixin<PacketBuilder> {
         friend class CBoard;
 
     public:
         PacketBuilder& can1_transmit(const librmcs::data::CanDataView& data) {
-            if (!builder_.write_can(data::DataId::kCan1, data)) [[unlikely]]
+            if (!this->builder_.write_can(data::DataId::kCan1, data)) [[unlikely]]
                 throw std::invalid_argument{"CAN1 transmission failed: Invalid CAN data"};
             return *this;
         }
         PacketBuilder& can2_transmit(const librmcs::data::CanDataView& data) {
-            if (!builder_.write_can(data::DataId::kCan2, data)) [[unlikely]]
+            if (!this->builder_.write_can(data::DataId::kCan2, data)) [[unlikely]]
                 throw std::invalid_argument{"CAN2 transmission failed: Invalid CAN data"};
             return *this;
         }
 
         PacketBuilder& uart1_transmit(const librmcs::data::UartDataView& data) {
-            if (!builder_.write_uart(data::DataId::kUart1, data)) [[unlikely]]
+            if (!this->builder_.write_uart(data::DataId::kUart1, data)) [[unlikely]]
                 throw std::invalid_argument{"UART1 transmission failed: Invalid UART data"};
             return *this;
         }
         PacketBuilder& uart2_transmit(const librmcs::data::UartDataView& data) {
-            if (!builder_.write_uart(data::DataId::kUart2, data)) [[unlikely]]
+            if (!this->builder_.write_uart(data::DataId::kUart2, data)) [[unlikely]]
                 throw std::invalid_argument{"UART2 transmission failed: Invalid UART data"};
             return *this;
         }
@@ -77,9 +78,7 @@ public:
 
     private:
         explicit PacketBuilder(host::protocol::Handler& handler) noexcept
-            : builder_(handler.start_transmit()) {}
-
-        host::protocol::Handler::PacketBuilder builder_;
+            : detail::I2c0PacketBuilderMixin<PacketBuilder>(handler) {}
     };
     PacketBuilder start_transmit() noexcept { return PacketBuilder{handler_}; }
 
@@ -141,6 +140,12 @@ private:
         (void)data;
     }
 
+protected:
+    using detail::SingleI2c0DataCallback::i2c0_error_callback;
+    using detail::SingleI2c0DataCallback::i2c0_error_from_slave_address;
+    using detail::SingleI2c0DataCallback::i2c0_receive_callback;
+
+private:
     host::protocol::Handler handler_;
 };
 

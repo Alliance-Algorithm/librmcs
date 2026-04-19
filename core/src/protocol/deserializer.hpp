@@ -44,6 +44,16 @@ public:
 
     virtual void gyroscope_deserialized_callback(const data::GyroscopeDataView& data) = 0;
 
+    virtual void i2c_write_deserialized_callback(FieldId id, const data::I2cDataView& data) = 0;
+
+    virtual void
+        i2c_read_config_deserialized_callback(FieldId id, const data::I2cReadConfigView& data) = 0;
+
+    virtual void
+        i2c_read_result_deserialized_callback(FieldId id, const data::I2cDataView& data) = 0;
+
+    virtual void i2c_error_deserialized_callback(FieldId id, const data::I2cErrorView& data) = 0;
+
     virtual void error_callback() = 0;
 };
 
@@ -117,6 +127,8 @@ private:
     coroutine::LifoTask<bool> process_gpio_field(FieldId field_id);
 
     coroutine::LifoTask<bool> process_imu_field(FieldId field_id);
+
+    coroutine::LifoTask<bool> process_i2c_field(FieldId field_id);
 
     // Await until at least `size` contiguous bytes are available at the current read position.
     // Returns a pointer to a contiguous region of at least `size` bytes.

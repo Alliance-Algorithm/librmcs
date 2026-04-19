@@ -80,6 +80,36 @@ public:
         callback_.gyroscope_receive_callback(data);
     }
 
+    void i2c_write_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        (void)data;
+        logging::get_logger().error("Unexpected i2c write field in uplink: ", static_cast<int>(id));
+    }
+
+    void i2c_read_config_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cReadConfigView& data) override {
+        (void)data;
+        logging::get_logger().error(
+            "Unexpected i2c read request field in uplink: ", static_cast<int>(id));
+    }
+
+    void i2c_read_result_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        if (!callback_.i2c_receive_callback(id, data))
+            logging::get_logger().error("Unexpected i2c field id: ", static_cast<int>(id));
+    }
+
+    void i2c_error_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cErrorView& data) override {
+        logging::get_logger().error(
+            "I2C {} failed on field {} for slave address 0x{:02x} (reg={}, len={})",
+            data.is_read ? "read" : "write", static_cast<int>(id),
+            static_cast<int>(data.slave_address),
+            data.has_register ? static_cast<int>(data.reg_address) : -1,
+            static_cast<int>(data.data_length));
+        callback_.i2c_error_callback(id, data);
+    }
+
     void error_callback() override {
         logging::get_logger().error("Deserializer encountered an error while parsing input");
     }
@@ -106,7 +136,7 @@ struct PacketBuilderImpl {
     PacketBuilderImpl& operator=(const PacketBuilderImpl&) = delete;
     ~PacketBuilderImpl() = default;
 
-    // `write_*` returns `true` if args are valid; it never reports transport/resource issues.
+    // Non-I2C writes keep the historical behavior:
     // - `kInvalidArgument` => `false` (user error)
     // - `kBadAlloc` => logged and ignored (`true`) (internal/transient)
     [[nodiscard]] bool write_can(data::DataId field_id, const data::CanDataView& view) noexcept {
@@ -140,6 +170,20 @@ struct PacketBuilderImpl {
         return process_result(serializer_.write_imu_gyroscope(view));
     }
 
+    [[nodiscard]] bool write_i2c(data::DataId field_id, const data::I2cDataView& view) noexcept {
+        return process_result_strict(serializer_.write_i2c_write(field_id, view));
+    }
+
+    [[nodiscard]] bool
+        write_i2c_read_config(data::DataId field_id, const data::I2cReadConfigView& view) noexcept {
+        return process_result_strict(serializer_.write_i2c_read_config(field_id, view));
+    }
+
+    [[nodiscard]] bool
+        write_i2c_read_result(data::DataId field_id, const data::I2cDataView& view) noexcept {
+        return process_result_strict(serializer_.write_i2c_read_result(field_id, view));
+    }
+
 private:
     static bool process_result(core::protocol::Serializer::SerializeResult result) {
         using core::protocol::Serializer;
@@ -148,6 +192,19 @@ private:
         if (result == Serializer::SerializeResult::kBadAlloc) {
             logging::get_logger().error("Transmit buffer unavailable (acquire failed)");
             return true;
+        }
+        if (result == Serializer::SerializeResult::kInvalidArgument)
+            return false;
+        core::utility::assert_failed_debug();
+    }
+
+    static bool process_result_strict(core::protocol::Serializer::SerializeResult result) {
+        using core::protocol::Serializer;
+        if (result == Serializer::SerializeResult::kSuccess) [[likely]]
+            return true;
+        if (result == Serializer::SerializeResult::kBadAlloc) {
+            logging::get_logger().error("Transmit buffer unavailable (acquire failed)");
+            return false;
         }
         if (result == Serializer::SerializeResult::kInvalidArgument) {
             return false;
@@ -209,6 +266,23 @@ bool Handler::PacketBuilder::write_imu_accelerometer(
 
 bool Handler::PacketBuilder::write_imu_gyroscope(const data::GyroscopeDataView& view) noexcept {
     return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))->write_imu_gyroscope(view);
+}
+
+bool Handler::PacketBuilder::write_i2c(
+    data::DataId field_id, const data::I2cDataView& view) noexcept {
+    return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))->write_i2c(field_id, view);
+}
+
+bool Handler::PacketBuilder::write_i2c_read_config(
+    data::DataId field_id, const data::I2cReadConfigView& view) noexcept {
+    return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))
+        ->write_i2c_read_config(field_id, view);
+}
+
+bool Handler::PacketBuilder::write_i2c_read_result(
+    data::DataId field_id, const data::I2cDataView& view) noexcept {
+    return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))
+        ->write_i2c_read_result(field_id, view);
 }
 
 Handler::Handler(

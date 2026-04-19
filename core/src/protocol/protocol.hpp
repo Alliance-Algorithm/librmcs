@@ -1,8 +1,10 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "core/include/librmcs/data/datas.hpp"
+#include "core/include/librmcs/protocol/i2c.hpp"
 #include "core/src/utility/bitfield.hpp"
 
 namespace librmcs::core::protocol {
@@ -128,6 +130,29 @@ struct ImuGyroscopePayload : utility::Bitfield<6> {
     using X = utility::BitfieldMember<0, 16, int16_t>;
     using Y = utility::BitfieldMember<16, 16, int16_t>;
     using Z = utility::BitfieldMember<32, 16, int16_t>;
+};
+
+struct I2cHeader : utility::Bitfield<3> {
+    enum class PayloadEnum : uint8_t {
+        kWrite = 0,
+        kReadRequest = 1,
+        kReadResult = 2,
+        kError = 3,
+    };
+
+    using PayloadType = utility::BitfieldMember<4, 2, PayloadEnum>;
+    using HasRegister = utility::BitfieldMember<6, 1>;
+    using ErrorFlag = utility::BitfieldMember<7, 1>;
+    using SlaveAddress = utility::BitfieldMember<8, 7>;
+    using DataLength = utility::BitfieldMember<15, 9>;
+
+    static constexpr std::size_t kSlaveAddressBits = SlaveAddress::kBitWidth;
+    static constexpr std::size_t kDataLengthBits = DataLength::kBitWidth;
+    static constexpr std::uint16_t kMaxDataLength = librmcs::protocol::kI2cMaxDataLength;
+
+    static_assert(kSlaveAddressBits == 7);
+    static_assert(kDataLengthBits == librmcs::protocol::kI2cDataLengthBits);
+    static_assert(kMaxDataLength == ((1U << kDataLengthBits) - 1U));
 };
 
 } // namespace librmcs::core::protocol
