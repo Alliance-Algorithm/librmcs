@@ -17,6 +17,7 @@
 #include "core/src/utility/immovable.hpp"
 #include "firmware/c_board/app/src/can/can.hpp"
 #include "firmware/c_board/app/src/gpio/gpio.hpp"
+#include "firmware/c_board/app/src/i2c/i2c.hpp"
 #include "firmware/c_board/app/src/uart/uart.hpp"
 #include "firmware/c_board/app/src/usb/interrupt_safe_buffer.hpp"
 #include "firmware/c_board/app/src/usb/usb_descriptors.hpp"
@@ -55,7 +56,7 @@ public:
             return false;
 
         if (!transmitting_batch_) {
-            transmit_buffer_.try_unlock_and_clear();
+            transmit_buffer_.try_unlock();
             transmitting_batch_ = transmit_buffer_.pop_batch();
         }
         if (!transmitting_batch_)
@@ -127,7 +128,39 @@ private:
         (void)data;
     }
 
-    void error_callback() override { core::utility::assert_failed_always(); }
+    void i2c_write_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        switch (id) {
+        case data::DataId::kI2c0: i2c::i2c0->handle_downlink_write(data); break;
+        default: core::utility::assert_failed_always();
+        }
+    }
+
+    void i2c_read_config_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cReadConfigView& data) override {
+        switch (id) {
+        case data::DataId::kI2c0: i2c::i2c0->handle_downlink_read_config(data); break;
+        default: core::utility::assert_failed_always();
+        }
+    }
+
+    void i2c_read_result_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cDataView& data) override {
+        // Downlink I2C read-result frames are ignored by design (uplink-only payload type).
+        (void)id;
+        (void)data;
+    }
+
+    void i2c_error_deserialized_callback(
+        core::protocol::FieldId id, const data::I2cErrorView& data) override {
+        // Downlink I2C error frames are ignored by design (uplink-only payload type).
+        (void)id;
+        (void)data;
+    }
+
+    void error_callback() override {
+        // Drop malformed downlink payloads instead of trapping the whole device.
+    }
 
     core::protocol::Deserializer deserializer_{*this};
 

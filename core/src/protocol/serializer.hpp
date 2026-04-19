@@ -334,7 +334,139 @@ public:
         return SerializeResult::kSuccess;
     }
 
+    SerializeResult write_i2c_write(FieldId field_id, const data::I2cDataView& view) noexcept {
+        const std::size_t required = required_i2c_size(
+            field_id, I2cHeader::PayloadEnum::kWrite, view.payload.size(), view.has_register);
+        LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
+        LIBRMCS_VERIFY_LIKELY(!view.payload.empty(), SerializeResult::kInvalidArgument);
+        LIBRMCS_VERIFY_LIKELY(view.slave_address <= 0x7F, SerializeResult::kInvalidArgument);
+
+        auto dst = buffer_.allocate(required);
+        LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
+        utility::assert_debug(dst.size() == required);
+        std::byte* cursor = dst.data();
+
+        write_field_header(cursor, field_id);
+
+        auto header = I2cHeader::Ref(cursor);
+        cursor += sizeof(I2cHeader);
+        header.set<I2cHeader::PayloadType>(I2cHeader::PayloadEnum::kWrite);
+        header.set<I2cHeader::HasRegister>(view.has_register);
+        header.set<I2cHeader::ErrorFlag>(false);
+        header.set<I2cHeader::SlaveAddress>(view.slave_address);
+        header.set<I2cHeader::DataLength>(static_cast<uint16_t>(view.payload.size()));
+
+        if (view.has_register)
+            *cursor++ = static_cast<std::byte>(view.reg_address);
+
+        if (!view.payload.empty()) {
+            std::memcpy(cursor, view.payload.data(), view.payload.size());
+            cursor += view.payload.size();
+        }
+
+        utility::assert_debug(cursor == dst.data() + dst.size());
+        return SerializeResult::kSuccess;
+    }
+
+    SerializeResult
+        write_i2c_read_config(FieldId field_id, const data::I2cReadConfigView& view) noexcept {
+        const std::size_t required = required_i2c_size(
+            field_id, I2cHeader::PayloadEnum::kReadRequest, view.read_length, view.has_register);
+        LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
+        LIBRMCS_VERIFY_LIKELY(view.read_length != 0, SerializeResult::kInvalidArgument);
+        LIBRMCS_VERIFY_LIKELY(view.slave_address <= 0x7F, SerializeResult::kInvalidArgument);
+
+        auto dst = buffer_.allocate(required);
+        LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
+        utility::assert_debug(dst.size() == required);
+        std::byte* cursor = dst.data();
+
+        write_field_header(cursor, field_id);
+
+        auto header = I2cHeader::Ref(cursor);
+        cursor += sizeof(I2cHeader);
+        header.set<I2cHeader::PayloadType>(I2cHeader::PayloadEnum::kReadRequest);
+        header.set<I2cHeader::HasRegister>(view.has_register);
+        header.set<I2cHeader::ErrorFlag>(false);
+        header.set<I2cHeader::SlaveAddress>(view.slave_address);
+        header.set<I2cHeader::DataLength>(view.read_length);
+
+        if (view.has_register)
+            *cursor++ = static_cast<std::byte>(view.reg_address);
+
+        utility::assert_debug(cursor == dst.data() + dst.size());
+        return SerializeResult::kSuccess;
+    }
+
+    SerializeResult
+        write_i2c_read_result(FieldId field_id, const data::I2cDataView& view) noexcept {
+        const std::size_t required = required_i2c_size(
+            field_id, I2cHeader::PayloadEnum::kReadResult, view.payload.size(), view.has_register);
+        LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
+        LIBRMCS_VERIFY_LIKELY(view.slave_address <= 0x7F, SerializeResult::kInvalidArgument);
+
+        auto dst = buffer_.allocate(required);
+        LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
+        utility::assert_debug(dst.size() == required);
+        std::byte* cursor = dst.data();
+
+        write_field_header(cursor, field_id);
+
+        auto header = I2cHeader::Ref(cursor);
+        cursor += sizeof(I2cHeader);
+        header.set<I2cHeader::PayloadType>(I2cHeader::PayloadEnum::kReadResult);
+        header.set<I2cHeader::HasRegister>(view.has_register);
+        header.set<I2cHeader::ErrorFlag>(false);
+        header.set<I2cHeader::SlaveAddress>(view.slave_address);
+        header.set<I2cHeader::DataLength>(static_cast<uint16_t>(view.payload.size()));
+
+        if (view.has_register)
+            *cursor++ = static_cast<std::byte>(view.reg_address);
+
+        if (!view.payload.empty()) {
+            std::memcpy(cursor, view.payload.data(), view.payload.size());
+            cursor += view.payload.size();
+        }
+
+        utility::assert_debug(cursor == dst.data() + dst.size());
+        return SerializeResult::kSuccess;
+    }
+
+    SerializeResult write_i2c_error(FieldId field_id, const data::I2cErrorView& view) noexcept {
+        const std::size_t required = required_i2c_size(
+            field_id, I2cHeader::PayloadEnum::kError, view.data_length, view.has_register);
+        LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
+        LIBRMCS_VERIFY_LIKELY(view.slave_address <= 0x7F, SerializeResult::kInvalidArgument);
+
+        auto dst = buffer_.allocate(required);
+        LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
+        utility::assert_debug(dst.size() == required);
+        std::byte* cursor = dst.data();
+
+        write_field_header(cursor, field_id);
+
+        auto header = I2cHeader::Ref(cursor);
+        cursor += sizeof(I2cHeader);
+        header.set<I2cHeader::PayloadType>(I2cHeader::PayloadEnum::kError);
+        header.set<I2cHeader::HasRegister>(view.has_register);
+        header.set<I2cHeader::ErrorFlag>(view.is_read);
+        header.set<I2cHeader::SlaveAddress>(view.slave_address);
+        header.set<I2cHeader::DataLength>(view.data_length);
+
+        if (view.has_register)
+            *cursor++ = static_cast<std::byte>(view.reg_address);
+
+        utility::assert_debug(cursor == dst.data() + dst.size());
+        return SerializeResult::kSuccess;
+    }
+
+    SerializeResult write_i2c_error(FieldId field_id, uint8_t slave_address) noexcept {
+        return write_i2c_error(field_id, data::I2cErrorView{.slave_address = slave_address});
+    }
+
 private:
+    static constexpr bool is_i2c_field_id(FieldId field_id) { return field_id == FieldId::kI2c0; }
+
     static constexpr bool use_extended_field_header(FieldId field_id) {
         utility::assert_debug(field_id != FieldId::kExtend);
         return static_cast<std::uint8_t>(field_id) > 0xF;
@@ -433,6 +565,33 @@ private:
 
         const std::size_t total = (field_header_bytes + imu_header_bytes - 1) + payload_bytes;
         utility::assert_debug(total <= kProtocolBufferSize);
+
+        return total;
+    }
+
+    static std::size_t required_i2c_size(
+        FieldId field_id, I2cHeader::PayloadEnum payload, std::size_t data_len,
+        bool has_register) noexcept {
+        LIBRMCS_VERIFY_LIKELY(is_i2c_field_id(field_id), 0);
+        LIBRMCS_VERIFY_LIKELY(data_len <= I2cHeader::kMaxDataLength, 0);
+        switch (payload) {
+        case I2cHeader::PayloadEnum::kWrite:
+        case I2cHeader::PayloadEnum::kReadRequest: LIBRMCS_VERIFY_LIKELY(data_len != 0, 0); break;
+        case I2cHeader::PayloadEnum::kReadResult:
+        case I2cHeader::PayloadEnum::kError: break;
+        default: return 0;
+        }
+
+        const std::size_t field_header_bytes = required_field_header_size(field_id);
+        const std::size_t i2c_header_bytes = sizeof(I2cHeader);
+        const std::size_t register_bytes = has_register ? 1 : 0;
+        const std::size_t payload_bytes = (payload == I2cHeader::PayloadEnum::kWrite
+                                           || payload == I2cHeader::PayloadEnum::kReadResult)
+                                            ? data_len
+                                            : 0;
+        const std::size_t total =
+            (field_header_bytes + i2c_header_bytes - 1) + register_bytes + payload_bytes;
+        LIBRMCS_VERIFY_LIKELY(total <= kProtocolBufferSize, 0);
 
         return total;
     }
