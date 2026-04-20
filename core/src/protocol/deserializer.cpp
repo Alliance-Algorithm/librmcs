@@ -153,7 +153,7 @@ coroutine::LifoTask<bool> Deserializer::process_uart_field(FieldId field_id) {
 
 coroutine::LifoTask<bool> Deserializer::process_gpio_field(FieldId) {
     GpioHeader::PayloadEnum payload_type;
-    std::uint8_t channel = 0;
+    std::uint8_t channel_index = 0;
     data::GpioPull pull = data::GpioPull::kNone;
     {
         const auto* header_bytes = co_await peek_bytes(sizeof(GpioHeader));
@@ -162,7 +162,7 @@ coroutine::LifoTask<bool> Deserializer::process_gpio_field(FieldId) {
 
         auto header = GpioHeader::CRef{header_bytes};
         payload_type = header.get<GpioHeader::PayloadType>();
-        channel = header.get<GpioHeader::Channel>();
+        channel_index = header.get<GpioHeader::ChannelIndex>();
         pull = header.get<GpioHeader::Pull>();
         consume_peeked();
     }
@@ -171,9 +171,8 @@ coroutine::LifoTask<bool> Deserializer::process_gpio_field(FieldId) {
     case GpioHeader::PayloadEnum::kDigitalWriteLow:
     case GpioHeader::PayloadEnum::kDigitalWriteHigh: {
         data::GpioDigitalDataView data_view{};
-        data_view.channel = channel;
         data_view.high = payload_type == GpioHeader::PayloadEnum::kDigitalWriteHigh;
-        callback_.gpio_digital_data_deserialized_callback(data_view);
+        callback_.gpio_digital_data_deserialized_callback(channel_index, data_view);
         break;
     }
     case GpioHeader::PayloadEnum::kAnalogWrite: {
@@ -183,11 +182,10 @@ coroutine::LifoTask<bool> Deserializer::process_gpio_field(FieldId) {
 
         auto payload = GpioAnalogPayload::CRef{payload_bytes};
         data::GpioAnalogDataView data_view{};
-        data_view.channel = channel;
         data_view.value = payload.get<GpioAnalogPayload::Value>();
         consume_peeked();
 
-        callback_.gpio_analog_data_deserialized_callback(data_view);
+        callback_.gpio_analog_data_deserialized_callback(channel_index, data_view);
         break;
     }
     case GpioHeader::PayloadEnum::kDigitalRead:
@@ -198,7 +196,6 @@ coroutine::LifoTask<bool> Deserializer::process_gpio_field(FieldId) {
 
         auto payload = GpioReadConfigPayload::CRef{payload_bytes};
         data::GpioReadConfigView data_view{};
-        data_view.channel = channel;
         data_view.asap = payload.get<GpioReadConfigPayload::Asap>();
         data_view.rising_edge = payload.get<GpioReadConfigPayload::RisingEdge>();
         data_view.falling_edge = payload.get<GpioReadConfigPayload::FallingEdge>();
@@ -211,18 +208,17 @@ coroutine::LifoTask<bool> Deserializer::process_gpio_field(FieldId) {
             co_return false;
 
         if (payload_type == GpioHeader::PayloadEnum::kDigitalRead) {
-            callback_.gpio_digital_read_config_deserialized_callback(data_view);
+            callback_.gpio_digital_read_config_deserialized_callback(channel_index, data_view);
         } else {
-            callback_.gpio_analog_read_config_deserialized_callback(data_view);
+            callback_.gpio_analog_read_config_deserialized_callback(channel_index, data_view);
         }
         break;
     }
     case GpioHeader::PayloadEnum::kDigitalReadResultLow:
     case GpioHeader::PayloadEnum::kDigitalReadResultHigh: {
         data::GpioDigitalDataView data_view{};
-        data_view.channel = channel;
         data_view.high = payload_type == GpioHeader::PayloadEnum::kDigitalReadResultHigh;
-        callback_.gpio_digital_data_deserialized_callback(data_view);
+        callback_.gpio_digital_data_deserialized_callback(channel_index, data_view);
         break;
     }
     case GpioHeader::PayloadEnum::kAnalogReadResult: {
@@ -232,11 +228,10 @@ coroutine::LifoTask<bool> Deserializer::process_gpio_field(FieldId) {
 
         auto payload = GpioAnalogPayload::CRef{payload_bytes};
         data::GpioAnalogDataView data_view{};
-        data_view.channel = channel;
         data_view.value = payload.get<GpioAnalogPayload::Value>();
         consume_peeked();
 
-        callback_.gpio_analog_data_deserialized_callback(data_view);
+        callback_.gpio_analog_data_deserialized_callback(channel_index, data_view);
         break;
     }
     default: co_return false;

@@ -120,7 +120,9 @@ public:
         return SerializeResult::kSuccess;
     }
 
-    SerializeResult write_gpio_digital_data(const data::GpioDigitalDataView& view) noexcept {
+    SerializeResult write_gpio_digital_data(
+        uint8_t channel_index, const data::GpioDigitalDataView& view) noexcept {
+        utility::assert_debug(channel_index < (1U << GpioHeader::ChannelIndex::kBitWidth));
         const auto payload_type = view.high ? GpioHeader::PayloadEnum::kDigitalWriteHigh
                                             : GpioHeader::PayloadEnum::kDigitalWriteLow;
         const std::size_t required = required_gpio_size(FieldId::kGpio, payload_type);
@@ -136,14 +138,16 @@ public:
         auto header = GpioHeader::Ref(cursor);
         cursor += sizeof(GpioHeader);
         header.set<GpioHeader::PayloadType>(payload_type);
-        header.set<GpioHeader::Channel>(view.channel);
+        header.set<GpioHeader::ChannelIndex>(channel_index);
         header.set<GpioHeader::Pull>(data::GpioPull::kNone);
 
         utility::assert_debug(cursor == dst.data() + dst.size());
         return SerializeResult::kSuccess;
     }
 
-    SerializeResult write_gpio_digital_read_config(const data::GpioReadConfigView& view) noexcept {
+    SerializeResult write_gpio_digital_read_config(
+        uint8_t channel_index, const data::GpioReadConfigView& view) noexcept {
+        utility::assert_debug(channel_index < (1U << GpioHeader::ChannelIndex::kBitWidth));
         LIBRMCS_VERIFY_LIKELY(
             view.period_ms <= ((1U << 13) - 1U), SerializeResult::kInvalidArgument);
 
@@ -161,7 +165,7 @@ public:
         auto header = GpioHeader::Ref(cursor);
         cursor += sizeof(GpioHeader);
         header.set<GpioHeader::PayloadType>(GpioHeader::PayloadEnum::kDigitalRead);
-        header.set<GpioHeader::Channel>(view.channel);
+        header.set<GpioHeader::ChannelIndex>(channel_index);
         header.set<GpioHeader::Pull>(view.pull);
 
         auto payload = GpioReadConfigPayload::Ref(cursor);
@@ -175,7 +179,9 @@ public:
         return SerializeResult::kSuccess;
     }
 
-    SerializeResult write_gpio_analog_data(const data::GpioAnalogDataView& view) noexcept {
+    SerializeResult write_gpio_analog_data(
+        uint8_t channel_index, const data::GpioAnalogDataView& view) noexcept {
+        utility::assert_debug(channel_index < (1U << GpioHeader::ChannelIndex::kBitWidth));
         const std::size_t required =
             required_gpio_size(FieldId::kGpio, GpioHeader::PayloadEnum::kAnalogWrite);
         LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
@@ -190,7 +196,7 @@ public:
         auto header = GpioHeader::Ref(cursor);
         cursor += sizeof(GpioHeader);
         header.set<GpioHeader::PayloadType>(GpioHeader::PayloadEnum::kAnalogWrite);
-        header.set<GpioHeader::Channel>(view.channel);
+        header.set<GpioHeader::ChannelIndex>(channel_index);
         header.set<GpioHeader::Pull>(data::GpioPull::kNone);
 
         auto payload = GpioAnalogPayload::Ref(cursor);
@@ -201,7 +207,9 @@ public:
         return SerializeResult::kSuccess;
     }
 
-    SerializeResult write_gpio_analog_read_config(const data::GpioReadConfigView& view) noexcept {
+    SerializeResult write_gpio_analog_read_config(
+        uint8_t channel_index, const data::GpioReadConfigView& view) noexcept {
+        utility::assert_debug(channel_index < (1U << GpioHeader::ChannelIndex::kBitWidth));
         LIBRMCS_VERIFY_LIKELY(
             view.period_ms <= ((1U << 13) - 1U), SerializeResult::kInvalidArgument);
         LIBRMCS_VERIFY_LIKELY(
@@ -221,7 +229,7 @@ public:
         auto header = GpioHeader::Ref(cursor);
         cursor += sizeof(GpioHeader);
         header.set<GpioHeader::PayloadType>(GpioHeader::PayloadEnum::kAnalogRead);
-        header.set<GpioHeader::Channel>(view.channel);
+        header.set<GpioHeader::ChannelIndex>(channel_index);
         header.set<GpioHeader::Pull>(view.pull);
 
         auto payload = GpioReadConfigPayload::Ref(cursor);
@@ -235,7 +243,9 @@ public:
         return SerializeResult::kSuccess;
     }
 
-    SerializeResult write_gpio_digital_read_result(const data::GpioDigitalDataView& view) noexcept {
+    SerializeResult write_gpio_digital_read_result(
+        uint8_t channel_index, const data::GpioDigitalDataView& view) noexcept {
+        utility::assert_debug(channel_index < (1U << GpioHeader::ChannelIndex::kBitWidth));
         const auto payload_type = view.high ? GpioHeader::PayloadEnum::kDigitalReadResultHigh
                                             : GpioHeader::PayloadEnum::kDigitalReadResultLow;
         const std::size_t required = required_gpio_size(FieldId::kGpio, payload_type);
@@ -251,14 +261,16 @@ public:
         auto header = GpioHeader::Ref(cursor);
         cursor += sizeof(GpioHeader);
         header.set<GpioHeader::PayloadType>(payload_type);
-        header.set<GpioHeader::Channel>(view.channel);
+        header.set<GpioHeader::ChannelIndex>(channel_index);
         header.set<GpioHeader::Pull>(data::GpioPull::kNone);
 
         utility::assert_debug(cursor == dst.data() + dst.size());
         return SerializeResult::kSuccess;
     }
 
-    SerializeResult write_gpio_analog_read_result(const data::GpioAnalogDataView& view) noexcept {
+    SerializeResult write_gpio_analog_read_result(
+        uint8_t channel_index, const data::GpioAnalogDataView& view) noexcept {
+        utility::assert_debug(channel_index < (1U << GpioHeader::ChannelIndex::kBitWidth));
         const std::size_t required =
             required_gpio_size(FieldId::kGpio, GpioHeader::PayloadEnum::kAnalogReadResult);
         LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
@@ -273,7 +285,7 @@ public:
         auto header = GpioHeader::Ref(cursor);
         cursor += sizeof(GpioHeader);
         header.set<GpioHeader::PayloadType>(GpioHeader::PayloadEnum::kAnalogReadResult);
-        header.set<GpioHeader::Channel>(view.channel);
+        header.set<GpioHeader::ChannelIndex>(channel_index);
         header.set<GpioHeader::Pull>(data::GpioPull::kNone);
 
         auto payload = GpioAnalogPayload::Ref(cursor);

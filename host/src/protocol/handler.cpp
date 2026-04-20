@@ -48,22 +48,26 @@ public:
             logging::get_logger().error("Unexpected uart field id: ", static_cast<int>(id));
     }
 
-    void gpio_digital_data_deserialized_callback(const data::GpioDigitalDataView& data) override {
-        callback_.gpio_digital_read_result_callback(data);
+    void gpio_digital_data_deserialized_callback(
+        uint8_t channel_index, const data::GpioDigitalDataView& data) override {
+        callback_.gpio_digital_read_result_callback(channel_index, data);
     }
 
-    void gpio_analog_data_deserialized_callback(const data::GpioAnalogDataView& data) override {
-        callback_.gpio_analog_read_result_callback(data);
+    void gpio_analog_data_deserialized_callback(
+        uint8_t channel_index, const data::GpioAnalogDataView& data) override {
+        callback_.gpio_analog_read_result_callback(channel_index, data);
     }
 
     void gpio_digital_read_config_deserialized_callback(
-        const data::GpioReadConfigView& data) override {
+        uint8_t channel_index, const data::GpioReadConfigView& data) override {
+        (void)channel_index;
         (void)data;
         logging::get_logger().error("Unexpected gpio digital read config field in uplink");
     }
 
     void gpio_analog_read_config_deserialized_callback(
-        const data::GpioReadConfigView& data) override {
+        uint8_t channel_index, const data::GpioReadConfigView& data) override {
+        (void)channel_index;
         (void)data;
         logging::get_logger().error("Unexpected gpio analog read config field in uplink");
     }
@@ -113,17 +117,19 @@ struct PacketBuilderImpl {
         return process_result(serializer_.write_uart(field_id, view));
     }
 
-    [[nodiscard]] bool write_gpio_digital_data(const data::GpioDigitalDataView& view) noexcept {
-        return process_result(serializer_.write_gpio_digital_data(view));
+    [[nodiscard]] bool write_gpio_digital_data(
+        uint8_t channel_index, const data::GpioDigitalDataView& view) noexcept {
+        return process_result(serializer_.write_gpio_digital_data(channel_index, view));
     }
 
-    [[nodiscard]] bool
-        write_gpio_digital_read_config(const data::GpioReadConfigView& view) noexcept {
-        return process_result(serializer_.write_gpio_digital_read_config(view));
+    [[nodiscard]] bool write_gpio_digital_read_config(
+        uint8_t channel_index, const data::GpioReadConfigView& view) noexcept {
+        return process_result(serializer_.write_gpio_digital_read_config(channel_index, view));
     }
 
-    [[nodiscard]] bool write_gpio_analog_data(const data::GpioAnalogDataView& view) noexcept {
-        return process_result(serializer_.write_gpio_analog_data(view));
+    [[nodiscard]] bool write_gpio_analog_data(
+        uint8_t channel_index, const data::GpioAnalogDataView& view) noexcept {
+        return process_result(serializer_.write_gpio_analog_data(channel_index, view));
     }
 
     [[nodiscard]] bool write_imu_accelerometer(const data::AccelerometerDataView& view) noexcept {
@@ -178,20 +184,21 @@ bool Handler::PacketBuilder::write_uart(
 }
 
 bool Handler::PacketBuilder::write_gpio_digital_data(
-    const data::GpioDigitalDataView& view) noexcept {
+    uint8_t channel_index, const data::GpioDigitalDataView& view) noexcept {
     return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))
-        ->write_gpio_digital_data(view);
+        ->write_gpio_digital_data(channel_index, view);
 }
 
 bool Handler::PacketBuilder::write_gpio_digital_read_config(
-    const data::GpioReadConfigView& view) noexcept {
+    uint8_t channel_index, const data::GpioReadConfigView& view) noexcept {
     return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))
-        ->write_gpio_digital_read_config(view);
+        ->write_gpio_digital_read_config(channel_index, view);
 }
 
-bool Handler::PacketBuilder::write_gpio_analog_data(const data::GpioAnalogDataView& view) noexcept {
+bool Handler::PacketBuilder::write_gpio_analog_data(
+    uint8_t channel_index, const data::GpioAnalogDataView& view) noexcept {
     return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))
-        ->write_gpio_analog_data(view);
+        ->write_gpio_analog_data(channel_index, view);
 }
 
 bool Handler::PacketBuilder::write_imu_accelerometer(

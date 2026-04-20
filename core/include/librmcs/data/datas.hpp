@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <span>
 
+#include <librmcs/spec/gpio.hpp>
+
 namespace librmcs::data {
 
 enum class DataId : uint8_t {
@@ -43,12 +45,10 @@ struct UartDataView {
 };
 
 struct GpioDigitalDataView {
-    uint8_t channel;
     bool high;
 };
 
 struct GpioAnalogDataView {
-    uint8_t channel;
     uint16_t value;
 };
 
@@ -59,12 +59,20 @@ enum class GpioPull : uint8_t {
 };
 
 struct GpioReadConfigView {
-    uint8_t channel;
     uint16_t period_ms = 0;
     bool asap = false;
     bool rising_edge = false;
     bool falling_edge = false;
     GpioPull pull = GpioPull::kNone;
+
+    [[nodiscard]] constexpr bool supported(const spec::GpioDescriptor& gpio) const noexcept {
+        return (!asap || gpio.supports(spec::GpioCapability::kDigitalReadOnce))
+            && (!period_ms || gpio.supports(spec::GpioCapability::kDigitalReadPeriodic))
+            && ((!rising_edge && !falling_edge)
+                || gpio.supports(spec::GpioCapability::kDigitalReadInterrupt))
+            && (pull != GpioPull::kUp || gpio.supports(spec::GpioCapability::kPullUp))
+            && (pull != GpioPull::kDown || gpio.supports(spec::GpioCapability::kPullDown));
+    }
 };
 
 struct AccelerometerDataView {
@@ -93,9 +101,11 @@ public:
 
     virtual bool uart_receive_callback(DataId id, const UartDataView& data) = 0;
 
-    virtual void gpio_digital_read_result_callback(const GpioDigitalDataView& data) = 0;
+    virtual void gpio_digital_read_result_callback(
+        uint8_t channel_index, const GpioDigitalDataView& data) = 0;
 
-    virtual void gpio_analog_read_result_callback(const GpioAnalogDataView& data) = 0;
+    virtual void
+        gpio_analog_read_result_callback(uint8_t channel_index, const GpioAnalogDataView& data) = 0;
 
     virtual void accelerometer_receive_callback(const AccelerometerDataView& data) = 0;
 

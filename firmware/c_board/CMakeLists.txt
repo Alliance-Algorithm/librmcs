@@ -35,6 +35,7 @@ add_subdirectory("${LIBRMCS_STM32_CUBEMX_ROOT}/cmake/stm32cubemx" SYSTEM)
 
 function(c_board_apply_target_options target linker_file)
     target_include_directories(${target} PRIVATE
+        ${LIBRMCS_PROJECT_ROOT}/core/include
         ${LIBRMCS_PROJECT_ROOT}
     )
 

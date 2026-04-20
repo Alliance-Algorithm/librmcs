@@ -115,21 +115,27 @@ private:
         }
     }
 
-    void gpio_digital_data_deserialized_callback(const data::GpioDigitalDataView& data) override {
+    void gpio_digital_data_deserialized_callback(
+        uint8_t channel_index, const data::GpioDigitalDataView& data) override {
+        (void)channel_index;
         (void)data;
     }
 
-    void gpio_analog_data_deserialized_callback(const data::GpioAnalogDataView& data) override {
+    void gpio_analog_data_deserialized_callback(
+        uint8_t channel_index, const data::GpioAnalogDataView& data) override {
+        (void)channel_index;
         (void)data;
     }
 
     void gpio_digital_read_config_deserialized_callback(
-        const data::GpioReadConfigView& data) override {
+        uint8_t channel_index, const data::GpioReadConfigView& data) override {
+        (void)channel_index;
         (void)data;
     }
 
     void gpio_analog_read_config_deserialized_callback(
-        const data::GpioReadConfigView& data) override {
+        uint8_t channel_index, const data::GpioReadConfigView& data) override {
+        (void)channel_index;
         (void)data;
     }
 

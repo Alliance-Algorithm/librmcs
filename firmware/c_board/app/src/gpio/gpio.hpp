@@ -1,13 +1,16 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
+#include <iterator>
 
 #include <gpio.h>
 #include <main.h>
 #include <tim.h>
 
 #include "core/include/librmcs/data/datas.hpp"
+#include "core/include/librmcs/spec/c_board/gpio.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
@@ -35,66 +38,52 @@ public:
         HAL_NVIC_SetPriority(EXTI15_10_IRQn, 4, 0);
         HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
-        for (uint8_t i = 1; i <= 7; i++) {
-            set_pwm_compare(i, 0);
-            configure_digital_input_mode({
-                .channel = i,
-                .period_ms = 0,
-                .asap = false,
-                .rising_edge = false,
-                .falling_edge = false,
-            });
+        constexpr data::GpioReadConfigView k_default_input_config{};
+        for (const auto& gpio : spec::c_board::kGpioDescriptors) {
+            set_pwm_compare(gpio.channel_index, 0);
+            configure_digital_input_mode(gpio.channel_index, k_default_input_config);
         }
     }
 
-    void handle_digital_write(const data::GpioDigitalDataView& data) {
-        if (!is_supported_channel(data.channel))
-            return;
-
-        configure_output_mode(data.channel);
-        set_pwm_compare(data.channel, data.high ? kPwmCounterPeriod : 0);
+    void handle_digital_write(uint8_t channel_index, const data::GpioDigitalDataView& data) {
+        configure_output_mode(channel_index);
+        set_pwm_compare(channel_index, data.high ? kPwmCounterPeriod : 0);
     }
 
-    void handle_analog_write(const data::GpioAnalogDataView& data) {
-        if (!is_supported_channel(data.channel))
-            return;
-
-        configure_output_mode(data.channel);
-        set_pwm_compare(data.channel, duty16_to_pwm_compare(data.value));
+    void handle_analog_write(uint8_t channel_index, const data::GpioAnalogDataView& data) {
+        configure_output_mode(channel_index);
+        set_pwm_compare(channel_index, duty16_to_pwm_compare(data.value));
     }
 
-    void handle_digital_read(const data::GpioReadConfigView& data) {
-        if (!is_supported_channel(data.channel))
-            return;
-
-        configure_digital_input_mode(data);
+    void handle_digital_read(uint8_t channel_index, const data::GpioReadConfigView& data) {
+        configure_digital_input_mode(channel_index, data);
     }
 
     void poll_periodic_input_samples() {
         const auto now = timer::timer->timepoint();
 
-        for (uint8_t channel = 1; channel <= 7; ++channel) {
-            auto& state = channel_states_[channel - 1];
+        for (std::size_t channel_index = 0; channel_index < kChannelCount; ++channel_index) {
+            auto& state = channel_states_[channel_index];
             if (state.mode != GpioMode::kDigitalInput || state.period == kNoPeriod)
                 continue;
             if (!timer::timer->check_expired(state.next_sample_time, state.period))
                 continue;
 
-            publish_digital_input_sample(channel);
+            publish_digital_input_sample(static_cast<uint8_t>(channel_index));
             state.next_sample_time = now;
         }
     }
 
     void handle_input_edge_interrupt(uint16_t gpio_pin) {
-        const uint8_t channel = channel_from_exti_line(exti_line_from_pin(gpio_pin));
-        if (!channel)
+        const uint8_t channel_index = channel_index_from_exti_line(exti_line_from_pin(gpio_pin));
+        if (channel_index == kInvalidChannelIndex)
             return;
 
-        auto& state = channel_states_[channel - 1];
+        auto& state = channel_state(channel_index);
         if (state.mode != GpioMode::kDigitalInput || (!state.rising_edge && !state.falling_edge))
             return;
 
-        publish_digital_input_sample(channel);
+        publish_digital_input_sample(channel_index);
     }
 
 private:
@@ -118,19 +107,20 @@ private:
 
     static constexpr uint32_t kPwmCounterPeriod = 60000;
     static constexpr auto kNoPeriod = timer::Timer::Duration::zero();
+    static constexpr std::size_t kChannelCount = std::size(spec::c_board::kGpioDescriptors);
+    static constexpr uint8_t kInvalidChannelIndex = 0xFFU;
 
-    void configure_output_mode(uint8_t channel) {
-        auto& state = channel_states_[channel - 1];
+    void configure_output_mode(uint8_t channel_index) {
+        auto& state = channel_state(channel_index);
         if (state.mode == GpioMode::kOutput)
             return;
 
         state.mode = GpioMode::kOutput;
-        configure_hal_gpio_output(channel);
+        configure_hal_gpio_output(channel_index);
     }
 
-    void configure_digital_input_mode(const data::GpioReadConfigView& data) {
-        const auto& channel = data.channel;
-        auto& state = channel_states_[channel - 1];
+    void configure_digital_input_mode(uint8_t channel_index, const data::GpioReadConfigView& data) {
+        auto& state = channel_state(channel_index);
 
         const auto& asap = data.asap;
         auto rising_edge = data.rising_edge;
@@ -140,12 +130,6 @@ private:
             (data.period_ms == 0)
                 ? kNoPeriod
                 : timer::Timer::to_duration_checked(std::chrono::milliseconds{data.period_ms});
-
-        if (channel == 6) {
-            // Channel 6 (PI6) shares EXTI line 6 with Channel 5 (PC6),
-            // so Channel 6 does not support EXTI.
-            rising_edge = falling_edge = false;
-        }
 
         if (state.mode != GpioMode::kDigitalInput //
             || state.rising_edge != rising_edge || state.falling_edge != falling_edge
@@ -158,20 +142,20 @@ private:
             state.period = period;
             state.next_sample_time = timer::timer->timepoint();
 
-            configure_hal_gpio_input(channel, rising_edge, falling_edge, pull);
+            configure_hal_gpio_input(channel_index, rising_edge, falling_edge, pull);
         }
 
         if (asap)
-            publish_digital_input_sample(channel);
+            publish_digital_input_sample(channel_index);
     }
 
-    void set_pwm_compare(uint8_t channel, uint32_t compare) {
-        const auto& hardware = channel_hardware(channel);
+    void set_pwm_compare(uint8_t channel_index, uint32_t compare) {
+        const auto& hardware = channel_hardware(channel_index);
         *hardware.compare_register = compare;
     }
 
-    void configure_hal_gpio_output(uint8_t channel) {
-        const auto& hardware = channel_hardware(channel);
+    void configure_hal_gpio_output(uint8_t channel_index) {
+        const auto& hardware = channel_hardware(channel_index);
 
         GPIO_InitTypeDef gpio_init = {};
         gpio_init.Pin = hardware.gpio_pin;
@@ -183,8 +167,8 @@ private:
     }
 
     void configure_hal_gpio_input(
-        uint8_t channel, bool rising_edge, bool falling_edge, data::GpioPull pull) {
-        const auto& hardware = channel_hardware(channel);
+        uint8_t channel_index, bool rising_edge, bool falling_edge, data::GpioPull pull) {
+        const auto& hardware = channel_hardware(channel_index);
 
         GPIO_InitTypeDef gpio_init = {};
         gpio_init.Pin = hardware.gpio_pin;
@@ -202,13 +186,13 @@ private:
         HAL_GPIO_Init(hardware.gpio_port, &gpio_init);
     }
 
-    void publish_digital_input_sample(uint8_t channel) {
-        const auto& hardware = channel_hardware(channel);
+    void publish_digital_input_sample(uint8_t channel_index) {
+        const auto& hardware = channel_hardware(channel_index);
         const bool high = HAL_GPIO_ReadPin(hardware.gpio_port, hardware.gpio_pin) == GPIO_PIN_SET;
 
         auto& serializer = usb::get_serializer();
         core::utility::assert_debug(
-            serializer.write_gpio_digital_read_result({.channel = channel, .high = high})
+            serializer.write_gpio_digital_read_result(channel_index, {.high = high})
             != core::protocol::Serializer::SerializeResult::kInvalidArgument);
     }
 
@@ -224,24 +208,29 @@ private:
         return line;
     }
 
-    static uint8_t channel_from_exti_line(uint8_t exti_line) {
+    static uint8_t channel_index_from_exti_line(uint8_t exti_line) {
         switch (exti_line) {
-        case 9: return 1;
-        case 11: return 2;
-        case 13: return 3;
-        case 14: return 4;
-        case 6: return 5;
-        case 7: return 7;
-        default: return 0;
+        case 9: return spec::c_board::kGpioDescriptors.kPwm1.channel_index;
+        case 11: return spec::c_board::kGpioDescriptors.kPwm2.channel_index;
+        case 13: return spec::c_board::kGpioDescriptors.kPwm3.channel_index;
+        case 14: return spec::c_board::kGpioDescriptors.kPwm4.channel_index;
+        case 6: return spec::c_board::kGpioDescriptors.kPwm5.channel_index;
+        case 7: return spec::c_board::kGpioDescriptors.kPwm7.channel_index;
+        default: return kInvalidChannelIndex;
         }
     }
 
-    const ChannelHardware& channel_hardware(uint8_t channel) const {
-        core::utility::assert_debug_lazy([&]() noexcept { return is_supported_channel(channel); });
-        return channel_hardware_[channel - 1];
+    ChannelState& channel_state(uint8_t channel_index) {
+        const auto index = static_cast<std::size_t>(channel_index);
+        core::utility::assert_debug(index < kChannelCount);
+        return channel_states_[index];
     }
 
-    static bool is_supported_channel(uint8_t channel) { return channel >= 1 && channel <= 7; }
+    const ChannelHardware& channel_hardware(uint8_t channel_index) const {
+        const auto index = static_cast<std::size_t>(channel_index);
+        core::utility::assert_debug(index < kChannelCount);
+        return channel_hardware_[index];
+    }
 
     static uint32_t duty16_to_pwm_compare(uint16_t duty) {
         return ((static_cast<uint32_t>(duty) * kPwmCounterPeriod) + 32767U) / 65535U;
@@ -256,7 +245,7 @@ private:
         }
     }
 
-    const ChannelHardware channel_hardware_[7]{
+    const ChannelHardware channel_hardware_[kChannelCount]{
         {
          .gpio_port = CHANNEL1_GPIO_Port,
          .gpio_pin = CHANNEL1_Pin,
@@ -301,7 +290,7 @@ private:
          },
     };
 
-    ChannelState channel_states_[7];
+    ChannelState channel_states_[kChannelCount];
 };
 
 inline constinit Gpio::Lazy gpio;

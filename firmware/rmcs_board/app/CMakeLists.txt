@@ -61,6 +61,7 @@ sdk_compile_definitions(-DCFG_TUSB_MCU=OPT_MCU_HPM)
 sdk_compile_definitions(-DUSB_HOST_MCU_CORE=HPM_CORE0)
 
 sdk_inc("${CMAKE_CURRENT_SOURCE_DIR}/include")
+sdk_app_inc("${LIBRMCS_PROJECT_ROOT}/core/include")
 sdk_app_inc("${LIBRMCS_PROJECT_ROOT}")
 
 file(GLOB_RECURSE PROJECT_SOURCE CONFIGURE_DEPENDS

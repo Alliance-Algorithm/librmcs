@@ -2,6 +2,7 @@
 
 #include <coroutine>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <span>
 #include <utility>
@@ -27,15 +28,17 @@ public:
 
     virtual void uart_deserialized_callback(FieldId id, const data::UartDataView& data) = 0;
 
-    virtual void gpio_digital_data_deserialized_callback(const data::GpioDigitalDataView& data) = 0;
+    virtual void gpio_digital_data_deserialized_callback(
+        uint8_t channel_index, const data::GpioDigitalDataView& data) = 0;
 
-    virtual void gpio_analog_data_deserialized_callback(const data::GpioAnalogDataView& data) = 0;
+    virtual void gpio_analog_data_deserialized_callback(
+        uint8_t channel_index, const data::GpioAnalogDataView& data) = 0;
 
-    virtual void
-        gpio_digital_read_config_deserialized_callback(const data::GpioReadConfigView& data) = 0;
+    virtual void gpio_digital_read_config_deserialized_callback(
+        uint8_t channel_index, const data::GpioReadConfigView& data) = 0;
 
-    virtual void
-        gpio_analog_read_config_deserialized_callback(const data::GpioReadConfigView& data) = 0;
+    virtual void gpio_analog_read_config_deserialized_callback(
+        uint8_t channel_index, const data::GpioReadConfigView& data) = 0;
 
     virtual void accelerometer_deserialized_callback(const data::AccelerometerDataView& data) = 0;
 

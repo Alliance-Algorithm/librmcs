@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <span>
 
 #include <class/vendor/vendor_device.h>
@@ -10,6 +11,8 @@
 #include <tusb.h>
 
 #include "core/include/librmcs/data/datas.hpp"
+#include "core/include/librmcs/spec/c_board/gpio.hpp"
+#include "core/include/librmcs/spec/gpio.hpp"
 #include "core/src/protocol/deserializer.hpp"
 #include "core/src/protocol/protocol.hpp"
 #include "core/src/protocol/serializer.hpp"
@@ -31,6 +34,7 @@ public:
     using Lazy = utility::Lazy<Vendor>;
 
     static constexpr size_t kMaxPacketSize = 64;
+    static constexpr std::size_t kGpioChannelCount = std::size(spec::c_board::kGpioDescriptors);
 
     Vendor() {
         usb::usb_descriptors.init();
@@ -101,21 +105,45 @@ private:
         }
     }
 
-    void gpio_digital_data_deserialized_callback(const data::GpioDigitalDataView& data) override {
-        gpio::gpio->handle_digital_write(data);
+    void gpio_digital_data_deserialized_callback(
+        uint8_t channel_index, const data::GpioDigitalDataView& data) override {
+        if (channel_index >= kGpioChannelCount)
+            return;
+
+        const auto& gpio = spec::c_board::kGpioDescriptors[channel_index];
+        if (!gpio.supports(spec::GpioCapability::kDigitalWrite))
+            return;
+
+        gpio::gpio->handle_digital_write(channel_index, data);
     }
 
-    void gpio_analog_data_deserialized_callback(const data::GpioAnalogDataView& data) override {
-        gpio::gpio->handle_analog_write(data);
+    void gpio_analog_data_deserialized_callback(
+        uint8_t channel_index, const data::GpioAnalogDataView& data) override {
+        if (channel_index >= kGpioChannelCount)
+            return;
+
+        const auto& gpio = spec::c_board::kGpioDescriptors[channel_index];
+        if (!gpio.supports(spec::GpioCapability::kAnalogWrite))
+            return;
+
+        gpio::gpio->handle_analog_write(channel_index, data);
     }
 
     void gpio_digital_read_config_deserialized_callback(
-        const data::GpioReadConfigView& data) override {
-        gpio::gpio->handle_digital_read(data);
+        uint8_t channel_index, const data::GpioReadConfigView& data) override {
+        if (channel_index >= kGpioChannelCount)
+            return;
+
+        const auto& gpio = spec::c_board::kGpioDescriptors[channel_index];
+        if (!data.supported(gpio))
+            return;
+
+        gpio::gpio->handle_digital_read(channel_index, data);
     }
 
     void gpio_analog_read_config_deserialized_callback(
-        const data::GpioReadConfigView& data) override {
+        uint8_t channel_index, const data::GpioReadConfigView& data) override {
+        (void)channel_index;
         (void)data;
     }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <stdexcept>
 #include <string_view>
 
@@ -107,11 +108,14 @@ private:
     virtual void uart2_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
     virtual void uart3_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
 
-    void
-        gpio_digital_read_result_callback(const librmcs::data::GpioDigitalDataView& data) override {
+    void gpio_digital_read_result_callback(
+        uint8_t channel_index, const librmcs::data::GpioDigitalDataView& data) override {
+        (void)channel_index;
         (void)data;
     }
-    void gpio_analog_read_result_callback(const librmcs::data::GpioAnalogDataView& data) override {
+    void gpio_analog_read_result_callback(
+        uint8_t channel_index, const librmcs::data::GpioAnalogDataView& data) override {
+        (void)channel_index;
         (void)data;
     }
 
