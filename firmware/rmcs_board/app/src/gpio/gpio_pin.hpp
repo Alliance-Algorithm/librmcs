@@ -13,6 +13,8 @@
 #include <hpm_ioc_regs.h>
 #include <hpm_soc.h>
 
+#include "core/src/utility/assert.hpp"
+
 namespace librmcs::firmware {
 
 class GpioPin {
@@ -30,8 +32,7 @@ public:
         , controller_(static_cast<uint32_t>(controller))
         , pad_(pad)
         , pin_(pin) {
-        if (pad >= (1 << 16) || port >= (1 << 4) || pin >= (1 << 5)) [[unlikely]]
-            __builtin_trap();
+        core::utility::assert_debug(pad < (1 << 16) && port < (1 << 4) && pin < (1 << 5));
     }
 
     constexpr gpiom_gpio_t controller() const { return static_cast<gpiom_gpio_t>(controller_); }

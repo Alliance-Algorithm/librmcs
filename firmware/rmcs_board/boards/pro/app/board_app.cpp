@@ -5,6 +5,7 @@
 #include <hpm_clock_drv.h>
 #include <hpm_common.h>
 #include <hpm_gpio_drv.h>
+#include <hpm_gpio_regs.h>
 #include <hpm_ioc_regs.h>
 #include <hpm_iomux.h>
 #include <hpm_mcan_regs.h>
@@ -201,11 +202,19 @@ void init_user_button_and_switch_pins() {
     kUserHsFsSwitchPin.configure_as_input();
 }
 
+void init_gpio_pins() {
+    // Intentionally empty: No PIOC pins need to be configured.
+}
+
+SDK_DECLARE_EXT_ISR_M(IRQn_GPIO0_A, gpio_a_isr)
+void gpio_a_isr() { gpio_irq_handler(GPIO_DI_GPIOA); }
+
 SDK_DECLARE_EXT_ISR_M(IRQn_GPIO0_B, gpio_bmi088_int_gyro_isr)
 void gpio_bmi088_int_gyro_isr() {
     if (kBmi088GyroIntPin.check_clear_interrupt_flag()) {
         bmi088_gyro_dataready_irq_handler();
     }
+    gpio_irq_handler(GPIO_DI_GPIOB);
 }
 
 SDK_DECLARE_EXT_ISR_M(IRQn_GPIO0_Y, gpio_bmi088_int_accel_isr)
@@ -213,6 +222,7 @@ void gpio_bmi088_int_accel_isr() {
     if (kBmi088AccelIntPin.check_clear_interrupt_flag()) {
         bmi088_accel_dataready_irq_handler();
     }
+    gpio_irq_handler(GPIO_DI_GPIOY);
 }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_CAN0(IRQn_MCAN, ), can0_isr)

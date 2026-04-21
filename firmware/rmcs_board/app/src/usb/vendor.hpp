@@ -12,12 +12,14 @@
 
 #include "board_app.hpp"
 #include "core/include/librmcs/data/datas.hpp"
+#include "core/include/librmcs/spec/gpio.hpp"
 #include "core/src/protocol/deserializer.hpp"
 #include "core/src/protocol/protocol.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
 #include "firmware/rmcs_board/app/src/can/can.hpp"
+#include "firmware/rmcs_board/app/src/gpio/gpio.hpp"
 #include "firmware/rmcs_board/app/src/uart/uart.hpp"
 #include "firmware/rmcs_board/app/src/usb/interrupt_safe_buffer.hpp"
 #include "firmware/rmcs_board/app/src/usb/usb_descriptors.hpp"
@@ -117,20 +119,38 @@ private:
 
     void gpio_digital_data_deserialized_callback(
         uint8_t channel_index, const data::GpioDigitalDataView& data) override {
-        (void)channel_index;
-        (void)data;
+        if (channel_index >= board::spec::kGpioDescriptors.size())
+            return;
+
+        const auto& gpio_descriptor = board::spec::kGpioDescriptors[channel_index];
+        if (!gpio_descriptor.supports(spec::GpioCapability::kDigitalWrite))
+            return;
+
+        gpio::gpio->handle_digital_write(channel_index, data);
     }
 
     void gpio_analog_data_deserialized_callback(
         uint8_t channel_index, const data::GpioAnalogDataView& data) override {
-        (void)channel_index;
-        (void)data;
+        if (channel_index >= board::spec::kGpioDescriptors.size())
+            return;
+
+        const auto& gpio_descriptor = board::spec::kGpioDescriptors[channel_index];
+        if (!gpio_descriptor.supports(spec::GpioCapability::kAnalogWrite))
+            return;
+
+        gpio::gpio->handle_analog_write(channel_index, data);
     }
 
     void gpio_digital_read_config_deserialized_callback(
         uint8_t channel_index, const data::GpioReadConfigView& data) override {
-        (void)channel_index;
-        (void)data;
+        if (channel_index >= board::spec::kGpioDescriptors.size())
+            return;
+
+        const auto& gpio_descriptor = board::spec::kGpioDescriptors[channel_index];
+        if (!data.supported(gpio_descriptor))
+            return;
+
+        gpio::gpio->handle_digital_read(channel_index, data);
     }
 
     void gpio_analog_read_config_deserialized_callback(

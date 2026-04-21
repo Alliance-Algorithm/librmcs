@@ -5,6 +5,7 @@
 #include <hpm_clock_drv.h>
 #include <hpm_common.h>
 #include <hpm_gpio_drv.h>
+#include <hpm_gpio_regs.h>
 #include <hpm_ioc_regs.h>
 #include <hpm_iomux.h>
 #include <hpm_mcan_regs.h>
@@ -136,6 +137,11 @@ uint32_t init_spi(SPI_Type* ptr) {
     return init_spi_clock(ptr);
 }
 
+void init_gpio_pins() {
+    kGpioHardwareDescriptors[0].configure_pioc_function();
+    kGpioHardwareDescriptors[1].configure_pioc_function();
+}
+
 void init_user_button_and_switch_pins() {
     kUserHsFsSwitchPin.configure_controller();
     kUserHsFsSwitchPin.configure_ioc_function();
@@ -155,7 +161,11 @@ void gpio_bmi088_int_isr() {
     if (kBmi088AccelIntPin.check_clear_interrupt_flag()) {
         bmi088_accel_dataready_irq_handler();
     }
+    gpio_irq_handler(GPIO_DI_GPIOB);
 }
+
+SDK_DECLARE_EXT_ISR_M(IRQn_GPIO0_Y, gpio_y_isr)
+void gpio_y_isr() { gpio_irq_handler(GPIO_DI_GPIOY); }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_CAN0(IRQn_MCAN, ), can0_isr)
 void can0_isr() { can_irq_handler(0); }

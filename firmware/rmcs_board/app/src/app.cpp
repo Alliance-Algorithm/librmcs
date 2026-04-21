@@ -5,6 +5,7 @@
 #include <hpm_dma_mgr.h>
 
 #include "firmware/rmcs_board/app/src/can/can.hpp"
+#include "firmware/rmcs_board/app/src/gpio/gpio.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/accel.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/gyro.hpp"
 #include "firmware/rmcs_board/app/src/uart/uart.hpp"
@@ -33,6 +34,8 @@ App::App() {
     for (auto& board_uart : uart::uart_array)
         board_uart.init();
 
+    gpio::gpio.init();
+
     spi::bmi088::accelerometer.init();
     spi::bmi088::gyroscope.init();
 }
@@ -46,6 +49,7 @@ App::App() {
 
         for (auto& board_uart : uart::uart_array)
             board_uart->try_transmit();
+        gpio::gpio->poll_periodic_input_samples();
     }
 }
 

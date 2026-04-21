@@ -30,7 +30,7 @@ public:
     using TimePoint48 = std::chrono::time_point<uint64_t, Duration48>;
 
     // Keep the true-window at least half-cycle for stateless expiration checks.
-    static constexpr uint64_t kMaxDurationTicks = uint64_t{1} << 31;
+    static constexpr uint32_t kMaxDurationTicks = uint32_t{1} << 31;
     static constexpr uint64_t kMaxDuration48Ticks = uint64_t{1} << 47;
 
     static constexpr uint64_t kCounter48Mask = 0xFFFFFFFFFFFFULL;
@@ -67,6 +67,13 @@ public:
         return elapsed_duration >= delay;
     }
 
+    [[nodiscard]] bool check_reached(TimePoint deadline) const {
+        const uint32_t deadline_ticks = deadline.time_since_epoch().count();
+        const uint32_t now_ticks = timepoint().time_since_epoch().count();
+        const uint32_t elapsed_ticks = now_ticks - deadline_ticks;
+        return elapsed_ticks < kMaxDurationTicks;
+    }
+
     [[nodiscard]] bool check_expired(TimePoint48 start_point, Duration48 delay) const {
         core::utility::assert_debug(delay.count() <= kMaxDuration48Ticks);
 
@@ -93,7 +100,7 @@ public:
         using InputDuration = std::chrono::duration<uint64_t, Period>;
         const InputDuration duration_u64{count};
 
-        constexpr Duration max_duration{static_cast<uint32_t>(kMaxDurationTicks)};
+        constexpr Duration max_duration{kMaxDurationTicks};
         const InputDuration max_input_duration =
             std::chrono::duration_cast<InputDuration>(max_duration);
 

@@ -28,10 +28,13 @@ constexpr GpioCapability operator~(GpioCapability a) noexcept {
     return static_cast<GpioCapability>(~static_cast<std::uint8_t>(a));
 }
 
-inline constexpr GpioCapability kAllGpioCapabilities =
-    GpioCapability::kDigitalWrite | GpioCapability::kAnalogWrite | GpioCapability::kDigitalReadOnce
+inline constexpr GpioCapability kDigitalCapabilities =
+    GpioCapability::kDigitalWrite | GpioCapability::kDigitalReadOnce
     | GpioCapability::kDigitalReadPeriodic | GpioCapability::kDigitalReadInterrupt
     | GpioCapability::kPullUp | GpioCapability::kPullDown;
+
+inline constexpr GpioCapability kPwmCapabilities =
+    kDigitalCapabilities | GpioCapability::kAnalogWrite;
 
 struct GpioDescriptor {
     std::uint8_t channel_index;

@@ -57,6 +57,9 @@ public:
 
     void handle_digital_read(uint8_t channel_index, const data::GpioReadConfigView& data) {
         configure_digital_input_mode(channel_index, data);
+
+        if (data.asap)
+            publish_digital_input_sample(channel_index);
     }
 
     void poll_periodic_input_samples() {
@@ -64,13 +67,13 @@ public:
 
         for (std::size_t channel_index = 0; channel_index < kChannelCount; ++channel_index) {
             auto& state = channel_states_[channel_index];
-            if (state.mode != GpioMode::kDigitalInput || state.period == kNoPeriod)
+            if (state.mode != GpioMode::kDigitalInput || state.sample_period == kNoPeriod)
                 continue;
-            if (!timer::timer->check_expired(state.next_sample_time, state.period))
+            if (!timer::timer->check_reached(state.next_sample_deadline))
                 continue;
 
             publish_digital_input_sample(static_cast<uint8_t>(channel_index));
-            state.next_sample_time = now;
+            state.next_sample_deadline = now + state.sample_period;
         }
     }
 
@@ -94,8 +97,8 @@ private:
         bool rising_edge = false;
         bool falling_edge = false;
         data::GpioPull pull = data::GpioPull::kNone;
-        timer::Timer::Duration period = timer::Timer::Duration::zero();
-        timer::Timer::TimePoint next_sample_time;
+        timer::Timer::Duration sample_period = timer::Timer::Duration::zero();
+        timer::Timer::TimePoint next_sample_deadline;
     };
 
     struct ChannelHardware {
@@ -122,31 +125,27 @@ private:
     void configure_digital_input_mode(uint8_t channel_index, const data::GpioReadConfigView& data) {
         auto& state = channel_state(channel_index);
 
-        const auto& asap = data.asap;
         auto rising_edge = data.rising_edge;
         auto falling_edge = data.falling_edge;
         const auto pull = data.pull;
-        const auto period =
+        const auto sample_period =
             (data.period_ms == 0)
                 ? kNoPeriod
                 : timer::Timer::to_duration_checked(std::chrono::milliseconds{data.period_ms});
 
         if (state.mode != GpioMode::kDigitalInput //
             || state.rising_edge != rising_edge || state.falling_edge != falling_edge
-            || state.pull != pull || state.period != period) {
+            || state.pull != pull || state.sample_period != sample_period) {
 
             state.mode = GpioMode::kDigitalInput;
             state.rising_edge = rising_edge;
             state.falling_edge = falling_edge;
             state.pull = pull;
-            state.period = period;
-            state.next_sample_time = timer::timer->timepoint();
+            state.sample_period = sample_period;
+            state.next_sample_deadline = timer::timer->timepoint();
 
             configure_hal_gpio_input(channel_index, rising_edge, falling_edge, pull);
         }
-
-        if (asap)
-            publish_digital_input_sample(channel_index);
     }
 
     void set_pwm_compare(uint8_t channel_index, uint32_t compare) {

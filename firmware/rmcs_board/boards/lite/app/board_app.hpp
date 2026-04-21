@@ -2,18 +2,24 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 
 #include <hpm_common.h>
 #include <hpm_gpiom_soc_drv.h>
+#include <hpm_iomux.h>
 #include <hpm_mcan_regs.h>
 #include <hpm_soc.h>
 #include <hpm_soc_irq.h>
 #include <hpm_spi_regs.h>
 #include <hpm_uart_regs.h>
 
+#include "core/include/librmcs/spec/rmcs_board_lite/gpio.hpp" // IWYU pragma: export
+#include "firmware/rmcs_board/app/src/gpio/analog_gpio_pin.hpp"
 #include "firmware/rmcs_board/app/src/gpio/gpio_pin.hpp"
 
 namespace librmcs::firmware::board {
+
+namespace spec = librmcs::spec::rmcs_board_lite; // NOLINT(misc-unused-alias-decls)
 
 #define BOARD_CAN0(prefix, suffix) prefix##1##suffix
 #define BOARD_CAN1(prefix, suffix) prefix##0##suffix
@@ -47,5 +53,16 @@ void bmi088_accel_dataready_irq_handler();
 constexpr GpioPin kUserHsFsSwitchPin = make_gpio_pin<gpiom_soc_gpio0, 'A', 31, false>();
 
 void init_user_button_and_switch_pins();
+
+inline constexpr AnalogGpioPin kGpioHardwareDescriptors[]{
+    make_gpio_pin<gpiom_soc_gpio0, 'Y', 1>(),
+    make_gpio_pin<gpiom_soc_gpio0, 'Y', 0>(),
+    make_gpio_pin<gpiom_soc_gpio0, 'B', 9>(),
+    make_gpio_pin<gpiom_soc_gpio0, 'B', 8>(),
+};
+static_assert(board::spec::kGpioDescriptors.size() == std::size(board::kGpioHardwareDescriptors));
+
+void init_gpio_pins();
+void gpio_irq_handler(uint32_t port_index);
 
 } // namespace librmcs::firmware::board

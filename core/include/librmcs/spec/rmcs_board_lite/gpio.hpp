@@ -6,7 +6,7 @@
 
 #include <librmcs/spec/gpio.hpp>
 
-namespace librmcs::spec::c_board {
+namespace librmcs::spec::rmcs_board_lite {
 
 namespace internal {
 class GpioDescriptors;
@@ -30,15 +30,13 @@ public:
 };
 
 namespace internal {
+
 class GpioDescriptors {
     static constexpr GpioDescriptor kArray[]{
-        {0,                                          kPwmCapabilities},
-        {1,                                          kPwmCapabilities},
-        {2,                                          kPwmCapabilities},
-        {3,                                          kPwmCapabilities},
-        {4,                                          kPwmCapabilities},
-        {5, kPwmCapabilities & ~GpioCapability::kDigitalReadInterrupt},
-        {6,                                          kPwmCapabilities}
+        {0, kDigitalCapabilities},
+        {1, kDigitalCapabilities},
+        {2, kDigitalCapabilities},
+        {3, kDigitalCapabilities},
     };
     static_assert(channel_indices_match_indices(kArray));
 
@@ -55,16 +53,14 @@ public:
 
     static constexpr const GpioDescriptor* end() noexcept { return std::end(kArray); }
 
-    static constexpr const GpioDescriptor& kPwm1 = kArray[0];
-    static constexpr const GpioDescriptor& kPwm2 = kArray[1];
-    static constexpr const GpioDescriptor& kPwm3 = kArray[2];
-    static constexpr const GpioDescriptor& kPwm4 = kArray[3];
-    static constexpr const GpioDescriptor& kPwm5 = kArray[4];
-    static constexpr const GpioDescriptor& kPwm6 = kArray[5];
-    static constexpr const GpioDescriptor& kPwm7 = kArray[6];
+    static constexpr const GpioDescriptor& kUart0Rx = kArray[0];
+    static constexpr const GpioDescriptor& kUart0Tx = kArray[1];
+    static constexpr const GpioDescriptor& kUart1Rx = kArray[2];
+    static constexpr const GpioDescriptor& kUart1Tx = kArray[3];
 };
+
 } // namespace internal
 
 inline constexpr internal::GpioDescriptors kGpioDescriptors{};
 
-} // namespace librmcs::spec::c_board
+} // namespace librmcs::spec::rmcs_board_lite

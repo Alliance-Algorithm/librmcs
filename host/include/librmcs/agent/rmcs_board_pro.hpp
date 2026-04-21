@@ -7,6 +7,8 @@
 #include <librmcs/agent/common.hpp>
 #include <librmcs/data/datas.hpp>
 #include <librmcs/protocol/handler.hpp>
+#include <librmcs/spec/gpio.hpp>
+#include <librmcs/spec/rmcs_board_pro/gpio.hpp>
 
 namespace librmcs::agent {
 
@@ -67,6 +69,32 @@ public:
             return *this;
         }
 
+        PacketBuilder& gpio_digital_write(
+            const librmcs::spec::rmcs_board_pro::GpioDescriptor& gpio,
+            const librmcs::data::GpioDigitalDataView& data) {
+            if (!gpio.supports(spec::GpioCapability::kDigitalWrite)
+                || !builder_.write_gpio_digital_data(gpio.channel_index, data)) [[unlikely]]
+                throw std::invalid_argument{"GPIO digital transmission failed: Invalid GPIO data"};
+            return *this;
+        }
+        PacketBuilder& gpio_digital_read(
+            const librmcs::spec::rmcs_board_pro::GpioDescriptor& gpio,
+            const librmcs::data::GpioReadConfigView& data) {
+            if (!data.supported(gpio)
+                || !builder_.write_gpio_digital_read_config(gpio.channel_index, data)) [[unlikely]]
+                throw std::invalid_argument{
+                    "GPIO digital read configuration transmission failed: Invalid GPIO data"};
+            return *this;
+        }
+        PacketBuilder& gpio_analog_write(
+            const librmcs::spec::rmcs_board_pro::GpioDescriptor& gpio,
+            const librmcs::data::GpioAnalogDataView& data) {
+            if (!gpio.supports(spec::GpioCapability::kAnalogWrite)
+                || !builder_.write_gpio_analog_data(gpio.channel_index, data)) [[unlikely]]
+                throw std::invalid_argument{"GPIO analog transmission failed: Invalid GPIO data"};
+            return *this;
+        }
+
     private:
         explicit PacketBuilder(host::protocol::Handler& handler) noexcept
             : builder_(handler.start_transmit()) {}
@@ -109,13 +137,30 @@ private:
     virtual void uart3_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
 
     void gpio_digital_read_result_callback(
-        uint8_t channel_index, const librmcs::data::GpioDigitalDataView& data) override {
-        (void)channel_index;
-        (void)data;
+        uint8_t channel_index, const librmcs::data::GpioDigitalDataView& data) final {
+        if (channel_index >= spec::rmcs_board_pro::kGpioDescriptors.size()) [[unlikely]]
+            return;
+        gpio_digital_read_result_callback(
+            spec::rmcs_board_pro::kGpioDescriptors[channel_index], data);
     }
     void gpio_analog_read_result_callback(
-        uint8_t channel_index, const librmcs::data::GpioAnalogDataView& data) override {
-        (void)channel_index;
+        uint8_t channel_index, const librmcs::data::GpioAnalogDataView& data) final {
+        if (channel_index >= spec::rmcs_board_pro::kGpioDescriptors.size()) [[unlikely]]
+            return;
+        gpio_analog_read_result_callback(
+            spec::rmcs_board_pro::kGpioDescriptors[channel_index], data);
+    }
+
+    virtual void gpio_digital_read_result_callback(
+        const librmcs::spec::rmcs_board_pro::GpioDescriptor& gpio,
+        const librmcs::data::GpioDigitalDataView& data) {
+        (void)gpio;
+        (void)data;
+    }
+    virtual void gpio_analog_read_result_callback(
+        const librmcs::spec::rmcs_board_pro::GpioDescriptor& gpio,
+        const librmcs::data::GpioAnalogDataView& data) {
+        (void)gpio;
         (void)data;
     }
 
