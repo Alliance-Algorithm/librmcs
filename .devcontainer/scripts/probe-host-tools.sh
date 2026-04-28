@@ -69,3 +69,4 @@ printf '  claude=%s\n' "$claude_version"
 printf '  opencode=%s\n' "$opencode_version"
 printf '  lark-cli=%s\n' "$lark_cli_version"
 printf '  manifest=%s\n' "$manifest_path"
+printf 'Tip: rerun `bash /workspaces/librmcs/.devcontainer/scripts/bootstrap-tools.sh` to resync container tool versions with the host.\n'

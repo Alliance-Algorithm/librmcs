@@ -70,6 +70,4 @@ else
     printf 'Skipped: none\n'
 fi
 
-printf 'Tip: rerun `bash /workspaces/librmcs/.devcontainer/scripts/bootstrap-tools.sh` to resync container tool versions with the host.\n'
-
 exit 0
