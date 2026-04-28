@@ -9,16 +9,6 @@
     "workspaceFolder": "/workspaces/librmcs",
     "initializeCommand": "bash .devcontainer/scripts/generate-local-override.sh && bash .devcontainer/scripts/probe-host-tools.sh",
     "postCreateCommand": "bash /workspaces/librmcs/.devcontainer/scripts/bootstrap-tools.sh",
-    "containerEnv": {
-        "DISPLAY": "${localEnv:DISPLAY}",
-        "HTTP_PROXY": "${localEnv:HTTP_PROXY}",
-        "HTTPS_PROXY": "${localEnv:HTTPS_PROXY}",
-        "NO_PROXY": "${localEnv:NO_PROXY}",
-        "http_proxy": "${localEnv:http_proxy}",
-        "https_proxy": "${localEnv:https_proxy}",
-        "no_proxy": "${localEnv:no_proxy}",
-        "HOST_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
-    },
     "customizations": {
         "vscode": {
             "settings": {
