@@ -1,0 +1,4 @@
+.zsh_history
+
+docker-compose.local.override.yml
+.generated/

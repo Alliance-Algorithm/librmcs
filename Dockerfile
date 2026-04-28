@@ -127,6 +127,16 @@ EOF
 # Configure 'ubuntu' user and sudo privileges
 RUN chsh -s /bin/zsh ubuntu && \
     echo "ubuntu ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Precreate generic XDG-style parent directories for direct bind mounts under ubuntu's home.
+RUN mkdir -p \
+        /home/ubuntu/.agents \
+        /home/ubuntu/.cache \
+        /home/ubuntu/.config \
+        /home/ubuntu/.local/share \
+        /home/ubuntu/.local/state && \
+    chown -R ubuntu:ubuntu /home/ubuntu/.agents /home/ubuntu/.cache /home/ubuntu/.config /home/ubuntu/.local
+
 WORKDIR /home/ubuntu
 ENV USER=ubuntu
 ENV WORKDIR=/home/ubuntu
