@@ -316,6 +316,8 @@ public:
         payload.set<ImuAccelerometerPayload::X>(view.x);
         payload.set<ImuAccelerometerPayload::Y>(view.y);
         payload.set<ImuAccelerometerPayload::Z>(view.z);
+        payload.set<ImuAccelerometerPayload::TimestampDiffQuarterUs>(
+            view.timestamp_diff_quarter_us);
 
         utility::assert_debug(cursor == dst.data() + dst.size());
         return SerializeResult::kSuccess;
@@ -341,6 +343,7 @@ public:
         payload.set<ImuGyroscopePayload::X>(view.x);
         payload.set<ImuGyroscopePayload::Y>(view.y);
         payload.set<ImuGyroscopePayload::Z>(view.z);
+        payload.set<ImuGyroscopePayload::TimestampDiffQuarterUs>(view.timestamp_diff_quarter_us);
 
         utility::assert_debug(cursor == dst.data() + dst.size());
         return SerializeResult::kSuccess;

@@ -79,12 +79,14 @@ struct AccelerometerDataView {
     int16_t x;
     int16_t y;
     int16_t z;
+    uint16_t timestamp_diff_quarter_us;
 };
 
 struct GyroscopeDataView {
     int16_t x;
     int16_t y;
     int16_t z;
+    uint16_t timestamp_diff_quarter_us;
 };
 
 class DataCallback {

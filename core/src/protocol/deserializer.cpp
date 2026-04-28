@@ -262,6 +262,8 @@ coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
         data_view.x = payload.get<ImuAccelerometerPayload::X>();
         data_view.y = payload.get<ImuAccelerometerPayload::Y>();
         data_view.z = payload.get<ImuAccelerometerPayload::Z>();
+        data_view.timestamp_diff_quarter_us =
+            payload.get<ImuAccelerometerPayload::TimestampDiffQuarterUs>();
         consume_peeked();
         callback_.accelerometer_deserialized_callback(data_view);
         break;
@@ -275,6 +277,8 @@ coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
         data_view.x = payload.get<ImuGyroscopePayload::X>();
         data_view.y = payload.get<ImuGyroscopePayload::Y>();
         data_view.z = payload.get<ImuGyroscopePayload::Z>();
+        data_view.timestamp_diff_quarter_us =
+            payload.get<ImuGyroscopePayload::TimestampDiffQuarterUs>();
         consume_peeked();
         callback_.gyroscope_deserialized_callback(data_view);
         break;
