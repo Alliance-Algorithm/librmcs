@@ -13,6 +13,7 @@
 #include "firmware/c_board/app/src/spi/spi.hpp"
 #include "firmware/c_board/app/src/timer/timer.hpp"
 #include "firmware/c_board/app/src/usb/vendor.hpp"
+#include "firmware/c_board/app/src/utility/interrupt_lock.hpp"
 #include "firmware/c_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::spi::bmi088 {
@@ -109,20 +110,40 @@ public:
     }
 
     void data_ready_callback(uint32_t capture_timestamp_quarter_us) {
-        if (read_async(RegisterAddress::kAccXLsb, 6)) {
-            pending_capture_timestamp_quarter_us_ = capture_timestamp_quarter_us;
-            has_pending_capture_timestamp_ = true;
-        }
+        const utility::InterruptLockGuard guard;
+        pending_capture_timestamp_quarter_us_ = capture_timestamp_quarter_us;
+        has_pending_capture_timestamp_ = true;
+    }
+
+    bool service_pending_read() {
+        const utility::InterruptLockGuard guard;
+        if (!has_pending_capture_timestamp_)
+            return false;
+        if (!read_async(RegisterAddress::kAccXLsb, 6))
+            return false;
+
+        active_capture_timestamp_quarter_us_ = pending_capture_timestamp_quarter_us_;
+        has_active_capture_timestamp_ = true;
+        has_pending_capture_timestamp_ = false;
+        return true;
     }
 
 private:
     void transmit_receive_async_callback(size_t size) override {
-        core::utility::assert_debug(!size || has_pending_capture_timestamp_);
-        if (size && has_pending_capture_timestamp_) [[likely]] {
-            auto& data = parse_rx_data(spi_.rx_buffer, size);
-            handle_uplink(usb::vendor->serializer(), data, pending_capture_timestamp_quarter_us_);
+        uint32_t active_capture_timestamp_quarter_us = 0;
+        bool has_active_capture_timestamp = false;
+        {
+            const utility::InterruptLockGuard guard;
+            active_capture_timestamp_quarter_us = active_capture_timestamp_quarter_us_;
+            has_active_capture_timestamp = has_active_capture_timestamp_;
+            has_active_capture_timestamp_ = false;
         }
-        has_pending_capture_timestamp_ = false;
+
+        core::utility::assert_debug(!size || has_active_capture_timestamp);
+        if (size && has_active_capture_timestamp) [[likely]] {
+            auto& data = parse_rx_data(spi_.rx_buffer, size);
+            handle_uplink(usb::vendor->serializer(), data, active_capture_timestamp_quarter_us);
+        }
         spi_.unlock();
     }
 
@@ -159,8 +180,10 @@ private:
     }
 
     uint32_t pending_capture_timestamp_quarter_us_ = 0;
+    uint32_t active_capture_timestamp_quarter_us_ = 0;
     uint32_t last_success_capture_timestamp_quarter_us_ = 0;
     bool has_pending_capture_timestamp_ = false;
+    bool has_active_capture_timestamp_ = false;
     bool has_last_success_capture_timestamp_ = false;
 };
 

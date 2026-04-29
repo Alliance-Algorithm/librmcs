@@ -15,6 +15,7 @@
 #include "firmware/c_board/app/src/led/led.hpp"
 #include "firmware/c_board/app/src/spi/bmi088/accel.hpp"
 #include "firmware/c_board/app/src/spi/bmi088/gyro.hpp"
+#include "firmware/c_board/app/src/spi/bmi088/service.hpp"
 #include "firmware/c_board/app/src/spi/spi.hpp"
 #include "firmware/c_board/app/src/timer/timer.hpp"
 #include "firmware/c_board/app/src/uart/uart.hpp"
@@ -79,6 +80,7 @@ App::App() {
         can::can2->try_transmit();
         usb::vendor->try_transmit();
         spi::spi1->update();
+        spi::bmi088::service_pending_reads();
         usb::vendor->try_transmit();
         uart::uart1->try_transmit();
         usb::vendor->try_transmit();
