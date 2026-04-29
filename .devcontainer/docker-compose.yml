@@ -1,14 +1,16 @@
 services:
   librmcs-develop:
     image: qzhhhi/librmcs-develop:latest
-    privileged: true
     network_mode: host
+    device_cgroup_rules:
+      - "c 189:* rw"
     init: true
     command: /bin/sh -c "while sleep 1000; do :; done"
     working_dir: /home/ubuntu
-    devices:
-      - /dev:/dev
     volumes:
+      - type: bind
+        source: /dev
+        target: /dev
       - type: bind
         source: /tmp/.X11-unix
         target: /tmp/.X11-unix
