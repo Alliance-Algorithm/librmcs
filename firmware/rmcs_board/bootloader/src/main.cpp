@@ -13,8 +13,7 @@
 int main() {
     using namespace librmcs::firmware; // NOLINT(google-build-using-namespace)
 
-    board_init_bootloader_force_stay_button();
-    const bool force_stay = board_bootloader_force_stay_button_pressed();
+    const bool force_stay = board_check_bootloader_force_stay_requested();
 
 #if LIBRMCS_BOOTLOADER_MODE_AUTO
     if (!force_stay && !boot::BootMailbox::consume_enter_dfu_request()
