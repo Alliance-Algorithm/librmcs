@@ -132,6 +132,12 @@ uint32_t init_spi(SPI_Type* ptr) {
         kBmi088AccelChipSelectPin.configure_ioc_function();
         kBmi088AccelChipSelectPin.set_active(false);
         kBmi088AccelChipSelectPin.configure_as_output();
+
+        kBmi088HeaterPin.configure_controller();
+        kBmi088HeaterPin.configure_pioc_function();
+        kBmi088HeaterPin.configure_ioc_function();
+        kBmi088HeaterPin.set_active(false);
+        kBmi088HeaterPin.configure_as_output();
     }
 
     return init_spi_clock(ptr);
