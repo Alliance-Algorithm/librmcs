@@ -143,6 +143,15 @@ void init_gpio_pins() {
 }
 
 void init_user_button_and_switch_pins() {
+    kUserButtonPin.configure_controller();
+    kUserButtonPin.configure_ioc_function();
+    kUserButtonPin.configure_pad_control(
+        IOC_PAD_PAD_CTL_PE_SET(1) | // Pull enable
+        IOC_PAD_PAD_CTL_PS_SET(1) | // Pull select - Pull up
+        IOC_PAD_PAD_CTL_HYS_SET(1)  // Enable Schmitt trigger
+    );
+    kUserButtonPin.configure_as_input();
+
     kUserHsFsSwitchPin.configure_controller();
     kUserHsFsSwitchPin.configure_ioc_function();
     kUserHsFsSwitchPin.configure_pad_control(

@@ -11,16 +11,27 @@
 #include "firmware/c_board/bootloader/src/utility/boot_mailbox.hpp"
 #include "firmware/c_board/bootloader/src/utility/jump.hpp"
 
+namespace {
+
+bool bootloader_force_stay_button_pressed() {
+    return HAL_GPIO_ReadPin(USER_BUTTON_GPIO_Port, USER_BUTTON_Pin) == GPIO_PIN_RESET;
+}
+
+} // namespace
+
 int main() {
     HAL_Init();
     SystemClock_Config();
     MX_GPIO_Init();
+
+    const bool force_stay = bootloader_force_stay_button_pressed();
+
     MX_USB_OTG_FS_PCD_Init();
 
     using namespace librmcs::firmware; // NOLINT(google-build-using-namespace)
 
     const bool force_dfu = utility::boot_mailbox.consume_enter_dfu_request();
-    if (!force_dfu) {
+    if (!force_stay && !force_dfu) {
         if (flash::validate_app_image())
             utility::jump_to_app(flash::kAppStartAddress);
     }

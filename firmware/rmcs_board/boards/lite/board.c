@@ -4,6 +4,8 @@
 
 #include <hpm_clock_drv.h>
 #include <hpm_common.h>
+#include <hpm_gpio_drv.h>
+#include <hpm_gpiom_drv.h>
 #include <hpm_ioc_regs.h>
 #include <hpm_pcfg_drv.h>
 #include <hpm_pllctlv2_drv.h>
@@ -27,6 +29,24 @@ __attribute__((used)) const uint32_t kUf2Signature = BOARD_UF2_SIGNATURE;
 static inline void init_py_pins_as_soc_gpio(void);
 static inline void board_init_clock(void);
 static inline void board_init_usb_dp_dm_pins(void);
+
+void board_init_bootloader_force_stay_button(void) {
+    const uint32_t pad_ctl = IOC_PAD_PAD_CTL_PE_SET(1)
+                           | IOC_PAD_PAD_CTL_PS_SET(1)
+                           | IOC_PAD_PAD_CTL_HYS_SET(1);
+
+    clock_add_to_group(clock_gpio, 0);
+
+    HPM_IOC->PAD[IOC_PAD_PA07].FUNC_CTL = IOC_PA07_FUNC_CTL_GPIO_A_07;
+    HPM_IOC->PAD[IOC_PAD_PA07].PAD_CTL = pad_ctl;
+
+    gpiom_set_pin_controller(HPM_GPIOM, GPIOM_ASSIGN_GPIOA, 7, gpiom_soc_gpio0);
+    gpio_set_pin_input(HPM_GPIO0, GPIO_OE_GPIOA, 7);
+}
+
+bool board_bootloader_force_stay_button_pressed(void) {
+    return gpio_read_pin(HPM_GPIO0, GPIO_DI_GPIOA, 7) == 0U;
+}
 
 void board_init(void) {
     init_py_pins_as_soc_gpio();
