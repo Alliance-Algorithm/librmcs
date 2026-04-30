@@ -13,10 +13,14 @@
 int main() {
     using namespace librmcs::firmware; // NOLINT(google-build-using-namespace)
 
+    const bool force_stay = board_check_bootloader_force_stay_requested();
+
 #if LIBRMCS_BOOTLOADER_MODE_AUTO
-    if (!boot::BootMailbox::consume_enter_dfu_request() && flash::validate_app_image())
+    if (!force_stay && !boot::BootMailbox::consume_enter_dfu_request()
+        && flash::validate_app_image())
 #else
-    if (boot::BootMailbox::consume_boot_app_once_request() && flash::validate_app_image())
+    if (!force_stay && boot::BootMailbox::consume_boot_app_once_request()
+        && flash::validate_app_image())
 #endif
         utility::jump_to_app();
 

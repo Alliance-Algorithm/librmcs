@@ -50,6 +50,7 @@ void spi_bmi088_irq_handler();
 void bmi088_gyro_dataready_irq_handler();
 void bmi088_accel_dataready_irq_handler();
 
+constexpr GpioPin kUserButtonPin = make_gpio_pin<gpiom_soc_gpio0, 'A', 7, false>();
 constexpr GpioPin kUserHsFsSwitchPin = make_gpio_pin<gpiom_soc_gpio0, 'A', 31, false>();
 
 void init_user_button_and_switch_pins();
