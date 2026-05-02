@@ -30,7 +30,13 @@ public:
         core::utility::assert_debug(pwm_ioc_function < 32 && pwm_output_index < 8);
     }
 
-    [[nodiscard]] constexpr bool supports_pwm() const noexcept { return pwm_base_ != 0; }
+    constexpr uintptr_t pwm_base() const { return pwm_base_; }
+    constexpr uint32_t pwm_ioc_function() const { return pwm_ioc_function_; }
+    constexpr uint8_t pwm_output_index() const { return pwm_output_index_; }
+
+    PWM_Type* pwm_instance() const { return reinterpret_cast<PWM_Type*>(pwm_base_); }
+
+    [[nodiscard]] constexpr bool supports_pwm() const noexcept { return pwm_base() != 0; }
 
     void configure_as_gpio() const {
         configure_controller();
@@ -40,7 +46,7 @@ public:
     void configure_as_pwm() const {
         core::utility::assert_debug(supports_pwm());
         configure_controller();
-        configure_ioc_function(pwm_ioc_function_);
+        configure_ioc_function(pwm_ioc_function());
     }
 
     void disable_interrupt() const {
@@ -50,7 +56,7 @@ public:
 
     void update_pwm_compare_edge_aligned(uint32_t compare_value) const {
         core::utility::assert_debug(supports_pwm());
-        pwm_update_raw_cmp_edge_aligned(pwm_instance(), pwm_output_index_, compare_value);
+        pwm_update_raw_cmp_edge_aligned(pwm_instance(), pwm_output_index(), compare_value);
     }
 
     hpm_stat_t setup_pwm_waveform_edge_aligned(uint32_t reload, pwm_config_t& pwm_config) const {
@@ -61,12 +67,10 @@ public:
         cmp_config.cmp = reload + 1;
 
         return pwm_setup_waveform(
-            pwm_instance(), pwm_output_index_, &pwm_config, pwm_output_index_, &cmp_config, 1);
+            pwm_instance(), pwm_output_index(), &pwm_config, pwm_output_index(), &cmp_config, 1);
     }
 
 private:
-    PWM_Type* pwm_instance() const { return reinterpret_cast<PWM_Type*>(pwm_base_); }
-
     uintptr_t pwm_base_;
 
     uint8_t pwm_ioc_function_;

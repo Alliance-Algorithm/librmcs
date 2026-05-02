@@ -57,6 +57,11 @@ constexpr GpioPin kUserHsFsSwitchPin = make_gpio_pin<gpiom_soc_gpio0, 'Y', 4, fa
 
 void init_user_button_and_switch_pins();
 
+constexpr AnalogGpioPin kWs2812Pin = {
+    make_gpio_pin<gpiom_soc_gpio0, 'B', 4>(), HPM_PWM1_BASE, IOC_PB04_FUNC_CTL_PWM1_P_0, 0};
+
+void init_ws2812_pin();
+
 inline constexpr AnalogGpioPin kGpioHardwareDescriptors[]{
     {make_gpio_pin<gpiom_soc_gpio0, 'B', 0>(), HPM_PWM0_BASE, IOC_PB00_FUNC_CTL_PWM0_P_0, 0},
     {make_gpio_pin<gpiom_soc_gpio0, 'B', 1>(), HPM_PWM0_BASE, IOC_PB01_FUNC_CTL_PWM0_P_1, 1},
@@ -80,5 +85,10 @@ static_assert(board::spec::kGpioDescriptors.size() == std::size(board::kGpioHard
 
 void init_gpio_pins();
 void gpio_irq_handler(uint32_t port_index);
+
+#define BOARD_TICK_CLOCK HPM_GPTMR1
+
+uint32_t init_tick_clock();
+void tick_clock_irq_handler();
 
 } // namespace librmcs::firmware::board
