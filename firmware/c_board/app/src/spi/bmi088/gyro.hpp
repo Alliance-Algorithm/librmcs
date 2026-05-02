@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <chrono> // IWYU pragma: keep (https://github.com/llvm/llvm-project/issues/68213)
 #include <cstddef>
 #include <cstdint>
@@ -114,8 +115,9 @@ public:
         if (!read_async(RegisterAddress::kRateXLsb, 6))
             return false;
 
-        active_capture_timestamp_quarter_us_ = pending_capture_timestamp_quarter_us_;
-        has_active_capture_timestamp_ = true;
+        active_capture_timestamp_quarter_us_.store(
+            pending_capture_timestamp_quarter_us_, std::memory_order_relaxed);
+        has_active_capture_timestamp_.store(true, std::memory_order_release);
         has_pending_capture_timestamp_ = false;
         return true;
     }
@@ -123,12 +125,11 @@ public:
 private:
     void transmit_receive_async_callback(size_t size) override {
         uint32_t active_capture_timestamp_quarter_us = 0;
-        bool has_active_capture_timestamp = false;
-        {
-            const utility::InterruptLockGuard guard;
-            active_capture_timestamp_quarter_us = active_capture_timestamp_quarter_us_;
-            has_active_capture_timestamp = has_active_capture_timestamp_;
-            has_active_capture_timestamp_ = false;
+        const bool has_active_capture_timestamp =
+            has_active_capture_timestamp_.exchange(false, std::memory_order_acquire);
+        if (has_active_capture_timestamp) [[likely]] {
+            active_capture_timestamp_quarter_us =
+                active_capture_timestamp_quarter_us_.load(std::memory_order_relaxed);
         }
 
         core::utility::assert_debug(!size || has_active_capture_timestamp);
@@ -152,9 +153,9 @@ private:
     }
 
     uint32_t pending_capture_timestamp_quarter_us_ = 0;
-    uint32_t active_capture_timestamp_quarter_us_ = 0;
+    std::atomic<uint32_t> active_capture_timestamp_quarter_us_{0};
     bool has_pending_capture_timestamp_ = false;
-    bool has_active_capture_timestamp_ = false;
+    std::atomic<bool> has_active_capture_timestamp_{false};
 };
 
 inline constinit Gyroscope::Lazy gyroscope(&spi1);
