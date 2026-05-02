@@ -114,22 +114,28 @@ struct ImuHeader : utility::Bitfield<1> {
     enum class PayloadEnum : uint8_t {
         kAccelerometer = 0,
         kGyroscope = 1,
+        kTemperature = 2,
     };
     using PayloadType = utility::BitfieldMember<4, 4, PayloadEnum>;
 };
 
-struct ImuAccelerometerPayload : utility::Bitfield<8> {
+struct ImuAccelerometerPayload : utility::Bitfield<10> {
     using X = utility::BitfieldMember<0, 16, int16_t>;
     using Y = utility::BitfieldMember<16, 16, int16_t>;
     using Z = utility::BitfieldMember<32, 16, int16_t>;
-    using TimestampDiffQuarterUs = utility::BitfieldMember<48, 16, uint16_t>;
+    using TimestampQuarterUs = utility::BitfieldMember<48, 32, uint32_t>;
 };
 
-struct ImuGyroscopePayload : utility::Bitfield<8> {
+struct ImuGyroscopePayload : utility::Bitfield<10> {
     using X = utility::BitfieldMember<0, 16, int16_t>;
     using Y = utility::BitfieldMember<16, 16, int16_t>;
     using Z = utility::BitfieldMember<32, 16, int16_t>;
-    using TimestampDiffQuarterUs = utility::BitfieldMember<48, 16, uint16_t>;
+    using TimestampQuarterUs = utility::BitfieldMember<48, 32, uint32_t>;
+};
+
+struct ImuTemperaturePayload : utility::Bitfield<6> {
+    using Temperature = utility::BitfieldMember<0, 16, uint16_t>;
+    using TimestampQuarterUs = utility::BitfieldMember<16, 32, uint32_t>;
 };
 
 } // namespace librmcs::core::protocol

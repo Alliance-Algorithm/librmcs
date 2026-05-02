@@ -167,6 +167,10 @@ private:
         (void)data;
     }
 
+    void temperature_deserialized_callback(const data::TemperatureDataView& data) override {
+        (void)data;
+    }
+
     void error_callback() override { core::utility::assert_failed_always(); }
 
     core::protocol::Deserializer deserializer_{*this};

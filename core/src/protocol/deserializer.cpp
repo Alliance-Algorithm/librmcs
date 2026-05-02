@@ -262,8 +262,7 @@ coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
         data_view.x = payload.get<ImuAccelerometerPayload::X>();
         data_view.y = payload.get<ImuAccelerometerPayload::Y>();
         data_view.z = payload.get<ImuAccelerometerPayload::Z>();
-        data_view.timestamp_diff_quarter_us =
-            payload.get<ImuAccelerometerPayload::TimestampDiffQuarterUs>();
+        data_view.timestamp_quarter_us = payload.get<ImuAccelerometerPayload::TimestampQuarterUs>();
         consume_peeked();
         callback_.accelerometer_deserialized_callback(data_view);
         break;
@@ -277,10 +276,21 @@ coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
         data_view.x = payload.get<ImuGyroscopePayload::X>();
         data_view.y = payload.get<ImuGyroscopePayload::Y>();
         data_view.z = payload.get<ImuGyroscopePayload::Z>();
-        data_view.timestamp_diff_quarter_us =
-            payload.get<ImuGyroscopePayload::TimestampDiffQuarterUs>();
+        data_view.timestamp_quarter_us = payload.get<ImuGyroscopePayload::TimestampQuarterUs>();
         consume_peeked();
         callback_.gyroscope_deserialized_callback(data_view);
+        break;
+    }
+    case ImuHeader::PayloadEnum::kTemperature: {
+        data::TemperatureDataView data_view{};
+        const auto* payload_bytes = co_await peek_bytes(sizeof(ImuTemperaturePayload));
+        if (!payload_bytes) [[unlikely]]
+            co_return false;
+        auto payload = ImuTemperaturePayload::CRef{payload_bytes};
+        data_view.temperature = payload.get<ImuTemperaturePayload::Temperature>();
+        data_view.timestamp_quarter_us = payload.get<ImuTemperaturePayload::TimestampQuarterUs>();
+        consume_peeked();
+        callback_.temperature_deserialized_callback(data_view);
         break;
     }
     default: co_return false;

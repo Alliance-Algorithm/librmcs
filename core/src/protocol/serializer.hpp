@@ -316,8 +316,7 @@ public:
         payload.set<ImuAccelerometerPayload::X>(view.x);
         payload.set<ImuAccelerometerPayload::Y>(view.y);
         payload.set<ImuAccelerometerPayload::Z>(view.z);
-        payload.set<ImuAccelerometerPayload::TimestampDiffQuarterUs>(
-            view.timestamp_diff_quarter_us);
+        payload.set<ImuAccelerometerPayload::TimestampQuarterUs>(view.timestamp_quarter_us);
 
         utility::assert_debug(cursor == dst.data() + dst.size());
         return SerializeResult::kSuccess;
@@ -343,7 +342,31 @@ public:
         payload.set<ImuGyroscopePayload::X>(view.x);
         payload.set<ImuGyroscopePayload::Y>(view.y);
         payload.set<ImuGyroscopePayload::Z>(view.z);
-        payload.set<ImuGyroscopePayload::TimestampDiffQuarterUs>(view.timestamp_diff_quarter_us);
+        payload.set<ImuGyroscopePayload::TimestampQuarterUs>(view.timestamp_quarter_us);
+
+        utility::assert_debug(cursor == dst.data() + dst.size());
+        return SerializeResult::kSuccess;
+    }
+
+    SerializeResult write_imu_temperature(const data::TemperatureDataView& view) noexcept {
+        const std::size_t required = required_imu_size(FieldId::kImu, ImuPayload::kTemperature);
+        LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
+
+        auto dst = buffer_.allocate(required);
+        LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
+        utility::assert_debug(dst.size() == required);
+        std::byte* cursor = dst.data();
+
+        write_field_header(cursor, FieldId::kImu);
+
+        auto header = ImuHeader::Ref(cursor);
+        cursor += sizeof(ImuHeader);
+        header.set<ImuHeader::PayloadType>(ImuHeader::PayloadEnum::kTemperature);
+
+        auto payload = ImuTemperaturePayload::Ref(cursor);
+        cursor += sizeof(ImuTemperaturePayload);
+        payload.set<ImuTemperaturePayload::Temperature>(view.temperature);
+        payload.set<ImuTemperaturePayload::TimestampQuarterUs>(view.timestamp_quarter_us);
 
         utility::assert_debug(cursor == dst.data() + dst.size());
         return SerializeResult::kSuccess;
@@ -437,14 +460,18 @@ private:
         return total;
     }
 
-    enum class ImuPayload : std::uint8_t { kAccelerometer = 0, kGyroscope = 1 };
+    enum class ImuPayload : std::uint8_t { kAccelerometer = 0, kGyroscope = 1, kTemperature = 2 };
 
     static std::size_t required_imu_size(FieldId field_id, ImuPayload payload) noexcept {
         const std::size_t field_header_bytes = required_field_header_size(field_id);
         const std::size_t imu_header_bytes = sizeof(ImuHeader);
-        const std::size_t payload_bytes = (payload == ImuPayload::kAccelerometer)
-                                            ? sizeof(ImuAccelerometerPayload)
-                                            : sizeof(ImuGyroscopePayload);
+        std::size_t payload_bytes = 0;
+        switch (payload) {
+        case ImuPayload::kAccelerometer: payload_bytes = sizeof(ImuAccelerometerPayload); break;
+        case ImuPayload::kGyroscope: payload_bytes = sizeof(ImuGyroscopePayload); break;
+        case ImuPayload::kTemperature: payload_bytes = sizeof(ImuTemperaturePayload); break;
+        default: return 0;
+        }
 
         const std::size_t total = (field_header_bytes + imu_header_bytes - 1) + payload_bytes;
         utility::assert_debug(total <= kProtocolBufferSize);

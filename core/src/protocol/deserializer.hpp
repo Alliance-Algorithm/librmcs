@@ -44,6 +44,8 @@ public:
 
     virtual void gyroscope_deserialized_callback(const data::GyroscopeDataView& data) = 0;
 
+    virtual void temperature_deserialized_callback(const data::TemperatureDataView& data) = 0;
+
     virtual void error_callback() = 0;
 };
 

@@ -80,6 +80,10 @@ public:
         callback_.gyroscope_receive_callback(data);
     }
 
+    void temperature_deserialized_callback(const data::TemperatureDataView& data) override {
+        callback_.temperature_receive_callback(data);
+    }
+
     void error_callback() override {
         logging::get_logger().error("Deserializer encountered an error while parsing input");
     }

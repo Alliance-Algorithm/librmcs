@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 
 #include <board.h>
 
@@ -54,8 +53,6 @@ class Accelerometer final
     , private Bmi088Base<AccelerometerTraits> {
 public:
     using Lazy = utility::Lazy<Accelerometer, Spi::Lazy*, GpioPin>;
-
-    static constexpr uint16_t kFirstFrameTimestampDiffQuarterUs = 1'000'000 / 1600 * 4;
 
     enum class Range : uint8_t { k3G = 0x00, k6G = 0x01, k12G = 0x02, k24G = 0x03 };
     enum class DataRate : uint8_t {
@@ -146,44 +143,22 @@ private:
         spi_.unlock();
     }
 
-    void handle_uplink(
+    static void handle_uplink(
         core::protocol::Serializer& serializer, Data& data, uint32_t capture_timestamp_quarter_us) {
-        const uint16_t timestamp_diff_quarter_us =
-            calculate_timestamp_diff_quarter_us(capture_timestamp_quarter_us);
         const auto result = serializer.write_imu_accelerometer({
             .x = data.x,
             .y = data.y,
             .z = data.z,
-            .timestamp_diff_quarter_us = timestamp_diff_quarter_us,
+            .timestamp_quarter_us = capture_timestamp_quarter_us,
         });
         core::utility::assert_debug(
             result != core::protocol::Serializer::SerializeResult::kInvalidArgument);
-        if (result == core::protocol::Serializer::SerializeResult::kSuccess) {
-            last_success_capture_timestamp_quarter_us_ = capture_timestamp_quarter_us;
-            has_last_success_capture_timestamp_ = true;
-        }
-    }
-
-    uint16_t calculate_timestamp_diff_quarter_us(uint32_t capture_timestamp_quarter_us) const {
-        if (!has_last_success_capture_timestamp_)
-            return kFirstFrameTimestampDiffQuarterUs;
-
-        return saturate_timestamp_diff_quarter_us(
-            capture_timestamp_quarter_us - last_success_capture_timestamp_quarter_us_);
-    }
-
-    static uint16_t saturate_timestamp_diff_quarter_us(uint32_t timestamp_diff_quarter_us) {
-        if (timestamp_diff_quarter_us > std::numeric_limits<uint16_t>::max())
-            return std::numeric_limits<uint16_t>::max();
-        return static_cast<uint16_t>(timestamp_diff_quarter_us);
     }
 
     uint32_t pending_capture_timestamp_quarter_us_ = 0;
     uint32_t active_capture_timestamp_quarter_us_ = 0;
-    uint32_t last_success_capture_timestamp_quarter_us_ = 0;
     bool has_pending_capture_timestamp_ = false;
     bool has_active_capture_timestamp_ = false;
-    bool has_last_success_capture_timestamp_ = false;
 };
 
 inline Accelerometer::Lazy accelerometer(&spi::spi_bmi088, board::kBmi088AccelChipSelectPin);
