@@ -167,12 +167,6 @@ uint32_t init_spi(SPI_Type* ptr) {
         kBmi088AccelChipSelectPin.set_active(false);
         kBmi088AccelChipSelectPin.configure_as_output();
 
-        kBmi088HeaterPin.configure_controller();
-        kBmi088HeaterPin.configure_pioc_function();
-        kBmi088HeaterPin.configure_ioc_function();
-        kBmi088HeaterPin.set_active(false);
-        kBmi088HeaterPin.configure_as_output();
-
     } else if (ptr == HPM_SPI3) { // SPI3: PinSocket Output
         HPM_IOC->PAD[IOC_PAD_PA11].FUNC_CTL =
             IOC_PA11_FUNC_CTL_SPI3_SCLK | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;

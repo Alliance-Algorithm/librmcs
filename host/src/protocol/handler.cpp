@@ -205,16 +205,6 @@ bool Handler::PacketBuilder::write_gpio_analog_data(
         ->write_gpio_analog_data(channel_index, view);
 }
 
-bool Handler::PacketBuilder::write_imu_accelerometer(
-    const data::AccelerometerDataView& view) noexcept {
-    return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))
-        ->write_imu_accelerometer(view);
-}
-
-bool Handler::PacketBuilder::write_imu_gyroscope(const data::GyroscopeDataView& view) noexcept {
-    return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))->write_imu_gyroscope(view);
-}
-
 Handler::Handler(
     uint16_t usb_vid, int32_t usb_pid, std::string_view serial_filter,
     const agent::AdvancedOptions& options, data::DataCallback& callback)
