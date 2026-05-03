@@ -55,6 +55,23 @@ add_env "HOST_WORKSPACE_FOLDER" "$repo_root"
 
 if [ -n "${DISPLAY:-}" ]; then
     add_env "DISPLAY" "$DISPLAY"
+    add_mount "/tmp/.X11-unix" "/tmp/.X11-unix"
+fi
+if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    wayland_display_name=${WAYLAND_DISPLAY##*/}
+    if [[ "$WAYLAND_DISPLAY" = /* ]]; then
+        wayland_socket=$WAYLAND_DISPLAY
+    elif [ -n "${XDG_RUNTIME_DIR:-}" ]; then
+        wayland_socket="${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}"
+    else
+        wayland_socket=""
+    fi
+
+    if [ -n "$wayland_socket" ] && [ -S "$wayland_socket" ]; then
+        add_env "WAYLAND_DISPLAY" "$wayland_display_name"
+        add_env "XDG_RUNTIME_DIR" "/tmp"
+        add_mount "$wayland_socket" "/tmp/${wayland_display_name}"
+    fi
 fi
 if [ -n "${HTTP_PROXY:-}" ]; then
     add_env "HTTP_PROXY" "$HTTP_PROXY"
