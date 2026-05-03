@@ -127,6 +127,16 @@ EOF
 # Configure 'ubuntu' user and sudo privileges
 RUN chsh -s /bin/zsh ubuntu && \
     echo "ubuntu ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Precreate generic XDG-style parent directories for direct bind mounts under ubuntu's home.
+RUN mkdir -p \
+        /home/ubuntu/.agents \
+        /home/ubuntu/.cache \
+        /home/ubuntu/.config \
+        /home/ubuntu/.local/share \
+        /home/ubuntu/.local/state && \
+    chown -R ubuntu:ubuntu /home/ubuntu/.agents /home/ubuntu/.cache /home/ubuntu/.config /home/ubuntu/.local
+
 WORKDIR /home/ubuntu
 ENV USER=ubuntu
 ENV WORKDIR=/home/ubuntu
@@ -134,5 +144,4 @@ USER ubuntu
 
 # Install Oh My Zsh and configure theme
 RUN sh -c "$(wget https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -O -)" \
-    && sed -i 's/ZSH_THEME=\"[a-z0-9\\-]*\"/ZSH_THEME="af-magic"/g' ~/.zshrc \
-    && ln -s /workspaces/librmcs/.devcontainer/.zsh_history ~/.zsh_history
+    && sed -i 's/ZSH_THEME=\"[a-z0-9\\-]*\"/ZSH_THEME="af-magic"/g' ~/.zshrc
