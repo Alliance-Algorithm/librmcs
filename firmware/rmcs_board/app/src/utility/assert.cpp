@@ -21,10 +21,10 @@ const char* volatile assert_function = nullptr;
     assert_line = location.line();
     assert_function = location.function_name();
 
-    if (firmware::led::ws2812) {
+    if (auto* ws2812 = firmware::led::ws2812.try_get()) {
         for (int i = 0; i < 10; i++)
             board_delay_ms(10);
-        firmware::led::ws2812->set_value(255, 0, 0);
+        ws2812->set_value(255, 0, 0);
     }
 
     __builtin_trap();

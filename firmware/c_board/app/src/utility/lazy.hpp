@@ -11,6 +11,8 @@
 
 namespace librmcs::firmware::utility {
 
+// Lazy-initialized object with deferred construction.
+// Thread-safe single-time initialization guarded by interrupt lock.
 template <typename T, typename... Args>
 class Lazy {
 public:
@@ -25,6 +27,11 @@ public:
 
     constexpr ~Lazy() {} // No need to deconstruct
 
+    /*!
+     * @brief Construct the object on first call; no-op on subsequent calls.
+     * @return Reference to the constructed object
+     * @note Thread-safe. Uses interrupt lock for atomic state transitions.
+     */
     constexpr T& init() {
         const InterruptLockGuard guard;
 
@@ -44,16 +51,46 @@ public:
         return object_;
     }
 
+    /*!
+     * @brief Get pointer to the constructed object, or nullptr if not yet
+     *        initialized.
+     * @return Pointer to the object, or nullptr if not yet initialized
+     * @note Does not assert on uninitialized state. Check return before use.
+     */
+    constexpr T* try_get() {
+        if (!static_cast<bool>(*this))
+            return nullptr;
+        return std::addressof(object_);
+    }
+
+    /*!
+     * @brief Get pointer to the constructed object
+     * @return Pointer to the constructed object
+     * @warning Must only be called after init(). Asserts if uninitialized
+     *          in debug builds.
+     */
     constexpr T* get() {
         core::utility::assert_debug(static_cast<bool>(*this));
         return std::addressof(object_);
     }
 
+    /*!
+     * @brief Member access through the constructed object
+     * @return Pointer to the constructed object
+     * @warning Must only be called after init(). Asserts if uninitialized
+     *          in debug builds.
+     */
     constexpr T* operator->() {
         core::utility::assert_debug(static_cast<bool>(*this));
         return std::addressof(object_);
     }
 
+    /*!
+     * @brief Dereference to access the constructed object
+     * @return Reference to the constructed object
+     * @warning Must only be called after init(). Asserts if uninitialized
+     *          in debug builds.
+     */
     constexpr T& operator*() {
         core::utility::assert_debug(static_cast<bool>(*this));
         return object_;
