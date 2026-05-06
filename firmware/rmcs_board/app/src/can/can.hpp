@@ -56,6 +56,7 @@ public:
         config.ram_config.txbuf_dedicated_txbuf_elem_count = 0;
         config.ram_config.txbuf_fifo_or_queue_elem_count = MCAN_TXBUF_SIZE_CAN_DEFAULT;
         config.ram_config.txfifo_or_txqueue_mode = MCAN_TXBUF_OPERATION_MODE_FIFO;
+        config.disable_auto_retransmission = true;
 
         mcan_init(can_base_, &config, can_source_clock_freq);
         mcan_enable_interrupts(can_base_, MCAN_INT_RXFIFO0_NEW_MSG);
