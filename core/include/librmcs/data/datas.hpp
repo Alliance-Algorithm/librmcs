@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 
 #include <librmcs/spec/gpio.hpp>
@@ -46,6 +47,7 @@ struct UartDataView {
 
 struct GpioDigitalDataView {
     bool high;
+    std::optional<uint32_t> timestamp_quarter_us = std::nullopt;
 };
 
 struct GpioAnalogDataView {
@@ -63,6 +65,7 @@ struct GpioReadConfigView {
     bool asap = false;
     bool rising_edge = false;
     bool falling_edge = false;
+    bool capture_timestamp = false;
     GpioPull pull = GpioPull::kNone;
 
     [[nodiscard]] constexpr bool supported(const spec::GpioDescriptor& gpio) const noexcept {
@@ -71,7 +74,8 @@ struct GpioReadConfigView {
             && ((!rising_edge && !falling_edge)
                 || gpio.supports(spec::GpioCapability::kDigitalReadInterrupt))
             && (pull != GpioPull::kUp || gpio.supports(spec::GpioCapability::kPullUp))
-            && (pull != GpioPull::kDown || gpio.supports(spec::GpioCapability::kPullDown));
+            && (pull != GpioPull::kDown || gpio.supports(spec::GpioCapability::kPullDown))
+            && (!capture_timestamp || gpio.supports(spec::GpioCapability::kTimestampedDigitalRead));
     }
 };
 

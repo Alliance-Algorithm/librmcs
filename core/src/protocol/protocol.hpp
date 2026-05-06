@@ -96,14 +96,19 @@ struct GpioHeader : utility::Bitfield<2> {
 
     using PayloadType = utility::BitfieldMember<4, 4, PayloadEnum>;
     using ChannelIndex = utility::BitfieldMember<8, 6>;
-    using Pull = utility::BitfieldMember<14, 2, data::GpioPull>;
+    using Timestamped = utility::BitfieldMember<15, 1>;
 };
 
-struct GpioReadConfigPayload : utility::Bitfield<2> {
+struct GpioReadConfigPayload : utility::Bitfield<3> {
     using Asap = utility::BitfieldMember<0, 1>;
     using RisingEdge = utility::BitfieldMember<1, 1>;
     using FallingEdge = utility::BitfieldMember<2, 1>;
-    using PeriodMs = utility::BitfieldMember<3, 13, uint16_t>;
+    using Pull = utility::BitfieldMember<4, 2, data::GpioPull>;
+    using PeriodMs = utility::BitfieldMember<8, 16, uint16_t>;
+};
+
+struct GpioDigitalReadTimestampPayload : utility::Bitfield<4> {
+    using TimestampQuarterUs = utility::BitfieldMember<0, 32, uint32_t>;
 };
 
 struct GpioAnalogPayload : utility::Bitfield<2> {

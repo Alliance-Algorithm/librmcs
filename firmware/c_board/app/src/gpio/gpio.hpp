@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <optional>
 
 #include <gpio.h>
 #include <main.h>
@@ -58,8 +59,13 @@ public:
     void handle_digital_read(uint8_t channel_index, const data::GpioReadConfigView& data) {
         configure_digital_input_mode(channel_index, data);
 
-        if (data.asap)
-            publish_digital_input_sample(channel_index);
+        if (data.asap) {
+            const auto& hardware = channel_hardware(channel_index);
+            const bool high =
+                HAL_GPIO_ReadPin(hardware.gpio_port, hardware.gpio_pin) == GPIO_PIN_SET;
+            const uint32_t timestamp_quarter_us = current_timestamp_quarter_us();
+            publish_digital_input_sample(channel_index, high, timestamp_quarter_us);
+        }
     }
 
     void poll_periodic_input_samples() {
@@ -72,7 +78,12 @@ public:
             if (!timer::timer->check_reached(state.next_sample_deadline))
                 continue;
 
-            publish_digital_input_sample(static_cast<uint8_t>(channel_index));
+            const auto& hardware = channel_hardware(static_cast<uint8_t>(channel_index));
+            const bool high =
+                HAL_GPIO_ReadPin(hardware.gpio_port, hardware.gpio_pin) == GPIO_PIN_SET;
+            const uint32_t timestamp_quarter_us = current_timestamp_quarter_us();
+            publish_digital_input_sample(
+                static_cast<uint8_t>(channel_index), high, timestamp_quarter_us);
             state.next_sample_deadline = now + state.sample_period;
         }
     }
@@ -86,7 +97,11 @@ public:
         if (state.mode != GpioMode::kDigitalInput || (!state.rising_edge && !state.falling_edge))
             return;
 
-        publish_digital_input_sample(channel_index);
+        const uint32_t timestamp_quarter_us = current_timestamp_quarter_us();
+        const auto& hardware = channel_hardware(channel_index);
+        const bool high = HAL_GPIO_ReadPin(hardware.gpio_port, hardware.gpio_pin) == GPIO_PIN_SET;
+
+        publish_digital_input_sample(channel_index, high, timestamp_quarter_us);
     }
 
 private:
@@ -96,6 +111,7 @@ private:
         GpioMode mode = GpioMode::kOutput;
         bool rising_edge = false;
         bool falling_edge = false;
+        bool capture_timestamp = false;
         data::GpioPull pull = data::GpioPull::kNone;
         timer::Timer::Duration sample_period = timer::Timer::Duration::zero();
         timer::Timer::TimePoint next_sample_deadline;
@@ -135,11 +151,13 @@ private:
 
         if (state.mode != GpioMode::kDigitalInput //
             || state.rising_edge != rising_edge || state.falling_edge != falling_edge
-            || state.pull != pull || state.sample_period != sample_period) {
+            || state.capture_timestamp != data.capture_timestamp || state.pull != pull
+            || state.sample_period != sample_period) {
 
             state.mode = GpioMode::kDigitalInput;
             state.rising_edge = rising_edge;
             state.falling_edge = falling_edge;
+            state.capture_timestamp = data.capture_timestamp;
             state.pull = pull;
             state.sample_period = sample_period;
             state.next_sample_deadline = timer::timer->timepoint();
@@ -185,14 +203,21 @@ private:
         HAL_GPIO_Init(hardware.gpio_port, &gpio_init);
     }
 
-    void publish_digital_input_sample(uint8_t channel_index) {
-        const auto& hardware = channel_hardware(channel_index);
-        const bool high = HAL_GPIO_ReadPin(hardware.gpio_port, hardware.gpio_pin) == GPIO_PIN_SET;
+    void publish_digital_input_sample(
+        uint8_t channel_index, bool high, uint32_t timestamp_quarter_us) {
+        const auto& state = channel_state(channel_index);
+        const std::optional<uint32_t> timestamp_to_publish =
+            state.capture_timestamp ? std::optional<uint32_t>{timestamp_quarter_us} : std::nullopt;
 
         auto& serializer = usb::get_serializer();
         core::utility::assert_debug(
-            serializer.write_gpio_digital_read_result(channel_index, {.high = high})
+            serializer.write_gpio_digital_read_result(
+                channel_index, {.high = high, .timestamp_quarter_us = timestamp_to_publish})
             != core::protocol::Serializer::SerializeResult::kInvalidArgument);
+    }
+
+    [[nodiscard]] static uint32_t current_timestamp_quarter_us() {
+        return timer::timer->timepoint().time_since_epoch().count();
     }
 
     static uint8_t exti_line_from_pin(uint16_t gpio_pin) {

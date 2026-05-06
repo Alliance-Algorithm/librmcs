@@ -14,6 +14,7 @@ enum class GpioCapability : std::uint8_t {
     kDigitalReadInterrupt = 1U << 4,
     kPullUp = 1U << 5,
     kPullDown = 1U << 6,
+    kTimestampedDigitalRead = 1U << 7,
 };
 
 constexpr GpioCapability operator|(GpioCapability a, GpioCapability b) noexcept {
@@ -31,7 +32,7 @@ constexpr GpioCapability operator~(GpioCapability a) noexcept {
 inline constexpr GpioCapability kDigitalCapabilities =
     GpioCapability::kDigitalWrite | GpioCapability::kDigitalReadOnce
     | GpioCapability::kDigitalReadPeriodic | GpioCapability::kDigitalReadInterrupt
-    | GpioCapability::kPullUp | GpioCapability::kPullDown;
+    | GpioCapability::kPullUp | GpioCapability::kPullDown | GpioCapability::kTimestampedDigitalRead;
 
 inline constexpr GpioCapability kPwmCapabilities =
     kDigitalCapabilities | GpioCapability::kAnalogWrite;

@@ -2,13 +2,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 
 #include <hpm_clock_drv.h>
 #include <hpm_common.h>
 #include <hpm_gpio_drv.h>
 #include <hpm_gpio_regs.h>
 #include <hpm_ioc_regs.h>
-#include <hpm_mchtmr_drv.h>
 #include <hpm_pwm_drv.h>
 #include <hpm_soc.h>
 #include <hpm_soc_irq.h>
@@ -19,6 +19,7 @@
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
 #include "firmware/rmcs_board/app/src/gpio/analog_gpio_pin.hpp"
+#include "firmware/rmcs_board/app/src/timer/timer.hpp"
 #include "firmware/rmcs_board/app/src/usb/helper.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
@@ -46,8 +47,12 @@ public:
     void handle_digital_read(uint8_t channel_index, const data::GpioReadConfigView& data) {
         configure_digital_input_mode(channel_index, data);
 
-        if (data.asap)
-            publish_digital_input_sample(channel_index);
+        if (data.asap) {
+            const auto& hardware = channel_hardware(channel_index);
+            const bool high = hardware.read_pin();
+            const uint32_t timestamp_quarter_us = timer::Timer::timestamp_quarter_us();
+            publish_digital_input_sample(channel_index, high, timestamp_quarter_us);
+        }
     }
 
     void poll_periodic_input_samples() {
@@ -61,12 +66,18 @@ public:
             if (now < state.next_sample_tick)
                 continue;
 
-            publish_digital_input_sample(static_cast<uint8_t>(channel_index));
+            const auto& hardware = channel_hardware(static_cast<uint8_t>(channel_index));
+            const bool high = hardware.read_pin();
+            const uint32_t timestamp_quarter_us = timer::Timer::timestamp_quarter_us();
+            publish_digital_input_sample(
+                static_cast<uint8_t>(channel_index), high, timestamp_quarter_us);
             state.next_sample_tick = now + state.period_ticks;
         }
     }
 
     void handle_port_interrupt(uint32_t port_index) {
+        const uint32_t timestamp_quarter_us = timer::Timer::timestamp_quarter_us();
+
         for (std::size_t channel_index = 0; channel_index < board::spec::kGpioDescriptors.size();
              ++channel_index) {
             const auto& hardware = channel_hardware(static_cast<uint8_t>(channel_index));
@@ -80,7 +91,9 @@ public:
                 || (!state.rising_edge && !state.falling_edge))
                 continue;
 
-            publish_digital_input_sample(static_cast<uint8_t>(channel_index));
+            const bool high = hardware.read_pin();
+            publish_digital_input_sample(
+                static_cast<uint8_t>(channel_index), high, timestamp_quarter_us);
         }
     }
 
@@ -96,6 +109,7 @@ private:
         ChannelMode mode = ChannelMode::kUnconfigured;
         bool rising_edge = false;
         bool falling_edge = false;
+        bool capture_timestamp = false;
         data::GpioPull pull = data::GpioPull::kNone;
         uint64_t period_ticks = 0;
         uint64_t next_sample_tick = 0;
@@ -144,6 +158,7 @@ private:
         state.mode = mode;
         state.rising_edge = false;
         state.falling_edge = false;
+        state.capture_timestamp = false;
         state.pull = data::GpioPull::kNone;
         state.period_ticks = 0;
         state.next_sample_tick = 0;
@@ -166,6 +181,7 @@ private:
         state.mode = ChannelMode::kDigitalInput;
         state.rising_edge = data.rising_edge;
         state.falling_edge = data.falling_edge;
+        state.capture_timestamp = data.capture_timestamp;
         state.pull = data.pull;
         state.period_ticks = period_ticks;
         state.next_sample_tick = now_ticks();
@@ -235,6 +251,7 @@ private:
         const ChannelState& state, const data::GpioReadConfigView& data, uint64_t period_ticks) {
         return state.mode != ChannelMode::kDigitalInput || state.rising_edge != data.rising_edge
             || state.falling_edge != data.falling_edge || state.pull != data.pull
+            || state.capture_timestamp != data.capture_timestamp
             || state.period_ticks != period_ticks;
     }
 
@@ -258,7 +275,7 @@ private:
         hardware.configure_as_input();
     }
 
-    [[nodiscard]] static uint64_t now_ticks() { return mchtmr_get_count(HPM_MCHTMR); }
+    [[nodiscard]] static uint64_t now_ticks() { return timer::Timer::timestamp64_quarter_us(); }
 
     static void
         configure_interrupt(const AnalogGpioPin& hardware, bool rising_edge, bool falling_edge) {
@@ -284,13 +301,16 @@ private:
         }
     }
 
-    static void publish_digital_input_sample(uint8_t channel_index) {
-        const auto& hardware = channel_hardware(channel_index);
-        const bool high = hardware.read_pin();
+    void publish_digital_input_sample(
+        uint8_t channel_index, bool high, uint32_t timestamp_quarter_us) {
+        const auto& state = channel_state(channel_index);
+        const std::optional<uint32_t> timestamp_to_publish =
+            state.capture_timestamp ? std::optional<uint32_t>{timestamp_quarter_us} : std::nullopt;
 
         auto& serializer = usb::get_serializer();
         core::utility::assert_debug(
-            serializer.write_gpio_digital_read_result(channel_index, {.high = high})
+            serializer.write_gpio_digital_read_result(
+                channel_index, {.high = high, .timestamp_quarter_us = timestamp_to_publish})
             != core::protocol::Serializer::SerializeResult::kInvalidArgument);
     }
 
