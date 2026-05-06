@@ -3,7 +3,6 @@
 #include <cstdint>
 
 #include <hpm_clock_drv.h>
-#include <hpm_common.h>
 #include <hpm_gpio_drv.h>
 #include <hpm_gpio_regs.h>
 #include <hpm_ioc_regs.h>
@@ -102,25 +101,49 @@ uint32_t init_can(MCAN_Type* ptr) {
 }
 
 uint32_t init_uart(UART_Type* ptr) {
+    constexpr uint32_t tx_pad = IOC_PAD_PAD_CTL_PE_SET(1) | // Pull enable
+                                IOC_PAD_PAD_CTL_PS_SET(1);  // Pull select - Pull up
+    constexpr uint32_t rx_pad = IOC_PAD_PAD_CTL_PE_SET(1) | // Pull enable
+                                IOC_PAD_PAD_CTL_PS_SET(1) | // Pull select - Pull up
+                                IOC_PAD_PAD_CTL_HYS_SET(1); // enable Schmitt trigger
     if (ptr == HPM_UART0) {
         HPM_IOC->PAD[IOC_PAD_PA00].FUNC_CTL = IOC_PA00_FUNC_CTL_UART0_TXD;
+        HPM_IOC->PAD[IOC_PAD_PA00].PAD_CTL = tx_pad;
+
         HPM_IOC->PAD[IOC_PAD_PA01].FUNC_CTL = IOC_PA01_FUNC_CTL_UART0_RXD;
+        HPM_IOC->PAD[IOC_PAD_PA01].PAD_CTL = rx_pad;
+
     } else if (ptr == HPM_UART1) {
         HPM_IOC->PAD[IOC_PAD_PY07].FUNC_CTL = IOC_PY07_FUNC_CTL_UART1_TXD;
+        HPM_IOC->PAD[IOC_PAD_PY07].PAD_CTL = tx_pad;
         HPM_PIOC->PAD[IOC_PAD_PY07].FUNC_CTL = PIOC_PY07_FUNC_CTL_SOC_GPIO_Y_07;
+
         HPM_IOC->PAD[IOC_PAD_PY06].FUNC_CTL = IOC_PY06_FUNC_CTL_UART1_RXD;
+        HPM_IOC->PAD[IOC_PAD_PY06].PAD_CTL = rx_pad;
         HPM_PIOC->PAD[IOC_PAD_PY06].FUNC_CTL = PIOC_PY06_FUNC_CTL_SOC_GPIO_Y_06;
+
         HPM_IOC->PAD[IOC_PAD_PY05].FUNC_CTL = IOC_PY05_FUNC_CTL_UART1_DE;
         HPM_PIOC->PAD[IOC_PAD_PY05].FUNC_CTL = PIOC_PY05_FUNC_CTL_SOC_GPIO_Y_05;
+
     } else if (ptr == HPM_UART2) {
         HPM_IOC->PAD[IOC_PAD_PB09].FUNC_CTL = IOC_PB09_FUNC_CTL_UART2_RXD;
+        HPM_IOC->PAD[IOC_PAD_PB09].PAD_CTL = rx_pad;
+
     } else if (ptr == HPM_UART3) {
         HPM_IOC->PAD[IOC_PAD_PA15].FUNC_CTL = IOC_PA15_FUNC_CTL_UART3_TXD;
+        HPM_IOC->PAD[IOC_PAD_PA15].PAD_CTL = tx_pad;
+
         HPM_IOC->PAD[IOC_PAD_PA14].FUNC_CTL = IOC_PA14_FUNC_CTL_UART3_RXD;
+        HPM_IOC->PAD[IOC_PAD_PA14].PAD_CTL = rx_pad;
+
     } else if (ptr == HPM_UART5) {
         HPM_IOC->PAD[IOC_PAD_PA23].FUNC_CTL = IOC_PA23_FUNC_CTL_UART5_TXD;
+        HPM_IOC->PAD[IOC_PAD_PA23].PAD_CTL = tx_pad;
+
         HPM_IOC->PAD[IOC_PAD_PA22].FUNC_CTL = IOC_PA22_FUNC_CTL_UART5_RXD;
+        HPM_IOC->PAD[IOC_PAD_PA22].PAD_CTL = rx_pad;
     }
+
     return init_uart_clock(ptr);
 }
 
