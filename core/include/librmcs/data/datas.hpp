@@ -79,12 +79,19 @@ struct AccelerometerDataView {
     int16_t x;
     int16_t y;
     int16_t z;
+    uint32_t timestamp_quarter_us;
 };
 
 struct GyroscopeDataView {
     int16_t x;
     int16_t y;
     int16_t z;
+    uint32_t timestamp_quarter_us;
+};
+
+struct TemperatureDataView {
+    uint16_t raw_register_value;
+    uint32_t timestamp_quarter_us;
 };
 
 class DataCallback {
@@ -110,6 +117,8 @@ public:
     virtual void accelerometer_receive_callback(const AccelerometerDataView& data) = 0;
 
     virtual void gyroscope_receive_callback(const GyroscopeDataView& data) = 0;
+
+    virtual void temperature_receive_callback(const TemperatureDataView& data) = 0;
 };
 
 } // namespace librmcs::data

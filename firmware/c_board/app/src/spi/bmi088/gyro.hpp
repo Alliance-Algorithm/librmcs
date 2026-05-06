@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <chrono> // IWYU pragma: keep (https://github.com/llvm/llvm-project/issues/68213)
 #include <cstddef>
 #include <cstdint>
@@ -12,6 +13,7 @@
 #include "firmware/c_board/app/src/spi/spi.hpp"
 #include "firmware/c_board/app/src/timer/timer.hpp"
 #include "firmware/c_board/app/src/usb/vendor.hpp"
+#include "firmware/c_board/app/src/utility/interrupt_lock.hpp"
 #include "firmware/c_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::spi::bmi088 {
@@ -100,22 +102,60 @@ public:
         spi_.unlock();
     }
 
-    void data_ready_callback() { read_async(RegisterAddress::kRateXLsb, 6); }
+    void data_ready_callback(uint32_t capture_timestamp_quarter_us) {
+        const utility::InterruptLockGuard guard;
+        pending_capture_timestamp_quarter_us_ = capture_timestamp_quarter_us;
+        has_pending_capture_timestamp_ = true;
+    }
+
+    bool service_pending_read() {
+        const utility::InterruptLockGuard guard;
+        if (!has_pending_capture_timestamp_)
+            return false;
+        if (!read_async(RegisterAddress::kRateXLsb, 6))
+            return false;
+
+        active_capture_timestamp_quarter_us_.store(
+            pending_capture_timestamp_quarter_us_, std::memory_order_relaxed);
+        has_active_capture_timestamp_.store(true, std::memory_order_release);
+        has_pending_capture_timestamp_ = false;
+        return true;
+    }
 
 private:
     void transmit_receive_async_callback(size_t size) override {
-        if (size) [[likely]] {
+        uint32_t active_capture_timestamp_quarter_us = 0;
+        const bool has_active_capture_timestamp =
+            has_active_capture_timestamp_.exchange(false, std::memory_order_acquire);
+        if (has_active_capture_timestamp) [[likely]] {
+            active_capture_timestamp_quarter_us =
+                active_capture_timestamp_quarter_us_.load(std::memory_order_relaxed);
+        }
+
+        core::utility::assert_debug(!size || has_active_capture_timestamp);
+        if (size && has_active_capture_timestamp) [[likely]] {
             auto& data = parse_rx_data(spi_.rx_buffer, size);
-            handle_uplink(usb::vendor->serializer(), data);
+            handle_uplink(usb::vendor->serializer(), data, active_capture_timestamp_quarter_us);
         }
         spi_.unlock();
     }
 
-    static void handle_uplink(core::protocol::Serializer& serializer, Data& data) {
+    static void handle_uplink(
+        core::protocol::Serializer& serializer, Data& data, uint32_t capture_timestamp_quarter_us) {
+        const auto result = serializer.write_imu_gyroscope({
+            .x = data.x,
+            .y = data.y,
+            .z = data.z,
+            .timestamp_quarter_us = capture_timestamp_quarter_us,
+        });
         core::utility::assert_debug(
-            serializer.write_imu_gyroscope({.x = data.x, .y = data.y, .z = data.z})
-            != core::protocol::Serializer::SerializeResult::kInvalidArgument);
+            result != core::protocol::Serializer::SerializeResult::kInvalidArgument);
     }
+
+    uint32_t pending_capture_timestamp_quarter_us_ = 0;
+    std::atomic<uint32_t> active_capture_timestamp_quarter_us_{0};
+    bool has_pending_capture_timestamp_ = false;
+    std::atomic<bool> has_active_capture_timestamp_{false};
 };
 
 inline constinit Gyroscope::Lazy gyroscope(&spi1);

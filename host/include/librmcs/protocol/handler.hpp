@@ -33,10 +33,6 @@ public:
         bool write_gpio_analog_data(
             uint8_t channel_index, const data::GpioAnalogDataView& view) noexcept;
 
-        bool write_imu_accelerometer(const data::AccelerometerDataView& view) noexcept;
-
-        bool write_imu_gyroscope(const data::GyroscopeDataView& view) noexcept;
-
     private:
         friend class Handler;
 

@@ -9,6 +9,7 @@
 #include "firmware/rmcs_board/app/src/led/led.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/accel.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/gyro.hpp"
+#include "firmware/rmcs_board/app/src/spi/bmi088/temperature.hpp"
 #include "firmware/rmcs_board/app/src/timer/timer.hpp"
 #include "firmware/rmcs_board/app/src/uart/uart.hpp"
 #include "firmware/rmcs_board/app/src/usb/vendor.hpp"
@@ -43,6 +44,7 @@ App::App() {
 
     spi::bmi088::accelerometer.init();
     spi::bmi088::gyroscope.init();
+    spi::bmi088::temperature.init();
 }
 
 // Non-static to ensure instantiation

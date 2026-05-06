@@ -80,6 +80,10 @@ public:
         callback_.gyroscope_receive_callback(data);
     }
 
+    void temperature_deserialized_callback(const data::TemperatureDataView& data) override {
+        callback_.temperature_receive_callback(data);
+    }
+
     void error_callback() override {
         logging::get_logger().error("Deserializer encountered an error while parsing input");
     }
@@ -199,16 +203,6 @@ bool Handler::PacketBuilder::write_gpio_analog_data(
     uint8_t channel_index, const data::GpioAnalogDataView& view) noexcept {
     return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))
         ->write_gpio_analog_data(channel_index, view);
-}
-
-bool Handler::PacketBuilder::write_imu_accelerometer(
-    const data::AccelerometerDataView& view) noexcept {
-    return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))
-        ->write_imu_accelerometer(view);
-}
-
-bool Handler::PacketBuilder::write_imu_gyroscope(const data::GyroscopeDataView& view) noexcept {
-    return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))->write_imu_gyroscope(view);
 }
 
 Handler::Handler(

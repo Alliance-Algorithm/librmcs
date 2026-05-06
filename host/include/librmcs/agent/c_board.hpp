@@ -140,6 +140,9 @@ private:
     void gyroscope_receive_callback(const librmcs::data::GyroscopeDataView& data) override {
         (void)data;
     }
+    void temperature_receive_callback(const librmcs::data::TemperatureDataView& data) override {
+        (void)data;
+    }
 
     host::protocol::Handler handler_;
 };
