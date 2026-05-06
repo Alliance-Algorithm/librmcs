@@ -86,9 +86,4 @@ static_assert(board::spec::kGpioDescriptors.size() == std::size(board::kGpioHard
 void init_gpio_pins();
 void gpio_irq_handler(uint32_t port_index);
 
-#define BOARD_TICK_CLOCK HPM_GPTMR1
-
-uint32_t init_tick_clock();
-void tick_clock_irq_handler();
-
 } // namespace librmcs::firmware::board

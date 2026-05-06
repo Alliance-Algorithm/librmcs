@@ -125,8 +125,8 @@ static inline void board_init_clock(void) {
 
     clock_update_core_clock();
 
-    /* Configure mchtmr to 24MHz */
-    clock_set_source_divider(clock_mchtmr0, clk_src_osc24m, 1);
+    /* Configure mchtmr to 4MHz */
+    clock_set_source_divider(clock_mchtmr0, clk_src_osc24m, 6);
 }
 
 static inline void board_init_usb_dp_dm_pins(void) {

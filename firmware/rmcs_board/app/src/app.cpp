@@ -9,7 +9,7 @@
 #include "firmware/rmcs_board/app/src/led/led.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/accel.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/gyro.hpp"
-#include "firmware/rmcs_board/app/src/timer/tick.hpp"
+#include "firmware/rmcs_board/app/src/timer/timer.hpp"
 #include "firmware/rmcs_board/app/src/uart/uart.hpp"
 #include "firmware/rmcs_board/app/src/usb/vendor.hpp"
 #include "firmware/rmcs_board/app/src/utility/boot_mailbox.hpp"
@@ -28,6 +28,7 @@ App::App() {
     boot::BootMailbox::clear();
 
     led::led.init();
+    timer::timer.init();
 
     usb::vendor.init();
 
@@ -42,8 +43,6 @@ App::App() {
 
     spi::bmi088::accelerometer.init();
     spi::bmi088::gyroscope.init();
-
-    timer::tick.init();
 }
 
 // Non-static to ensure instantiation

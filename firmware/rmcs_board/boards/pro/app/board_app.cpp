@@ -237,11 +237,6 @@ void init_gpio_pins() {
     // Intentionally empty: No PIOC pins need to be configured.
 }
 
-uint32_t init_tick_clock() {
-    clock_add_to_group(clock_gptmr1, 0);
-    return clock_get_frequency(clock_gptmr1);
-}
-
 SDK_DECLARE_EXT_ISR_M(IRQn_GPIO0_A, gpio_a_isr)
 void gpio_a_isr() { gpio_irq_handler(GPIO_DI_GPIOA); }
 
@@ -260,9 +255,6 @@ void gpio_bmi088_int_accel_isr() {
     }
     gpio_irq_handler(GPIO_DI_GPIOY);
 }
-
-SDK_DECLARE_EXT_ISR_M(IRQn_GPTMR1, tick_isr)
-void tick_isr() { tick_clock_irq_handler(); }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_CAN0(IRQn_MCAN, ), can0_isr)
 void can0_isr() { can_irq_handler(0); }

@@ -162,11 +162,6 @@ void init_gpio_pins() {
     kGpioHardwareDescriptors[1].configure_pioc_function();
 }
 
-uint32_t init_tick_clock() {
-    clock_add_to_group(clock_gptmr1, 0);
-    return clock_get_frequency(clock_gptmr1);
-}
-
 void init_user_button_and_switch_pins() {
     kUserButtonPin.configure_controller();
     kUserButtonPin.configure_ioc_function();
@@ -200,9 +195,6 @@ void gpio_bmi088_int_isr() {
 
 SDK_DECLARE_EXT_ISR_M(IRQn_GPIO0_Y, gpio_y_isr)
 void gpio_y_isr() { gpio_irq_handler(GPIO_DI_GPIOY); }
-
-SDK_DECLARE_EXT_ISR_M(IRQn_GPTMR1, tick_isr)
-void tick_isr() { tick_clock_irq_handler(); }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_CAN0(IRQn_MCAN, ), can0_isr)
 void can0_isr() { can_irq_handler(0); }
