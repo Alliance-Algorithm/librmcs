@@ -140,7 +140,7 @@ inline constinit Uart::Lazy uart_dbus{
     data::DataId::kUartDbus, kDbusBoardConfig, 100000, parity_even};
 
 inline constinit Uart::Lazy uart_array[]{
-    Uart::Lazy{data::DataId::kUart0, kBoardConfigs[0], 115200, parity_none},
+    Uart::Lazy{data::DataId::kUart0, kBoardConfigs[0], 921600, parity_none},
     Uart::Lazy{data::DataId::kUart1, kBoardConfigs[1], 115200, parity_none},
 #ifdef BOARD_UART2
     Uart::Lazy{data::DataId::kUart2, kBoardConfigs[2], 115200, parity_none},
