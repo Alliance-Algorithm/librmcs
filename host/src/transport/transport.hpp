@@ -8,6 +8,7 @@
 #include <string_view>
 
 #include "core/src/protocol/constant.hpp"
+#include "librmcs/agent/common.hpp"
 
 namespace librmcs::host::transport {
 
@@ -140,9 +141,7 @@ public:
 
 namespace usb {
 
-struct ConnectionOptions {
-    bool dangerously_skip_version_checks = false;
-};
+using ConnectionOptions = agent::AdvancedOptions;
 
 std::unique_ptr<Transport> create_transport(
     uint16_t usb_vid, int32_t usb_pid, std::string_view serial_filter,
