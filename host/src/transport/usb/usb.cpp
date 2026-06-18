@@ -45,7 +45,20 @@ public:
         }};
 
         init_transmit_transfers();
-        event_thread_ = std::thread{[this]() { handle_events(); }};
+
+        if (options.thread_setup) {
+            std::atomic<bool> thread_setup_done{false};
+            event_thread_ = std::thread{[this, &options, &thread_setup_done]() {
+                options.thread_setup(options);
+                thread_setup_done.store(true, std::memory_order_release);
+                thread_setup_done.notify_one();
+                handle_events();
+            }};
+            // Wait until thread_setup returns, so any bound options state remains alive.
+            thread_setup_done.wait(false, std::memory_order_acquire);
+        } else {
+            event_thread_ = std::thread{[this]() { handle_events(); }};
+        }
 
         rollback_on_failure.disable();
     }

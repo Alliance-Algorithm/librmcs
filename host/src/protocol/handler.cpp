@@ -209,12 +209,7 @@ Handler::Handler(
     uint16_t usb_vid, int32_t usb_pid, std::string_view serial_filter,
     const agent::AdvancedOptions& options, data::DataCallback& callback)
     : impl_(new Impl(
-          transport::usb::create_transport(
-              usb_vid, usb_pid, serial_filter,
-              transport::usb::ConnectionOptions{
-                  .dangerously_skip_version_checks = options.dangerously_skip_version_checks,
-              }),
-          callback)) {}
+          transport::usb::create_transport(usb_vid, usb_pid, serial_filter, options), callback)) {}
 
 Handler::Handler(Handler&& other) noexcept
     : impl_(std::exchange(other.impl_, nullptr)) {}
