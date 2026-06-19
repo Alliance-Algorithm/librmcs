@@ -46,6 +46,8 @@ public:
 
     virtual void temperature_deserialized_callback(const data::TemperatureDataView& data) = 0;
 
+    virtual void session_control_deserialized_callback(const data::SessionControlView& data) = 0;
+
     virtual void error_callback() = 0;
 };
 
@@ -119,6 +121,8 @@ private:
     coroutine::LifoTask<bool> process_gpio_field(FieldId field_id);
 
     coroutine::LifoTask<bool> process_imu_field(FieldId field_id);
+
+    coroutine::LifoTask<bool> process_session_field(FieldId field_id);
 
     // Await until at least `size` contiguous bytes are available at the current read position.
     // Returns a pointer to a contiguous region of at least `size` bytes.

@@ -31,13 +31,20 @@ void tud_dfu_runtime_reboot_to_dfu_cb() {
     NVIC_SystemReset();
 }
 
-void tud_suspend_cb(bool remote_wakeup_en) { (void)remote_wakeup_en; }
+void tud_suspend_cb(bool remote_wakeup_en) {
+    (void)remote_wakeup_en;
+    usb::vendor->deactivate_session();
+    usb::vendor->finish_downlink_transfer();
+}
 
 void tud_resume_cb() {}
 
 void tud_mount_cb() {}
 
-void tud_umount_cb() {}
+void tud_umount_cb() {
+    usb::vendor->deactivate_session();
+    usb::vendor->finish_downlink_transfer();
+}
 
 } // extern "C"
 

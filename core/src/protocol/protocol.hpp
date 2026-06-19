@@ -48,6 +48,11 @@ struct UartHeaderExtendedLayout {
     using DataLengthExtended = BitfieldMember<6, 10>;
 };
 
+struct SessionHeaderLayout {
+    using Type = BitfieldMember<4, 4, data::SessionType>;
+    using Nonce = BitfieldMember<8, 32, uint32_t>;
+};
+
 } // namespace layouts
 
 struct FieldHeader
@@ -81,6 +86,10 @@ struct UartHeaderExtended
     : utility::Bitfield<2>
     , layouts::UartHeaderLayout
     , layouts::UartHeaderExtendedLayout {};
+
+struct SessionHeader
+    : utility::Bitfield<5>
+    , layouts::SessionHeaderLayout {};
 
 struct GpioHeader : utility::Bitfield<2> {
     enum class PayloadEnum : uint8_t {

@@ -1,5 +1,4 @@
 #include <atomic>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -227,7 +226,8 @@ private:
                         wrapper->self_.usb_transmit_complete_callback(wrapper);
                     },
                     wrapper, 0);
-                transfer->flags = libusb_transfer_flags::LIBUSB_TRANSFER_FREE_BUFFER;
+                transfer->flags = libusb_transfer_flags::LIBUSB_TRANSFER_FREE_BUFFER
+                                | libusb_transfer_flags::LIBUSB_TRANSFER_ADD_ZERO_PACKET;
             }
         } catch (...) {
             for (auto& wrapper : transmit_transfers) {
@@ -294,11 +294,7 @@ private:
             return;
         }
 
-        const auto now = std::chrono::steady_clock::now();
-        const bool should_drop = now > last_rx_callback_timepoint_ + std::chrono::seconds{1};
-        last_rx_callback_timepoint_ = now;
-
-        if (!should_drop && transfer->actual_length > 0) {
+        if (transfer->actual_length > 0) {
             const auto* first = reinterpret_cast<std::byte*>(transfer->buffer);
             const auto size = static_cast<std::size_t>(transfer->actual_length);
             receive_callback_({first, size});
@@ -363,8 +359,6 @@ private:
     std::mutex transmit_transfer_pop_mutex_, transmit_transfer_push_mutex_;
 
     std::function<void(std::span<const std::byte>)> receive_callback_;
-    std::chrono::steady_clock::time_point last_rx_callback_timepoint_ =
-        std::chrono::steady_clock::time_point::min();
 };
 
 std::unique_ptr<Transport> create_transport(
