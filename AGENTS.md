@@ -33,6 +33,8 @@ cmake --build firmware/c_board/build --target c_board_app c_board_bootloader
 - 格式：4 空格缩进，100 列宽度限制，指针左对齐，启用 include 排序。
 - 命名：Google 风格，但函数命名为小写下划线。
 - 代码不允许包含任何非 ASCII 字符（Markdown 文档除外）。
+- 除非用户显式要求，否则严禁创建文件/命名空间作用域的自由函数，包括匿名 namespace 函数和 static 函数，应定义为某个类的私有成员函数。
+  若函数被多个类共享，优先归入调用方最多的类，必要时可创建 utility 类集中管理。
 
 ## 测试指南
 - 目前尚未启用 CTest/GTest 测试目标；当前 CI 质量门禁为：clang-format、clang-tidy 和 编译验证。
