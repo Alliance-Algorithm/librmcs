@@ -30,6 +30,20 @@ enum class DataId : uint8_t {
     kUart3 = 14,
 
     kImu = 15,
+
+    kSession = 16,
+};
+
+enum class SessionType : uint8_t {
+    kStart = 0,
+    kStartAck = 1,
+    kKeepalive = 2,
+    kKeepaliveAck = 3,
+};
+
+struct SessionControlView {
+    SessionType type;
+    uint32_t nonce;
 };
 
 struct CanDataView {

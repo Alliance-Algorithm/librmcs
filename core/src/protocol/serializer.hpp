@@ -380,6 +380,25 @@ public:
         return SerializeResult::kSuccess;
     }
 
+    SerializeResult write_session_control(const data::SessionControlView& view) noexcept {
+        const std::size_t required = required_session_size();
+
+        auto dst = buffer_.allocate(required);
+        LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
+        utility::assert_debug(dst.size() == required);
+        std::byte* cursor = dst.data();
+
+        write_field_header(cursor, FieldId::kSession);
+
+        auto header = SessionHeader::Ref(cursor);
+        cursor += sizeof(SessionHeader);
+        header.set<SessionHeader::Type>(view.type);
+        header.set<SessionHeader::Nonce>(view.nonce);
+
+        utility::assert_debug(cursor == dst.data() + dst.size());
+        return SerializeResult::kSuccess;
+    }
+
 private:
     static constexpr bool use_extended_field_header(FieldId field_id) {
         utility::assert_debug(field_id != FieldId::kExtend);
@@ -486,6 +505,13 @@ private:
         const std::size_t total = (field_header_bytes + imu_header_bytes - 1) + payload_bytes;
         utility::assert_debug(total <= kProtocolBufferSize);
 
+        return total;
+    }
+
+    static constexpr std::size_t required_session_size() {
+        constexpr std::size_t total = required_field_header_size(FieldId::kSession)
+                                    + sizeof(SessionHeader) - sizeof(FieldHeader);
+        utility::assert_debug(total <= kProtocolBufferSize);
         return total;
     }
 

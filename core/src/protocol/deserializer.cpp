@@ -53,6 +53,7 @@ coroutine::LifoTask<void> Deserializer::process_stream() {
         case FieldId::kUart3: success = co_await process_uart_field(id); break;
         case FieldId::kGpio: success = co_await process_gpio_field(id); break;
         case FieldId::kImu: success = co_await process_imu_field(id); break;
+        case FieldId::kSession: success = co_await process_session_field(id); break;
         default: break;
         }
         if (!success)
@@ -314,6 +315,22 @@ coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
     }
     default: co_return false;
     }
+    co_return true;
+}
+
+coroutine::LifoTask<bool> Deserializer::process_session_field(FieldId) {
+    const auto* header_bytes = co_await peek_bytes(sizeof(SessionHeader));
+    if (!header_bytes) [[unlikely]]
+        co_return false;
+
+    auto header = SessionHeader::CRef{header_bytes};
+    data::SessionControlView data_view{};
+    data_view.type = header.get<SessionHeader::Type>();
+    data_view.nonce = header.get<SessionHeader::Nonce>();
+    consume_peeked();
+
+    callback_.session_control_deserialized_callback(data_view);
+
     co_return true;
 }
 
