@@ -81,14 +81,18 @@ public:
         uint8_t channel_index, const data::GpioDigitalDataView& data) override {
         if (!session_established())
             return;
-        callback_.gpio_digital_read_result_callback(channel_index, data);
+        if (!callback_.gpio_digital_read_result_callback(channel_index, data))
+            logging::get_logger().error(
+                "Unexpected gpio channel index: ", static_cast<int>(channel_index));
     }
 
     void gpio_analog_data_deserialized_callback(
         uint8_t channel_index, const data::GpioAnalogDataView& data) override {
         if (!session_established())
             return;
-        callback_.gpio_analog_read_result_callback(channel_index, data);
+        if (!callback_.gpio_analog_read_result_callback(channel_index, data))
+            logging::get_logger().error(
+                "Unexpected gpio channel index: ", static_cast<int>(channel_index));
     }
 
     void gpio_digital_read_config_deserialized_callback(

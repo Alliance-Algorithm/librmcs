@@ -40,11 +40,12 @@ public:
      * This hook is intended only for per-thread environment setup, such as thread priority,
      * CPU affinity, thread naming, or other OS-level thread configuration.
      *
-     * @warning This callback runs during transport construction, before `Handler` and the
-     * enclosing agent object finish construction.
-     * @warning The callback must not access the agent object being constructed, any of its
-     * members, or any transport/protocol APIs. In particular, do not capture and use `this`
-     * from the constructing agent object.
+     * @warning This callback runs during transport construction, before the enclosing board object
+     * finishes construction. If that board is itself a member of another object, that enclosing
+     * object may also still be under construction.
+     * @warning The callback must not access the board object being constructed, any state whose
+     * lifetime depends on construction having finished, or any transport/protocol APIs. In
+     * particular, do not capture and use `this` from an object that is still being constructed.
      */
     void (*thread_setup)(const AdvancedOptions&) noexcept = nullptr;
 
