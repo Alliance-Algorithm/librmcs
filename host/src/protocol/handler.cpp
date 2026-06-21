@@ -24,7 +24,7 @@
 #include "host/src/logging/logging.hpp"
 #include "host/src/protocol/stream_buffer.hpp"
 #include "host/src/transport/transport.hpp"
-#include "librmcs/agent/common.hpp"
+#include "librmcs/board/common.hpp"
 #include "librmcs/data/datas.hpp"
 
 namespace librmcs::host::protocol {
@@ -379,7 +379,7 @@ bool Handler::PacketBuilder::write_gpio_analog_data(
 
 Handler::Handler(
     uint16_t usb_vid, int32_t usb_pid, std::string_view serial_filter,
-    const agent::AdvancedOptions& options, data::DataCallback& callback)
+    const board::AdvancedOptions& options, data::DataCallback& callback)
     : impl_(new Impl(
           transport::usb::create_transport(usb_vid, usb_pid, serial_filter, options), callback)) {}
 

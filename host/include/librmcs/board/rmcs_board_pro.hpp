@@ -4,16 +4,16 @@
 #include <stdexcept>
 #include <string_view>
 
-#include <librmcs/agent/common.hpp>
+#include <librmcs/board/common.hpp>
 #include <librmcs/data/datas.hpp>
 #include <librmcs/protocol/handler.hpp>
 #include <librmcs/spec/gpio.hpp>
-#include <librmcs/spec/rmcs_board_lite/gpio.hpp>
+#include <librmcs/spec/rmcs_board_pro/gpio.hpp>
 
-namespace librmcs::agent {
+namespace librmcs::board {
 
 /**
- * @brief High-level host agent for RMCS Board Lite.
+ * @brief High-level host board interface for RMCS Board Pro.
  *
  * This class owns the transport and protocol stack for a single board connection.
  * The supplied `Callback` is stored by reference, is not owned by the board, and must outlive the
@@ -31,7 +31,7 @@ namespace librmcs::agent {
  * finished construction. Delay board construction with `std::optional` or `std::unique_ptr` when
  * callback behavior depends on such state.
  */
-class RmcsBoardLite final {
+class RmcsBoardPro final {
 public:
     class Callback : public data::DataCallback {
     public:
@@ -43,15 +43,17 @@ public:
         virtual void dbus_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
         virtual void uart0_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
         virtual void uart1_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
+        virtual void uart2_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
+        virtual void uart3_receive_callback(const librmcs::data::UartDataView& data) { (void)data; }
 
         virtual void gpio_digital_read_result_callback(
-            const librmcs::spec::rmcs_board_lite::GpioDescriptor& gpio,
+            const librmcs::spec::rmcs_board_pro::GpioDescriptor& gpio,
             const librmcs::data::GpioDigitalDataView& data) {
             (void)gpio;
             (void)data;
         }
         virtual void gpio_analog_read_result_callback(
-            const librmcs::spec::rmcs_board_lite::GpioDescriptor& gpio,
+            const librmcs::spec::rmcs_board_pro::GpioDescriptor& gpio,
             const librmcs::data::GpioAnalogDataView& data) {
             (void)gpio;
             (void)data;
@@ -84,42 +86,44 @@ public:
             case data::DataId::kUartDbus: dbus_receive_callback(data); return true;
             case data::DataId::kUart0: uart0_receive_callback(data); return true;
             case data::DataId::kUart1: uart1_receive_callback(data); return true;
+            case data::DataId::kUart2: uart2_receive_callback(data); return true;
+            case data::DataId::kUart3: uart3_receive_callback(data); return true;
             default: return false;
             }
         }
 
         bool gpio_digital_read_result_callback(
             uint8_t channel_index, const data::GpioDigitalDataView& data) final {
-            if (channel_index >= spec::rmcs_board_lite::kGpioDescriptors.size()) [[unlikely]]
+            if (channel_index >= spec::rmcs_board_pro::kGpioDescriptors.size()) [[unlikely]]
                 return false;
             gpio_digital_read_result_callback(
-                spec::rmcs_board_lite::kGpioDescriptors[channel_index], data);
+                spec::rmcs_board_pro::kGpioDescriptors[channel_index], data);
             return true;
         }
 
         bool gpio_analog_read_result_callback(
             uint8_t channel_index, const data::GpioAnalogDataView& data) final {
-            if (channel_index >= spec::rmcs_board_lite::kGpioDescriptors.size()) [[unlikely]]
+            if (channel_index >= spec::rmcs_board_pro::kGpioDescriptors.size()) [[unlikely]]
                 return false;
             gpio_analog_read_result_callback(
-                spec::rmcs_board_lite::kGpioDescriptors[channel_index], data);
+                spec::rmcs_board_pro::kGpioDescriptors[channel_index], data);
             return true;
         }
     };
 
-    explicit RmcsBoardLite(
+    explicit RmcsBoardPro(
         Callback& callback = default_callback_, std::string_view serial_filter = {},
         const AdvancedOptions& options = {})
-        : handler_(0xA11C, 0xA801, serial_filter, options, callback) {}
+        : handler_(0xA11C, 0xAF01, serial_filter, options, callback) {}
 
-    RmcsBoardLite(const RmcsBoardLite&) = delete;
-    RmcsBoardLite& operator=(const RmcsBoardLite&) = delete;
-    RmcsBoardLite(RmcsBoardLite&&) = delete;
-    RmcsBoardLite& operator=(RmcsBoardLite&&) = delete;
-    ~RmcsBoardLite() = default;
+    RmcsBoardPro(const RmcsBoardPro&) = delete;
+    RmcsBoardPro& operator=(const RmcsBoardPro&) = delete;
+    RmcsBoardPro(RmcsBoardPro&&) = delete;
+    RmcsBoardPro& operator=(RmcsBoardPro&&) = delete;
+    ~RmcsBoardPro() = default;
 
     class PacketBuilder {
-        friend class RmcsBoardLite;
+        friend class RmcsBoardPro;
 
     public:
         PacketBuilder& can0_transmit(const librmcs::data::CanDataView& data) {
@@ -153,9 +157,19 @@ public:
                 throw std::invalid_argument{"UART1 transmission failed: Invalid UART data"};
             return *this;
         }
+        PacketBuilder& uart2_transmit(const librmcs::data::UartDataView& data) {
+            if (!builder_.write_uart(data::DataId::kUart2, data)) [[unlikely]]
+                throw std::invalid_argument{"UART2 transmission failed: Invalid UART data"};
+            return *this;
+        }
+        PacketBuilder& uart3_transmit(const librmcs::data::UartDataView& data) {
+            if (!builder_.write_uart(data::DataId::kUart3, data)) [[unlikely]]
+                throw std::invalid_argument{"UART3 transmission failed: Invalid UART data"};
+            return *this;
+        }
 
         PacketBuilder& gpio_digital_write(
-            const librmcs::spec::rmcs_board_lite::GpioDescriptor& gpio,
+            const librmcs::spec::rmcs_board_pro::GpioDescriptor& gpio,
             const librmcs::data::GpioDigitalDataView& data) {
             if (!gpio.supports(spec::GpioCapability::kDigitalWrite)
                 || !builder_.write_gpio_digital_data(gpio.channel_index, data)) [[unlikely]]
@@ -163,7 +177,7 @@ public:
             return *this;
         }
         PacketBuilder& gpio_digital_read(
-            const librmcs::spec::rmcs_board_lite::GpioDescriptor& gpio,
+            const librmcs::spec::rmcs_board_pro::GpioDescriptor& gpio,
             const librmcs::data::GpioReadConfigView& data) {
             if (!data.supported(gpio)
                 || !builder_.write_gpio_digital_read_config(gpio.channel_index, data)) [[unlikely]]
@@ -172,7 +186,7 @@ public:
             return *this;
         }
         PacketBuilder& gpio_analog_write(
-            const librmcs::spec::rmcs_board_lite::GpioDescriptor& gpio,
+            const librmcs::spec::rmcs_board_pro::GpioDescriptor& gpio,
             const librmcs::data::GpioAnalogDataView& data) {
             if (!gpio.supports(spec::GpioCapability::kAnalogWrite)
                 || !builder_.write_gpio_analog_data(gpio.channel_index, data)) [[unlikely]]
@@ -193,4 +207,4 @@ private:
     host::protocol::Handler handler_;
 };
 
-} // namespace librmcs::agent
+} // namespace librmcs::board

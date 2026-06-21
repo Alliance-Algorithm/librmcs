@@ -4,16 +4,16 @@
 #include <stdexcept>
 #include <string_view>
 
-#include <librmcs/agent/common.hpp>
+#include <librmcs/board/common.hpp>
 #include <librmcs/data/datas.hpp>
 #include <librmcs/protocol/handler.hpp>
 #include <librmcs/spec/c_board/gpio.hpp>
 #include <librmcs/spec/gpio.hpp>
 
-namespace librmcs::agent {
+namespace librmcs::board {
 
 /**
- * @brief High-level host agent for C Board.
+ * @brief High-level host board interface for C Board.
  *
  * This class owns the transport and protocol stack for a single board connection.
  * The supplied `Callback` is stored by reference, is not owned by the board, and must outlive the
@@ -177,4 +177,4 @@ private:
     host::protocol::Handler handler_;
 };
 
-} // namespace librmcs::agent
+} // namespace librmcs::board
