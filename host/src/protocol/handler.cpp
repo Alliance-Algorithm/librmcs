@@ -61,52 +61,70 @@ public:
 
     PacketBuilder start_transmit() { return PacketBuilder{transport_.get()}; }
 
-    void can_deserialized_callback(
+    bool can_deserialized_callback(
         core::protocol::FieldId id, const data::CanDataView& data) override {
         if (!session_established())
-            return;
-        if (!callback_.can_receive_callback(id, data))
+            return true;
+        if (!callback_.can_receive_callback(id, data)) {
             logging::get_logger().error("Unexpected can field id: ", static_cast<int>(id));
+            return false;
+        }
+        return true;
     }
 
-    void uart_deserialized_callback(
+    bool uart_deserialized_callback(
         core::protocol::FieldId id, const data::UartDataView& data) override {
         if (!session_established())
-            return;
-        if (!callback_.uart_receive_callback(id, data))
+            return true;
+        if (!callback_.uart_receive_callback(id, data)) {
             logging::get_logger().error("Unexpected uart field id: ", static_cast<int>(id));
+            return false;
+        }
+        return true;
     }
 
-    void gpio_digital_data_deserialized_callback(
+    bool gpio_digital_data_deserialized_callback(
         uint8_t channel_index, const data::GpioDigitalDataView& data) override {
         if (!session_established())
-            return;
-        if (!callback_.gpio_digital_read_result_callback(channel_index, data))
+            return true;
+        if (!callback_.gpio_digital_read_result_callback(channel_index, data)) {
             logging::get_logger().error(
                 "Unexpected gpio channel index: ", static_cast<int>(channel_index));
+            return false;
+        }
+        return true;
     }
 
-    void gpio_analog_data_deserialized_callback(
+    bool gpio_analog_data_deserialized_callback(
         uint8_t channel_index, const data::GpioAnalogDataView& data) override {
         if (!session_established())
-            return;
-        if (!callback_.gpio_analog_read_result_callback(channel_index, data))
+            return true;
+        if (!callback_.gpio_analog_read_result_callback(channel_index, data)) {
             logging::get_logger().error(
                 "Unexpected gpio channel index: ", static_cast<int>(channel_index));
+            return false;
+        }
+        return true;
     }
 
-    void gpio_digital_read_config_deserialized_callback(
+    bool gpio_digital_read_config_deserialized_callback(
         uint8_t channel_index, const data::GpioReadConfigView& data) override {
+        if (!session_established())
+            return true;
         (void)channel_index;
         (void)data;
         logging::get_logger().error("Unexpected gpio digital read config field in uplink");
+        return false;
     }
 
-    void gpio_analog_read_config_deserialized_callback(
+    bool gpio_analog_read_config_deserialized_callback(
         uint8_t channel_index, const data::GpioReadConfigView& data) override {
+        if (!session_established())
+            return true;
         (void)channel_index;
         (void)data;
         logging::get_logger().error("Unexpected gpio analog read config field in uplink");
+        return false;
     }
 
     void accelerometer_deserialized_callback(const data::AccelerometerDataView& data) override {
@@ -295,7 +313,9 @@ struct PacketBuilderImpl {
 
     [[nodiscard]] bool write_gpio_digital_data(
         uint8_t channel_index, const data::GpioDigitalDataView& view) noexcept {
-        return process_result(serializer_.write_gpio_digital_data(channel_index, view));
+        if (view.timestamp_quarter_us.has_value()) [[unlikely]]
+            return false;
+        return process_result(serializer_.write_gpio_digital_value(channel_index, view));
     }
 
     [[nodiscard]] bool write_gpio_digital_read_config(
@@ -305,7 +325,7 @@ struct PacketBuilderImpl {
 
     [[nodiscard]] bool write_gpio_analog_data(
         uint8_t channel_index, const data::GpioAnalogDataView& view) noexcept {
-        return process_result(serializer_.write_gpio_analog_data(channel_index, view));
+        return process_result(serializer_.write_gpio_analog_value(channel_index, view));
     }
 
     [[nodiscard]] bool write_imu_accelerometer(const data::AccelerometerDataView& view) noexcept {
