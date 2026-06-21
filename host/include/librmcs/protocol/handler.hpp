@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string_view>
 
-#include <librmcs/agent/common.hpp>
+#include <librmcs/board/common.hpp>
 #include <librmcs/data/datas.hpp>
 #include <librmcs/export.hpp>
 
@@ -43,7 +43,7 @@ public:
 
     Handler(
         uint16_t usb_vid, int32_t usb_pid, std::string_view serial_filter,
-        const agent::AdvancedOptions& options, data::DataCallback& callback);
+        const board::AdvancedOptions& options, data::DataCallback& callback);
 
     Handler(const Handler&) = delete;
     Handler& operator=(const Handler&) = delete;

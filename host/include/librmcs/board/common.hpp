@@ -4,17 +4,17 @@
 #include <type_traits>
 #include <utility>
 
-namespace librmcs::agent {
+namespace librmcs::board {
 
 /**
- * @brief Advanced transport options passed during agent construction.
+ * @brief Advanced transport options passed during board construction.
  *
  * `bind_advanced_options()` returns an object derived from `AdvancedOptions` whose `thread_setup`
  * callback depends on state stored in that derived object. Copying or moving the base type would
  * slice away that state while retaining a now-dangling function pointer, so `AdvancedOptions` is
  * intentionally non-copyable and non-movable.
  *
- * Construct `AdvancedOptions` directly during agent construction, or explicitly copy the required
+ * Construct `AdvancedOptions` directly during board construction, or explicitly copy the required
  * plain data fields into a fresh `AdvancedOptions` instance instead of copying an existing object.
  *
  * @warning Never copy, assign, or reuse any function pointer from an object returned by
@@ -87,4 +87,4 @@ auto bind_advanced_options(FunctorT&& thread_setup_impl) {
     return OptionsImpl{std::forward<FunctorT>(thread_setup_impl)};
 }
 
-} // namespace librmcs::agent
+} // namespace librmcs::board
