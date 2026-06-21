@@ -112,6 +112,21 @@ struct TemperatureDataView {
     uint32_t timestamp_quarter_us;
 };
 
+/**
+ * @brief Interface for consuming deserialized uplink data.
+ *
+ * This interface is invoked after the protocol layer has already identified the payload type and
+ * decoded its contents. For callback families that are further multiplexed by a sub-identifier,
+ * such as `DataId` or a GPIO `channel_index`, the callback returns `bool` to report whether that
+ * sub-identifier is valid for the concrete implementation.
+ *
+ * Return `true` when the sub-identifier is recognized and the payload has been dispatched.
+ * Return `false` when deserialization succeeded but the `DataId` or `channel_index` is unexpected,
+ * so the caller can propagate that routing error to upper layers.
+ *
+ * IMU callbacks return `void` because each payload type maps to a single callback and requires no
+ * additional route validation.
+ */
 class DataCallback {
 public:
     DataCallback() = default;
@@ -121,21 +136,17 @@ public:
     DataCallback& operator=(DataCallback&&) = delete;
     virtual ~DataCallback() = default;
 
-    // `*_receive_callback` returns `true` if id is valid
-    virtual bool can_receive_callback(DataId id, const CanDataView& data) = 0;
+    [[nodiscard]] virtual bool can_receive_callback(DataId id, const CanDataView& data) = 0;
 
-    virtual bool uart_receive_callback(DataId id, const UartDataView& data) = 0;
+    [[nodiscard]] virtual bool uart_receive_callback(DataId id, const UartDataView& data) = 0;
 
-    virtual void gpio_digital_read_result_callback(
+    [[nodiscard]] virtual bool gpio_digital_read_result_callback(
         uint8_t channel_index, const GpioDigitalDataView& data) = 0;
-
-    virtual void
+    [[nodiscard]] virtual bool
         gpio_analog_read_result_callback(uint8_t channel_index, const GpioAnalogDataView& data) = 0;
 
     virtual void accelerometer_receive_callback(const AccelerometerDataView& data) = 0;
-
     virtual void gyroscope_receive_callback(const GyroscopeDataView& data) = 0;
-
     virtual void temperature_receive_callback(const TemperatureDataView& data) = 0;
 };
 
