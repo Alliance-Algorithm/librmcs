@@ -24,20 +24,22 @@ public:
     DeserializeCallback& operator=(DeserializeCallback&&) = delete;
     virtual ~DeserializeCallback() = default;
 
-    virtual void can_deserialized_callback(FieldId id, const data::CanDataView& data) = 0;
+    [[nodiscard]] virtual bool
+        can_deserialized_callback(FieldId id, const data::CanDataView& data) = 0;
 
-    virtual void uart_deserialized_callback(FieldId id, const data::UartDataView& data) = 0;
+    [[nodiscard]] virtual bool
+        uart_deserialized_callback(FieldId id, const data::UartDataView& data) = 0;
 
-    virtual void gpio_digital_data_deserialized_callback(
+    [[nodiscard]] virtual bool gpio_digital_data_deserialized_callback(
         uint8_t channel_index, const data::GpioDigitalDataView& data) = 0;
 
-    virtual void gpio_analog_data_deserialized_callback(
+    [[nodiscard]] virtual bool gpio_analog_data_deserialized_callback(
         uint8_t channel_index, const data::GpioAnalogDataView& data) = 0;
 
-    virtual void gpio_digital_read_config_deserialized_callback(
+    [[nodiscard]] virtual bool gpio_digital_read_config_deserialized_callback(
         uint8_t channel_index, const data::GpioReadConfigView& data) = 0;
 
-    virtual void gpio_analog_read_config_deserialized_callback(
+    [[nodiscard]] virtual bool gpio_analog_read_config_deserialized_callback(
         uint8_t channel_index, const data::GpioReadConfigView& data) = 0;
 
     virtual void accelerometer_deserialized_callback(const data::AccelerometerDataView& data) = 0;

@@ -309,7 +309,7 @@ private:
 
         auto& serializer = usb::get_serializer();
         core::utility::assert_debug(
-            serializer.write_gpio_digital_read_result(
+            serializer.write_gpio_digital_value(
                 channel_index, {.high = high, .timestamp_quarter_us = timestamp_to_publish})
             != core::protocol::Serializer::SerializeResult::kInvalidArgument);
     }

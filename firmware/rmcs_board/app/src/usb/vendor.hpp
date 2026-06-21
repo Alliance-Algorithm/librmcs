@@ -111,82 +111,90 @@ private:
         session_established_ = true;
     }
 
-    void can_deserialized_callback(
+    bool can_deserialized_callback(
         core::protocol::FieldId id, const data::CanDataView& data) override {
         if (!session_established_)
-            return;
+            return true;
         switch (id) {
-        case data::DataId::kCan0: can::can_array[0]->handle_downlink(data); break;
-        case data::DataId::kCan1: can::can_array[1]->handle_downlink(data); break;
-        case data::DataId::kCan2: can::can_array[2]->handle_downlink(data); break;
-        case data::DataId::kCan3: can::can_array[3]->handle_downlink(data); break;
-        default: core::utility::assert_failed_always();
+        case data::DataId::kCan0: can::can_array[0]->handle_downlink(data); return true;
+        case data::DataId::kCan1: can::can_array[1]->handle_downlink(data); return true;
+        case data::DataId::kCan2: can::can_array[2]->handle_downlink(data); return true;
+        case data::DataId::kCan3: can::can_array[3]->handle_downlink(data); return true;
+        default: return false;
         }
     }
 
-    void uart_deserialized_callback(
+    bool uart_deserialized_callback(
         core::protocol::FieldId id, const data::UartDataView& data) override {
         if (!session_established_)
-            return;
+            return true;
         switch (id) {
-        case data::DataId::kUart0: uart::uart_array[0]->handle_downlink(data); break;
-        case data::DataId::kUart1: uart::uart_array[1]->handle_downlink(data); break;
+        case data::DataId::kUart0: uart::uart_array[0]->handle_downlink(data); return true;
+        case data::DataId::kUart1: uart::uart_array[1]->handle_downlink(data); return true;
 #ifdef BOARD_UART2
-        case data::DataId::kUart2: uart::uart_array[2]->handle_downlink(data); break;
+        case data::DataId::kUart2: uart::uart_array[2]->handle_downlink(data); return true;
 #endif
 #ifdef BOARD_UART3
-        case data::DataId::kUart3: uart::uart_array[3]->handle_downlink(data); break;
+        case data::DataId::kUart3: uart::uart_array[3]->handle_downlink(data); return true;
 #endif
-        default: core::utility::assert_failed_always();
+        default: return false;
         }
     }
 
-    void gpio_digital_data_deserialized_callback(
+    bool gpio_digital_data_deserialized_callback(
         uint8_t channel_index, const data::GpioDigitalDataView& data) override {
         if (!session_established_)
-            return;
+            return true;
+        if (data.timestamp_quarter_us.has_value())
+            return false;
         if (channel_index >= board::spec::kGpioDescriptors.size())
-            return;
+            return false;
 
         const auto& gpio_descriptor = board::spec::kGpioDescriptors[channel_index];
         if (!gpio_descriptor.supports(spec::GpioCapability::kDigitalWrite))
-            return;
+            return false;
 
         gpio::gpio->handle_digital_write(channel_index, data);
+        return true;
     }
 
-    void gpio_analog_data_deserialized_callback(
+    bool gpio_analog_data_deserialized_callback(
         uint8_t channel_index, const data::GpioAnalogDataView& data) override {
         if (!session_established_)
-            return;
+            return true;
         if (channel_index >= board::spec::kGpioDescriptors.size())
-            return;
+            return false;
 
         const auto& gpio_descriptor = board::spec::kGpioDescriptors[channel_index];
         if (!gpio_descriptor.supports(spec::GpioCapability::kAnalogWrite))
-            return;
+            return false;
 
         gpio::gpio->handle_analog_write(channel_index, data);
+        return true;
     }
 
-    void gpio_digital_read_config_deserialized_callback(
+    bool gpio_digital_read_config_deserialized_callback(
         uint8_t channel_index, const data::GpioReadConfigView& data) override {
         if (!session_established_)
-            return;
+            return true;
         if (channel_index >= board::spec::kGpioDescriptors.size())
-            return;
+            return false;
 
         const auto& gpio_descriptor = board::spec::kGpioDescriptors[channel_index];
         if (!data.supported(gpio_descriptor))
-            return;
+            return false;
 
         gpio::gpio->handle_digital_read(channel_index, data);
+        return true;
     }
 
-    void gpio_analog_read_config_deserialized_callback(
+    bool gpio_analog_read_config_deserialized_callback(
         uint8_t channel_index, const data::GpioReadConfigView& data) override {
+        if (!session_established_)
+            return true;
         (void)channel_index;
         (void)data;
+        return false;
     }
 
     void accelerometer_deserialized_callback(const data::AccelerometerDataView& data) override {

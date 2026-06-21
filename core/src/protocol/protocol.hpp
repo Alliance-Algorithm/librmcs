@@ -93,14 +93,11 @@ struct SessionHeader
 
 struct GpioHeader : utility::Bitfield<2> {
     enum class PayloadEnum : uint8_t {
-        kDigitalWriteLow = 0b0000,
-        kDigitalWriteHigh = 0b0001,
-        kAnalogWrite = 0b0010,
-        kDigitalRead = 0b0100,
-        kAnalogRead = 0b0110,
-        kDigitalReadResultLow = 0b1000,
-        kDigitalReadResultHigh = 0b1001,
-        kAnalogReadResult = 0b1010,
+        kDigitalLow = 0b0000,
+        kDigitalHigh = 0b0001,
+        kAnalog = 0b0010,
+        kDigitalReadConfig = 0b0100,
+        kAnalogReadConfig = 0b0110,
     };
 
     using PayloadType = utility::BitfieldMember<4, 4, PayloadEnum>;
