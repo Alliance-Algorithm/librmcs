@@ -112,21 +112,21 @@ struct GpioReadConfigView {
     }
 };
 
-struct AccelerometerDataView {
+struct ImuAccelerometerDataView {
     int16_t x;
     int16_t y;
     int16_t z;
     uint32_t timestamp_quarter_us;
 };
 
-struct GyroscopeDataView {
+struct ImuGyroscopeDataView {
     int16_t x;
     int16_t y;
     int16_t z;
     uint32_t timestamp_quarter_us;
 };
 
-struct TemperatureDataView {
+struct ImuTemperatureDataView {
     uint16_t raw_register_value;
     uint32_t timestamp_quarter_us;
 };
@@ -164,9 +164,9 @@ public:
     [[nodiscard]] virtual bool
         gpio_analog_read_result_callback(uint8_t channel_index, const GpioAnalogDataView& data) = 0;
 
-    virtual void accelerometer_receive_callback(const AccelerometerDataView& data) = 0;
-    virtual void gyroscope_receive_callback(const GyroscopeDataView& data) = 0;
-    virtual void temperature_receive_callback(const TemperatureDataView& data) = 0;
+    virtual void accelerometer_receive_callback(const ImuAccelerometerDataView& data) = 0;
+    virtual void gyroscope_receive_callback(const ImuGyroscopeDataView& data) = 0;
+    virtual void temperature_receive_callback(const ImuTemperatureDataView& data) = 0;
 };
 
 } // namespace librmcs::data

@@ -137,19 +137,19 @@ public:
         return false;
     }
 
-    void accelerometer_deserialized_callback(const data::AccelerometerDataView& data) override {
+    void accelerometer_deserialized_callback(const data::ImuAccelerometerDataView& data) override {
         if (!session_established())
             return;
         callback_.accelerometer_receive_callback(data);
     }
 
-    void gyroscope_deserialized_callback(const data::GyroscopeDataView& data) override {
+    void gyroscope_deserialized_callback(const data::ImuGyroscopeDataView& data) override {
         if (!session_established())
             return;
         callback_.gyroscope_receive_callback(data);
     }
 
-    void temperature_deserialized_callback(const data::TemperatureDataView& data) override {
+    void temperature_deserialized_callback(const data::ImuTemperatureDataView& data) override {
         if (!session_established())
             return;
         callback_.temperature_receive_callback(data);
@@ -343,11 +343,12 @@ struct PacketBuilderImpl {
         return process_result(serializer_.write_gpio_analog_value(channel_index, view));
     }
 
-    [[nodiscard]] bool write_imu_accelerometer(const data::AccelerometerDataView& view) noexcept {
+    [[nodiscard]] bool
+        write_imu_accelerometer(const data::ImuAccelerometerDataView& view) noexcept {
         return process_result(serializer_.write_imu_accelerometer(view));
     }
 
-    [[nodiscard]] bool write_imu_gyroscope(const data::GyroscopeDataView& view) noexcept {
+    [[nodiscard]] bool write_imu_gyroscope(const data::ImuGyroscopeDataView& view) noexcept {
         return process_result(serializer_.write_imu_gyroscope(view));
     }
 

@@ -37,43 +37,47 @@ class RmcsBoardPro final {
 public:
     class Callback : public data::DataCallback {
     public:
-        virtual void can_receive_callback(
-            const librmcs::spec::rmcs_board_pro::CanDescriptor& can,
-            const librmcs::data::CanDataView& data) {
+        struct Spec {
+            using Can = spec::rmcs_board_pro::CanDescriptor;
+            using Uart = spec::rmcs_board_pro::UartDescriptor;
+            using Gpio = spec::rmcs_board_pro::GpioDescriptor;
+        };
+
+        struct View {
+            using Can = data::CanDataView;
+            using Uart = data::UartDataView;
+            using GpioDigital = data::GpioDigitalDataView;
+            using ImuAccelerometer = librmcs::data::ImuAccelerometerDataView;
+            using ImuGyroscope = librmcs::data::ImuGyroscopeDataView;
+            using ImuTemperature = librmcs::data::ImuTemperatureDataView;
+        };
+
+        virtual void can_receive_callback(const Spec::Can& can, const View::Can& data) {
             (void)can;
             (void)data;
         }
 
-        virtual void uart_receive_callback(
-            const librmcs::spec::rmcs_board_pro::UartDescriptor& uart,
-            const librmcs::data::UartDataView& data) {
+        virtual void uart_receive_callback(const Spec::Uart& uart, const View::Uart& data) {
             (void)uart;
             (void)data;
         }
 
         virtual void gpio_digital_read_result_callback(
-            const librmcs::spec::rmcs_board_pro::GpioDescriptor& gpio,
-            const librmcs::data::GpioDigitalDataView& data) {
+            const Spec::Gpio& gpio, const View::GpioDigital& data) {
             (void)gpio;
             (void)data;
         }
         virtual void gpio_analog_read_result_callback(
-            const librmcs::spec::rmcs_board_pro::GpioDescriptor& gpio,
-            const librmcs::data::GpioAnalogDataView& data) {
+            const Spec::Gpio& gpio, const librmcs::data::GpioAnalogDataView& data) {
             (void)gpio;
             (void)data;
         }
 
-        void accelerometer_receive_callback(
-            const librmcs::data::AccelerometerDataView& data) override {
+        void accelerometer_receive_callback(const View::ImuAccelerometer& data) override {
             (void)data;
         }
-        void gyroscope_receive_callback(const librmcs::data::GyroscopeDataView& data) override {
-            (void)data;
-        }
-        void temperature_receive_callback(const librmcs::data::TemperatureDataView& data) override {
-            (void)data;
-        }
+        void gyroscope_receive_callback(const View::ImuGyroscope& data) override { (void)data; }
+        void temperature_receive_callback(const View::ImuTemperature& data) override { (void)data; }
 
     public:
         bool can_receive_callback(data::DataId id, const data::CanDataView& data) final {

@@ -268,7 +268,7 @@ coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
 
     switch (payload_type) {
     case ImuHeader::PayloadEnum::kAccelerometer: {
-        data::AccelerometerDataView data_view{};
+        data::ImuAccelerometerDataView data_view{};
         const auto* payload_bytes = co_await peek_bytes(sizeof(ImuAccelerometerPayload));
         if (!payload_bytes) [[unlikely]]
             co_return false;
@@ -282,7 +282,7 @@ coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
         break;
     }
     case ImuHeader::PayloadEnum::kGyroscope: {
-        data::GyroscopeDataView data_view{};
+        data::ImuGyroscopeDataView data_view{};
         const auto* payload_bytes = co_await peek_bytes(sizeof(ImuGyroscopePayload));
         if (!payload_bytes) [[unlikely]]
             co_return false;
@@ -296,7 +296,7 @@ coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
         break;
     }
     case ImuHeader::PayloadEnum::kTemperature: {
-        data::TemperatureDataView data_view{};
+        data::ImuTemperatureDataView data_view{};
         const auto* payload_bytes = co_await peek_bytes(sizeof(ImuTemperaturePayload));
         if (!payload_bytes) [[unlikely]]
             co_return false;

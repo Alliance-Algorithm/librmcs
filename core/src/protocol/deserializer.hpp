@@ -45,11 +45,12 @@ public:
     [[nodiscard]] virtual bool gpio_analog_read_config_deserialized_callback(
         uint8_t channel_index, const data::GpioReadConfigView& data) = 0;
 
-    virtual void accelerometer_deserialized_callback(const data::AccelerometerDataView& data) = 0;
+    virtual void
+        accelerometer_deserialized_callback(const data::ImuAccelerometerDataView& data) = 0;
 
-    virtual void gyroscope_deserialized_callback(const data::GyroscopeDataView& data) = 0;
+    virtual void gyroscope_deserialized_callback(const data::ImuGyroscopeDataView& data) = 0;
 
-    virtual void temperature_deserialized_callback(const data::TemperatureDataView& data) = 0;
+    virtual void temperature_deserialized_callback(const data::ImuTemperatureDataView& data) = 0;
 
     virtual void session_control_deserialized_callback(const data::SessionControlView& data) = 0;
 

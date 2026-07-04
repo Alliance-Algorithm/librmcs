@@ -215,15 +215,15 @@ private:
         return false;
     }
 
-    void accelerometer_deserialized_callback(const data::AccelerometerDataView& data) override {
+    void accelerometer_deserialized_callback(const data::ImuAccelerometerDataView& data) override {
         (void)data;
     }
 
-    void gyroscope_deserialized_callback(const data::GyroscopeDataView& data) override {
+    void gyroscope_deserialized_callback(const data::ImuGyroscopeDataView& data) override {
         (void)data;
     }
 
-    void temperature_deserialized_callback(const data::TemperatureDataView& data) override {
+    void temperature_deserialized_callback(const data::ImuTemperatureDataView& data) override {
         (void)data;
     }
 

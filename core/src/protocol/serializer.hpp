@@ -271,7 +271,7 @@ public:
         return SerializeResult::kSuccess;
     }
 
-    SerializeResult write_imu_accelerometer(const data::AccelerometerDataView& view) noexcept {
+    SerializeResult write_imu_accelerometer(const data::ImuAccelerometerDataView& view) noexcept {
         const std::size_t required = required_imu_size(FieldId::kImu, ImuPayload::kAccelerometer);
         LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
 
@@ -297,7 +297,7 @@ public:
         return SerializeResult::kSuccess;
     }
 
-    SerializeResult write_imu_gyroscope(const data::GyroscopeDataView& view) noexcept {
+    SerializeResult write_imu_gyroscope(const data::ImuGyroscopeDataView& view) noexcept {
         const std::size_t required = required_imu_size(FieldId::kImu, ImuPayload::kGyroscope);
         LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
 
@@ -323,7 +323,7 @@ public:
         return SerializeResult::kSuccess;
     }
 
-    SerializeResult write_imu_temperature(const data::TemperatureDataView& view) noexcept {
+    SerializeResult write_imu_temperature(const data::ImuTemperatureDataView& view) noexcept {
         const std::size_t required = required_imu_size(FieldId::kImu, ImuPayload::kTemperature);
         LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
 
