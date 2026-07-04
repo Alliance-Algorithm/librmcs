@@ -39,14 +39,22 @@ public:
     public:
         struct Spec {
             using Can = spec::c_board::CanDescriptor;
+            static constexpr spec::c_board::internal::CanDescriptors kCans{};
+
             using Uart = spec::c_board::UartDescriptor;
+            static constexpr spec::c_board::internal::UartDescriptors kUarts{};
+
             using Gpio = spec::c_board::GpioDescriptor;
+            static constexpr spec::c_board::internal::GpioDescriptors kGpios{};
         };
 
         struct View {
             using Can = data::CanDataView;
+
             using Uart = data::UartDataView;
+
             using GpioDigital = data::GpioDigitalDataView;
+
             using ImuAccelerometer = librmcs::data::ImuAccelerometerDataView;
             using ImuGyroscope = librmcs::data::ImuGyroscopeDataView;
             using ImuTemperature = librmcs::data::ImuTemperatureDataView;
