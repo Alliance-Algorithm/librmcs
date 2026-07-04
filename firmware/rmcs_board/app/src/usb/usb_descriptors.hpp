@@ -95,13 +95,13 @@ private:
     }
 
     static constexpr void mix_uid_entropy(std::array<uint32_t, kUuidWordCount>& uid) {
-        static_assert(kUuidWordCount == 4);
+        static_assert(kUuidWordCount == 4U);
 
         auto& [a, b, c, d] = uid;
 
         const auto mix_step = [](uint32_t v) {
-            v *= 0x9E3779B9;
-            return v ^ (v >> 16);
+            v *= 0x9E3779B9U;
+            return v ^ (v >> 16U);
         };
 
         a ^= mix_step(b ^ c ^ d);

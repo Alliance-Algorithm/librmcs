@@ -105,6 +105,16 @@ private:
         b ^= mix_step(a + c + d);
         c ^= mix_step(a + b + d);
         d ^= mix_step(a + b + c);
+
+        a ^= mix_step((b << 5) ^ (c >> 3) ^ d);
+        b ^= mix_step((c << 7) ^ (d >> 5) ^ a);
+        c ^= mix_step((d << 11) ^ (a >> 7) ^ b);
+        d ^= mix_step((a << 13) ^ (b >> 11) ^ c);
+
+        a += mix_step(b ^ d);
+        b += mix_step(c ^ a);
+        c += mix_step(d ^ b);
+        d += mix_step(a ^ c);
     }
 
     static char* write_hex_u16(uint16_t value, char* buffer) {
