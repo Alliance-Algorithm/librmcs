@@ -9,6 +9,7 @@ cmake_minimum_required(VERSION 3.28)
 project(librmcs_wrapper VERSION 3 LANGUAGES C CXX)
 set(LIBRMCS_PROJECT_VERSION "__LIBRMCS_PROJECT_VERSION_PLACEHOLDER__")
 set(LIBRMCS_DEBIAN_VERSION "__LIBRMCS_DEBIAN_VERSION_PLACEHOLDER__")
+set(LIBRMCS_DEBUG_ASSERTS __LIBRMCS_DEBUG_ASSERTS_PLACEHOLDER__)
 add_subdirectory(host)
 EOF
 
@@ -25,26 +26,39 @@ WORKDIR /src-full
 RUN --mount=type=bind,target=/src-full,source=.,readonly \
     LIBRMCS_PROJECT_VERSION=$(.scripts/generate_version) \
     && LIBRMCS_DEBIAN_VERSION=$(.scripts/generate_version --format debian) \
-    && echo "LIBRMCS_PROJECT_VERSION=${LIBRMCS_PROJECT_VERSION}" >> /env.sh \
-    && echo "LIBRMCS_DEBIAN_VERSION=${LIBRMCS_DEBIAN_VERSION}" >> /env.sh \
+    && LIBRMCS_DEBUG_ASSERTS=1 \
+    && SDK_CMAKE_PRESET=linux-debug \
+    && LIBRMCS_ARTIFACT_SUFFIX=-debug \
+    && if [[ "${LIBRMCS_PROJECT_VERSION}" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then \
+        LIBRMCS_DEBUG_ASSERTS=0; \
+        SDK_CMAKE_PRESET=linux-release; \
+        LIBRMCS_ARTIFACT_SUFFIX=; \
+    fi \
+    && printf 'LIBRMCS_PROJECT_VERSION=%s\n' "${LIBRMCS_PROJECT_VERSION}" >> /env.sh \
+    && printf 'LIBRMCS_DEBIAN_VERSION=%s\n' "${LIBRMCS_DEBIAN_VERSION}" >> /env.sh \
+    && printf 'LIBRMCS_DEBUG_ASSERTS=%s\n' "${LIBRMCS_DEBUG_ASSERTS}" >> /env.sh \
+    && printf 'SDK_CMAKE_PRESET=%s\n' "${SDK_CMAKE_PRESET}" >> /env.sh \
+    && printf 'LIBRMCS_ARTIFACT_SUFFIX=%s\n' "${LIBRMCS_ARTIFACT_SUFFIX}" >> /env.sh \
     && cp -r core host LICENSE /src \
     && sed -i "s/__LIBRMCS_PROJECT_VERSION_PLACEHOLDER__/${LIBRMCS_PROJECT_VERSION}/g" \
         /src/CMakeLists.txt \
     && sed -i "s/__LIBRMCS_DEBIAN_VERSION_PLACEHOLDER__/${LIBRMCS_DEBIAN_VERSION}/g" \
+        /src/CMakeLists.txt \
+    && sed -i "s/__LIBRMCS_DEBUG_ASSERTS_PLACEHOLDER__/${LIBRMCS_DEBUG_ASSERTS}/g" \
         /src/CMakeLists.txt
 
 WORKDIR /output
 
 RUN source /env.sh \
     && if [ "${WITH_SOURCE}" = "true" ]; then \
-        SDK_SRC_NAME=librmcs-sdk-src-${LIBRMCS_PROJECT_VERSION}; \
+        SDK_SRC_NAME=librmcs-sdk-src-${LIBRMCS_PROJECT_VERSION}${LIBRMCS_ARTIFACT_SUFFIX}; \
         cp -r /src ${SDK_SRC_NAME}; \
         zip -r ${SDK_SRC_NAME}.zip ${SDK_SRC_NAME}; \
         rm -rf ${SDK_SRC_NAME}; \
     fi
 
 RUN source /env.sh \
-    && cmake --preset linux-release -DBUILD_STATIC_LIBRMCS=OFF -B build /src \
+    && cmake --preset "${SDK_CMAKE_PRESET}" -DBUILD_STATIC_LIBRMCS=OFF -B build /src \
     && cmake --build build \
     && cd build && cpack -G DEB && cd .. \
     && mv build/*.deb . \

@@ -49,6 +49,7 @@ function(c_board_apply_target_options target linker_file)
 
     target_compile_definitions(${target} PRIVATE
         LIBRMCS_PROJECT_VERSION_STRING="${LIBRMCS_PROJECT_VERSION}"
+        LIBRMCS_DEBUG_ASSERTS=${LIBRMCS_DEBUG_ASSERTS}
         $<$<CONFIG:Release>:NDEBUG>
     )
 

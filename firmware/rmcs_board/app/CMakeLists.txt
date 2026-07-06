@@ -53,10 +53,11 @@ if(LIBRMCS_SOURCE_PATH_MAP_COMPILE_OPTIONS)
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "debug")
-    sdk_compile_options(-Og)
+    sdk_compile_options(-O3)
 endif()
 
 sdk_compile_definitions(-DLIBRMCS_PROJECT_VERSION_STRING="${LIBRMCS_PROJECT_VERSION}")
+sdk_compile_definitions(-DLIBRMCS_DEBUG_ASSERTS=${LIBRMCS_DEBUG_ASSERTS})
 sdk_compile_definitions(-DCFG_TUSB_MCU=OPT_MCU_HPM)
 sdk_compile_definitions(-DUSB_HOST_MCU_CORE=HPM_CORE0)
 

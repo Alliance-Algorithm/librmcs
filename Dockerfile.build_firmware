@@ -7,26 +7,34 @@ RUN --mount=type=bind,target=/src,source=.,readonly \
     set -euo pipefail; \
     mkdir -p /output; \
     LIBRMCS_PROJECT_VERSION="$(.scripts/generate_version)"; \
+    LIBRMCS_DEBUG_ASSERTS=1; \
+    FIRMWARE_CMAKE_PRESET=debug; \
+    LIBRMCS_ARTIFACT_SUFFIX=-debug; \
+    if [[ "${LIBRMCS_PROJECT_VERSION}" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then \
+        LIBRMCS_DEBUG_ASSERTS=0; \
+        FIRMWARE_CMAKE_PRESET=release; \
+        LIBRMCS_ARTIFACT_SUFFIX=; \
+    fi; \
     for board in rmcs_board; do \
         for variant in pro lite; do \
             build_dir="/tmp/build-${board}-${variant}"; \
             artifact_name="${board}-${variant}"; \
-            cmake --preset release -S "firmware/${board}" -B "${build_dir}" -DBOARD="${variant}"; \
+            cmake --preset "${FIRMWARE_CMAKE_PRESET}" -S "firmware/${board}" -B "${build_dir}" -DBOARD="${variant}" -DLIBRMCS_DEBUG_ASSERTS="${LIBRMCS_DEBUG_ASSERTS}"; \
             cmake --build "${build_dir}"; \
             cp "${build_dir}/bootloader/output/rmcs_board_bootloader.elf" \
-                "/output/librmcs-bootloader-${artifact_name}.elf"; \
+                "/output/librmcs-bootloader-${artifact_name}${LIBRMCS_ARTIFACT_SUFFIX}.elf"; \
             cp "${build_dir}/app/output/rmcs_board_app.dfu" \
-                "/output/librmcs-firmware-${artifact_name}-${LIBRMCS_PROJECT_VERSION}.dfu"; \
+                "/output/librmcs-firmware-${artifact_name}-${LIBRMCS_PROJECT_VERSION}${LIBRMCS_ARTIFACT_SUFFIX}.dfu"; \
         done; \
     done; \
     for board in c_board; do \
         build_dir="/tmp/build-${board}"; \
-        cmake --preset release -S "firmware/${board}" -B "${build_dir}"; \
+        cmake --preset "${FIRMWARE_CMAKE_PRESET}" -S "firmware/${board}" -B "${build_dir}" -DLIBRMCS_DEBUG_ASSERTS="${LIBRMCS_DEBUG_ASSERTS}"; \
         cmake --build "${build_dir}"; \
         cp "${build_dir}/bootloader/${board}_bootloader.elf" \
-            "/output/librmcs-bootloader-${board}.elf"; \
+            "/output/librmcs-bootloader-${board}${LIBRMCS_ARTIFACT_SUFFIX}.elf"; \
         cp "${build_dir}/app/${board}_app.dfu" \
-            "/output/librmcs-firmware-${board}-${LIBRMCS_PROJECT_VERSION}.dfu"; \
+            "/output/librmcs-firmware-${board}-${LIBRMCS_PROJECT_VERSION}${LIBRMCS_ARTIFACT_SUFFIX}.dfu"; \
     done
 
 FROM scratch AS output

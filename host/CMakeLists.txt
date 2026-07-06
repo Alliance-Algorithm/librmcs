@@ -14,6 +14,17 @@ if(NOT DEFINED LIBRMCS_PROJECT_VERSION OR LIBRMCS_PROJECT_VERSION STREQUAL "")
 endif()
 message(STATUS "Librmcs project version: ${LIBRMCS_PROJECT_VERSION}")
 
+if(DEFINED LIBRMCS_DEBUG_ASSERTS AND NOT LIBRMCS_DEBUG_ASSERTS STREQUAL "")
+    if(NOT LIBRMCS_DEBUG_ASSERTS STREQUAL "0" AND NOT LIBRMCS_DEBUG_ASSERTS STREQUAL "1")
+        message(FATAL_ERROR "LIBRMCS_DEBUG_ASSERTS must be 0 or 1")
+    endif()
+    set(librmcs_debug_asserts_definition "LIBRMCS_DEBUG_ASSERTS=${LIBRMCS_DEBUG_ASSERTS}")
+    message(STATUS "Librmcs debug asserts: ${LIBRMCS_DEBUG_ASSERTS}")
+else()
+    set(librmcs_debug_asserts_definition "LIBRMCS_DEBUG_ASSERTS=$<IF:$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>,0,1>")
+    message(STATUS "Librmcs debug asserts: per-config")
+endif()
+
 # Set C++ standard to C++23
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -68,6 +79,7 @@ else()
 endif()
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE LIBRMCS_PROJECT_VERSION_STRING="${LIBRMCS_PROJECT_VERSION}")
+target_compile_definitions(${PROJECT_NAME} PRIVATE ${librmcs_debug_asserts_definition})
 target_compile_definitions(${PROJECT_NAME} PRIVATE BUILDING_LIBRMCS)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../core/include)
@@ -161,7 +173,17 @@ if(UNIX AND NOT APPLE)
     set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
 
     string(TOLOWER "${CMAKE_BUILD_TYPE}" PACKAGE_BUILD_MODE)
-    set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${LIBRMCS_PROJECT_VERSION}-${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}-${PACKAGE_BUILD_MODE}")
+    if(PACKAGE_BUILD_MODE STREQUAL "release")
+        set(
+            CPACK_PACKAGE_FILE_NAME
+            "${PROJECT_NAME}-${LIBRMCS_PROJECT_VERSION}-${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}"
+        )
+    else()
+        set(
+            CPACK_PACKAGE_FILE_NAME
+            "${PROJECT_NAME}-${LIBRMCS_PROJECT_VERSION}-${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}-${PACKAGE_BUILD_MODE}"
+        )
+    endif()
     set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE")
 
     include(CPack)

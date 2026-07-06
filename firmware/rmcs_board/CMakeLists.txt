@@ -39,6 +39,7 @@ function(add_rmcs_board_subbuild target_name source_subdir)
         -DHOST_DEBUGGER=${HOST_DEBUGGER}
         -DSOURCE_PATH_MAP=${LIBRMCS_SOURCE_PATH_MAP}
         -DLIBRMCS_PROJECT_VERSION=${LIBRMCS_PROJECT_VERSION}
+        -DLIBRMCS_DEBUG_ASSERTS=${LIBRMCS_DEBUG_ASSERTS}
     )
     if(CMAKE_MAKE_PROGRAM)
         list(APPEND configure_args -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM})

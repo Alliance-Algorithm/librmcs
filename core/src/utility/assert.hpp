@@ -4,7 +4,11 @@
 #include <type_traits>
 #include <utility>
 
-#ifndef NDEBUG
+#ifndef LIBRMCS_DEBUG_ASSERTS
+# error "LIBRMCS_DEBUG_ASSERTS must be defined"
+#endif
+
+#if LIBRMCS_DEBUG_ASSERTS
 # include <functional>
 #endif
 
@@ -19,11 +23,11 @@ namespace librmcs::core::utility {
 
 [[noreturn]] inline void
     assert_failed_debug(const std::source_location& location = std::source_location::current()) {
-#ifdef NDEBUG
+#if LIBRMCS_DEBUG_ASSERTS
+    assert_func(location);
+#else
     (void)location;
     std::unreachable();
-#else
-    assert_func(location);
 #endif
 }
 
@@ -35,11 +39,11 @@ constexpr void assert_always(
 
 constexpr void assert_debug(
     bool condition, const std::source_location& location = std::source_location::current()) {
-#ifdef NDEBUG
+#if LIBRMCS_DEBUG_ASSERTS
+    assert_always(condition, location);
+#else
     [[assume(condition)]];
     (void)location;
-#else
-    assert_always(condition, location);
 #endif
 }
 
@@ -47,11 +51,11 @@ constexpr void assert_debug(
 template <typename Condition>
 requires std::is_nothrow_invocable_r_v<bool, Condition&&> inline void assert_debug_lazy(
     Condition&& condition, const std::source_location& location = std::source_location::current()) {
-#ifdef NDEBUG
-    (void)condition;
-    (void)location;
-#else
+#if LIBRMCS_DEBUG_ASSERTS
     assert_always(static_cast<bool>(std::invoke(std::forward<Condition>(condition))), location);
+#else
+    (void)std::forward<Condition>(condition);
+    (void)location;
 #endif
 }
 

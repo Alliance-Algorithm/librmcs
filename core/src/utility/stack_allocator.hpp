@@ -86,10 +86,10 @@ private:
     std::size_t lifo_check_depth_ = 0;
 };
 
-#ifdef NDEBUG
-using StackAllocator = BasicStackAllocator<false>;
-#else
+#if LIBRMCS_DEBUG_ASSERTS
 using StackAllocator = BasicStackAllocator<true>;
+#else
+using StackAllocator = BasicStackAllocator<false>;
 #endif
 
 } // namespace librmcs::core::utility
