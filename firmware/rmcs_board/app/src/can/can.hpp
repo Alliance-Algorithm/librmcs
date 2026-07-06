@@ -86,20 +86,25 @@ public:
     }
 
     void handle_uplink(core::protocol::FieldId field_id, core::protocol::Serializer& serializer) {
-        mcan_rx_message_t rx;
-        core::utility::assert_always(mcan_read_rxfifo(can_base_, 0, &rx) == status_success);
+        while (true) {
+            mcan_rx_message_t rx;
+            const hpm_stat_t status = mcan_read_rxfifo(can_base_, 0, &rx);
+            if (status == status_mcan_rxfifo_empty)
+                return;
+            core::utility::assert_always(status == status_success);
 
-        data::CanDataView data;
-        const size_t data_length = rx.dlc;
-        data.is_fdcan = false;
-        data.is_extended_can_id = rx.use_ext_id;
-        data.is_remote_transmission = rx.rtr;
-        data.can_id = data.is_extended_can_id ? rx.ext_id : rx.std_id;
-        data.can_data = {reinterpret_cast<const std::byte*>(rx.data_8), data_length};
+            data::CanDataView data;
+            const size_t data_length = rx.dlc;
+            data.is_fdcan = false;
+            data.is_extended_can_id = rx.use_ext_id;
+            data.is_remote_transmission = rx.rtr;
+            data.can_id = data.is_extended_can_id ? rx.ext_id : rx.std_id;
+            data.can_data = {reinterpret_cast<const std::byte*>(rx.data_8), data_length};
 
-        core::utility::assert_always(
-            serializer.write_can(field_id, data)
-            != core::protocol::Serializer::SerializeResult::kInvalidArgument);
+            core::utility::assert_always(
+                serializer.write_can(field_id, data)
+                != core::protocol::Serializer::SerializeResult::kInvalidArgument);
+        }
     }
 
     void irq_handler() {
@@ -108,10 +113,18 @@ public:
         if (!flags) [[unlikely]]
             return;
 
-        if (flags & MCAN_INT_RXFIFO0_NEW_MSG) [[likely]]
-            handle_uplink(data_id_, usb::get_serializer());
+        uint32_t remaining_flags = flags;
+        if (flags & MCAN_INT_RXFIFO0_NEW_MSG) [[likely]] {
+            mcan_clear_interrupt_flags(can_base_, MCAN_INT_RXFIFO0_NEW_MSG);
 
-        mcan_clear_interrupt_flags(can_base_, flags);
+            auto& serializer = usb::get_serializer();
+            handle_uplink(data_id_, serializer);
+
+            remaining_flags &= ~MCAN_INT_RXFIFO0_NEW_MSG;
+        }
+
+        if (remaining_flags != 0U)
+            mcan_clear_interrupt_flags(can_base_, remaining_flags);
     }
 
 private:
