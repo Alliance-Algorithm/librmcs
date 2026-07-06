@@ -43,16 +43,17 @@ public:
     }
 
     static uint32_t timestamp_quarter_us() {
-        // Read only the lower 32 bits of MTIME with a single 32-bit load.
-        // Assumes little-endian (riscv32), intentionally bypasses strict aliasing for efficiency.
-        return *reinterpret_cast<volatile uint32_t*>(&HPM_MCHTMR->MTIME);
+        // Read MTIME through its 32-bit MMIO view to avoid aliasing the SDK's uint64_t field.
+        volatile uint32_t* const mtime_words =
+            reinterpret_cast<volatile uint32_t*>(HPM_MCHTMR_BASE);
+        return mtime_words[0];
     }
 
     static uint64_t timestamp64_quarter_us() {
         // On riscv32, reading the 64-bit MTIME MMIO register compiles to two 32-bit loads.
         // Read high-low-high and retry on rollover so the returned 64-bit timestamp is stable.
         const volatile uint32_t* const mtime_words =
-            reinterpret_cast<volatile uint32_t*>(&HPM_MCHTMR->MTIME);
+            reinterpret_cast<volatile uint32_t*>(HPM_MCHTMR_BASE);
         uint32_t hi1 = 0;
         uint32_t lo = 0;
         uint32_t hi2 = 0;
