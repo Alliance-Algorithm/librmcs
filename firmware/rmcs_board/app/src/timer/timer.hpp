@@ -44,7 +44,7 @@ public:
 
     static uint32_t timestamp_quarter_us() {
         // Read MTIME through its 32-bit MMIO view to avoid aliasing the SDK's uint64_t field.
-        volatile uint32_t* const mtime_words =
+        const volatile uint32_t* const mtime_words =
             reinterpret_cast<volatile uint32_t*>(HPM_MCHTMR_BASE);
         return mtime_words[0];
     }
