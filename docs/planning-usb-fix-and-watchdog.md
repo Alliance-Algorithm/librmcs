@@ -1,6 +1,6 @@
 # Planning: rmcs_board USB 无超时 Bug 修复与 bootloader 看门狗
 
-> 状态：待实施
+> 状态：已实施（见文末"实施记录"，git 提交与 submodule push 待人工执行）
 > 范围：T1 hpm_usb_drv IRQ 轮询核心修复、T2 rmcs_board bootloader 看门狗、T3 c_board bootloader 看门狗、T4 c_board tinyusb DWC2 同类修复
 > 范围外（暂缓）：Virtual 板开发、SDK 线程态无超时轮询全面治理
 
@@ -313,3 +313,77 @@ cmake --preset debug -S firmware/c_board && cmake --build firmware/c_board/build
 5. **fork 与 upstream 漂移**：两处 fork 修复日后合并 upstream 可能冲突；冲突面小，可接受。
 6. **范围外待办**：SDK 线程态轮询治理（2.2 表）、`board_init` 看门狗启动前窗口、
    Virtual 板开发（暂缓，另行规划）。
+
+---
+
+## 8. 实施记录（2026-09-28）
+
+### 改动清单
+
+**T1 — hpm_sdk submodule（`firmware/rmcs_board/bsp/hpm_sdk`，需先 push fork 再 bump gitlink）：**
+
+- `drivers/inc/hpm_usb_drv.h`：新增 `USB_DCD_HW_CLEAR_WAIT_LIMIT`（100000 次迭代，约 1-4ms @360-480MHz）；
+  `usb_dcd_bus_reset` 返回 `hpm_stat_t`。
+- `drivers/src/hpm_usb_drv.c`：新增 `usb_dcd_wait_reg_clear()` 有界等待助手；
+  `usb_dcd_bus_reset` 的 `ENDPTPRIME`/`ENDPTFLUSH` 轮询加超时，超时返回 `status_timeout`。
+- `components/usb/device/hpm_usb_device.c|h`：`usb_device_bus_reset` 传播失败状态；失败时屏蔽
+  `USBINTR` 并置恢复标志；新增 `usb_device_recovery_required()` 查询接口。
+- `middleware/tinyusb/src/portable/hpm/dcd_hpm.c`：`bus_reset()` 返回 bool，失败时不入队
+  `dcd_event_bus_reset` 并提前返回；ENDPTCOMPLETE 的 qTD 链遍历加 NULL 检查与
+  `USB_SOC_DCD_QTD_COUNT_EACH_ENDPOINT` 长度上界。
+
+**主仓库（rmcs_board）：**
+
+- `app/src/app.cpp`：主循环检查 `usb_device_recovery_required()`，置位时停止 feed（EWDG 复位）；
+  以 `extern "C"` 声明代替包含 `hpm_usb_device.h`（该头 C 位域无法过 clang-tidy）。
+- `app/src/watchdog/watchdog.hpp`：超时经 `LIBRMCS_WATCHDOG_TIMEOUT_US` 参数化（默认 500ms）。
+- `bootloader/src/main.cpp`：跳转决策后尽早 `watchdog.init()`（覆盖 `board_init_usb`/`tusb_rhport_init`
+  的无超时等待）；主循环 feed + 恢复标志检查；超时经 CMake 定义放宽为 **1s**。
+- `bootloader/CMakeLists.txt`：`LIBRMCS_WATCHDOG_TIMEOUT_US=1000000`。
+- `bootloader/src/flash/xpi_nor.hpp`：`erase_sector` 在关全局 IRQ 前 `feed()`（W25Q 4KB 擦除最坏
+  ~400ms，1s 预算覆盖擦除+编程）。
+- `bootloader/src/utility/assert.cpp`（新增）：bootloader 专用 `core::utility::assert_func`
+  （app 版依赖 ws2812，bootloader 不可用）。
+
+**T3 — c_board 主仓库：**
+
+- `app/src/watchdog/watchdog.hpp`：reload 经 `LIBRMCS_WATCHDOG_RELOAD` 参数化（默认 250 = 0.5s）。
+- `bootloader/CMakeLists.txt`：`LIBRMCS_WATCHDOG_RELOAD=2000`（**4s**，覆盖 128KB 扇区最坏擦除+编程）。
+- `bootloader/src/main.cpp`：跳转决策后 `watchdog.init()`；主循环 feed + 恢复标志检查。
+- `bootloader/src/flash/writer.hpp`、`metadata.hpp`：擦除前 `feed()`。
+- `bootloader/src/utility/assert.cpp`（新增）：同 T2 理由。
+
+**T4 — tinyusb submodule（`firmware/c_board/bsp/tinyusb`，`v0.20.0` 分支，需先 push 再 bump）：**
+
+- `src/portable/synopsys/dwc2/dwc2_common.h`：新增 `DWC2_HW_WAIT_LIMIT`（1000000，约 90ms @168MHz）、
+  `DWC2_RXFLVL_DRAIN_LIMIT`（65536）、`dwc2_hw_report_timeout()`/`dwc2_recovery_required()` 声明；
+  `dfifo_flush_tx/rx` 改为有界（bus reset 路径的 FIFO flush）。
+- `src/portable/synopsys/dwc2/dwc2_common.c`：超时上报实现——`gintmsk = 0` 屏蔽全部核心中断
+  + 置恢复标志。
+- `src/portable/synopsys/dwc2/dcd_dwc2.c`：`edpt_disable` 的 INEPNE/EPDISD/BOUTNAKEFF/EPDISD
+  四处循环有界化（超时上报并提前返回）；RXFLVL 排空循环加包数上界。
+- `app/src/app.cpp`、`bootloader/src/main.cpp`：检查 `dwc2_recovery_required()`，置位停止 feed。
+
+**clang-tidy 适配（主仓库）：**
+
+- 两个 `watchdog.hpp` 补直接 include（`hpm_common.h` / 无需）。
+- `hpm_usb_device.h` 的 C 匿名位域在 C++ 下为 clang 诊断错误——app/bootloader 改为 `extern "C"`
+  声明，不再包含该头。
+- 新增 assert.cpp 的 `main.h` 加 `// IWYU pragma: keep`。
+
+### 验证结果
+
+| 检查 | 结果 |
+| --- | --- |
+| `rmcs_board` pro + lite（app+bootloader，CI 容器） | 构建通过 |
+| `c_board`（app+bootloader，CI 容器） | 构建通过 |
+| `host` SDK 构建 | 通过（无改动） |
+| `.scripts/clang-format-check` | 通过（147 files） |
+| `.scripts/clang-tidy-check`（host + rmcs_board + c_board） | 通过（TIDY_EXIT=0） |
+| grep 复查：HPM bus reset / DWC2 IRQ 轮询 | 已全部有界 |
+
+### 待人工执行
+
+1. 按第 6 节顺序：两个 submodule 内提交 → push 对应 fork → 主仓库提交（gitlink bump + 仓库代码）。
+2. 硬件在环验证（第 5.2 节 6 项），重点：DFU 长刷写不误复位、挂死注入可恢复、正常枚举无超时误报。
+3. 超时数值按实测微调（`USB_DCD_HW_CLEAR_WAIT_LIMIT` / `DWC2_HW_WAIT_LIMIT`）。

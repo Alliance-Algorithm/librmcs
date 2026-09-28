@@ -4,6 +4,7 @@
 
 #include <main.h>
 
+#include "firmware/c_board/app/src/watchdog/watchdog.hpp"
 #include "firmware/c_board/bootloader/src/flash/layout.hpp"
 #include "firmware/c_board/bootloader/src/flash/unlock_guard.hpp"
 #include "firmware/c_board/bootloader/src/utility/assert.hpp"
@@ -186,6 +187,10 @@ private:
         erase.VoltageRange = FLASH_VOLTAGE_RANGE_3;
         erase.Sector = FLASH_SECTOR_3;
         erase.NbSectors = 1;
+
+        // Flash erase stalls instruction fetch (read-while-write), so the IWDG cannot be fed
+        // from code during the erase. Refresh it right before to buy the full timeout budget.
+        watchdog::Watchdog::feed();
 
         uint32_t sector_error;
         {

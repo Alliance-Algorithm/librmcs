@@ -9,6 +9,7 @@
 
 #include <main.h>
 
+#include "firmware/c_board/app/src/watchdog/watchdog.hpp"
 #include "firmware/c_board/bootloader/include/tusb_config.h"
 #include "firmware/c_board/bootloader/src/flash/layout.hpp"
 #include "firmware/c_board/bootloader/src/flash/unlock_guard.hpp"
@@ -143,6 +144,10 @@ private:
         erase.VoltageRange = FLASH_VOLTAGE_RANGE_3;
         erase.Sector = kAppSectors[index].sector;
         erase.NbSectors = 1;
+
+        // Flash erase stalls instruction fetch (read-while-write), so the IWDG cannot be fed
+        // from code during the erase. Refresh it right before to buy the full timeout budget.
+        watchdog::Watchdog::feed();
 
         uint32_t sector_error = 0U;
         utility::assert_always(HAL_FLASHEx_Erase(&erase, &sector_error) == HAL_OK);

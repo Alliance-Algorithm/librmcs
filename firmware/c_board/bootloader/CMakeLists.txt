@@ -42,6 +42,9 @@ target_include_directories(c_board_bootloader PRIVATE
 )
 
 c_board_apply_target_options(c_board_bootloader "STM32F407XX_BOOTLOADER.ld")
+# 4s: covers the worst-case 128KB sector erase plus full-sector programming while the CPU is
+# stalled by flash read-while-write restrictions (IWDG keeps counting during the stall).
+target_compile_definitions(c_board_bootloader PRIVATE LIBRMCS_WATCHDOG_RELOAD=2000)
 target_link_libraries(c_board_bootloader PRIVATE
     tinyusb_bootloader
 )

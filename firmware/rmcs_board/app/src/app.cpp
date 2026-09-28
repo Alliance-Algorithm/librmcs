@@ -17,6 +17,11 @@
 #include "firmware/rmcs_board/app/src/utility/interrupt_lock.hpp"
 #include "firmware/rmcs_board/app/src/watchdog/watchdog.hpp"
 
+// From bsp/hpm_sdk/components/usb/device/hpm_usb_device.c: set once the USB bus reset
+// handshake timed out and the USB interrupts were masked. Declared here instead of
+// including hpm_usb_device.h, whose C bit-field declarations do not compile as C++.
+extern "C" bool usb_device_recovery_required();
+
 int main() { librmcs::firmware::app.init().run(); }
 
 namespace librmcs::firmware {
@@ -54,6 +59,12 @@ App::App() {
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 [[noreturn]] void App::run() {
     while (true) {
+        if (usb_device_recovery_required()) {
+            // USB controller wedged during bus reset (interrupts already masked).
+            // Stop feeding the watchdog so the EWDG performs a clean SoC reset.
+            while (true) {}
+        }
+
         tud_task();
         usb::vendor->try_transmit();
 

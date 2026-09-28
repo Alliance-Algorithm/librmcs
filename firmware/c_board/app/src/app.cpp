@@ -25,6 +25,10 @@
 #include "firmware/c_board/app/src/utility/interrupt_lock.hpp"
 #include "firmware/c_board/app/src/watchdog/watchdog.hpp"
 
+// From bsp/tinyusb/src/portable/synopsys/dwc2/dwc2_common.c: set once a bounded DWC2
+// hardware wait timed out and the controller interrupts were masked.
+extern "C" bool dwc2_recovery_required();
+
 int main() {
     SCB->VTOR = 0x08010000U;
     librmcs::firmware::app.init().run();
@@ -75,6 +79,12 @@ App::App() {
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 [[noreturn]] void App::run() {
     while (true) {
+        if (dwc2_recovery_required()) {
+            // USB controller wedged during a hardware wait (interrupts already masked).
+            // Stop feeding the watchdog so the IWDG performs a clean SoC reset.
+            while (true) {}
+        }
+
         tud_task();
 
         gpio::gpio->poll_periodic_input_samples();

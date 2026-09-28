@@ -7,12 +7,17 @@
 #include <tusb.h>
 #include <usb_otg.h>
 
+#include "firmware/c_board/app/src/watchdog/watchdog.hpp"
 #include "firmware/c_board/bootloader/src/flash/layout.hpp"
 #include "firmware/c_board/bootloader/src/flash/validation.hpp"
 #include "firmware/c_board/bootloader/src/usb/dfu.hpp"
 #include "firmware/c_board/bootloader/src/utility/assert.hpp"
 #include "firmware/c_board/bootloader/src/utility/boot_mailbox.hpp"
 #include "firmware/c_board/bootloader/src/utility/jump.hpp"
+
+// From bsp/tinyusb/src/portable/synopsys/dwc2/dwc2_common.c: set once a bounded DWC2
+// hardware wait timed out and the controller interrupts were masked.
+extern "C" bool dwc2_recovery_required();
 
 namespace {
 
@@ -54,10 +59,21 @@ int main() {
             utility::jump_to_app(flash::kAppStartAddress);
     }
 
+    // Start the watchdog only when staying in the bootloader: the app reconfigures the same
+    // (unstoppable) IWDG on its own, and starting it earlier would only narrow the app's window.
+    watchdog::watchdog.init();
+
     utility::assert_always(tusb_rhport_init(0, nullptr));
 
     while (true) {
+        if (dwc2_recovery_required()) {
+            // USB controller wedged during a hardware wait (interrupts already masked).
+            // Stop feeding so the watchdog resets the SoC instead of hanging in DFU.
+            while (true) {}
+        }
+
         tud_task();
         usb::Dfu::instance().poll();
+        watchdog::watchdog->feed();
     }
 }

@@ -3,11 +3,18 @@
 #include <cstdint>
 
 #include <hpm_clock_drv.h>
+#include <hpm_common.h>
 #include <hpm_ewdg_drv.h>
 #include <hpm_soc.h>
 
 #include "core/src/utility/assert.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
+
+// Timeout override for targets with longer IRQ-disabled sections (e.g. bootloader
+// flash erase, worst case ~400ms plus program time).
+#ifndef LIBRMCS_WATCHDOG_TIMEOUT_US
+# define LIBRMCS_WATCHDOG_TIMEOUT_US (500'000U)
+#endif
 
 namespace librmcs::firmware::watchdog {
 
@@ -35,7 +42,7 @@ public:
     static void feed() { core::utility::assert_always(ewdg_refresh(HPM_EWDG0) == status_success); }
 
 private:
-    static constexpr uint32_t kTimeoutUs = 500'000U;
+    static constexpr uint32_t kTimeoutUs = LIBRMCS_WATCHDOG_TIMEOUT_US;
     static constexpr uint32_t kClockFrequencyHz = 32'768U;
 };
 
