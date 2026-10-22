@@ -3,6 +3,8 @@
 #include <device/usbd.h>
 #include <tusb.h>
 
+#include "firmware/rmcs_board/app/src/usb/dcd_recovery.hpp"
+#include "firmware/rmcs_board/app/src/watchdog/watchdog.hpp"
 #include "firmware/rmcs_board/bootloader/src/flash/validation.hpp"
 #include "firmware/rmcs_board/bootloader/src/usb/dfu.hpp"
 #include "firmware/rmcs_board/bootloader/src/usb/usb_descriptors.hpp"
@@ -27,6 +29,9 @@ int main() {
     // Reset-time clocks already run CPU0 at 360 MHz, so board_init() would only bump it to
     // 480 MHz while adding avoidable startup latency on the direct-to-app path.
     board_init();
+
+    watchdog::watchdog.init();
+
     board_init_usb();
     (void)usb::get_usb_descriptors();
 
@@ -37,7 +42,12 @@ int main() {
     utility::assert_always(tusb_rhport_init(0, &init_config));
 
     while (true) {
+        if (usb_device_recovery_required()) {
+            while (true) {}
+        }
+
         tud_task();
         usb::Dfu::instance().poll();
+        watchdog::watchdog->feed();
     }
 }

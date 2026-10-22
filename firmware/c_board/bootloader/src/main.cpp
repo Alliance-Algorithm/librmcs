@@ -7,6 +7,8 @@
 #include <tusb.h>
 #include <usb_otg.h>
 
+#include "firmware/c_board/app/src/usb/dcd_recovery.hpp"
+#include "firmware/c_board/app/src/watchdog/watchdog.hpp"
 #include "firmware/c_board/bootloader/src/flash/layout.hpp"
 #include "firmware/c_board/bootloader/src/flash/validation.hpp"
 #include "firmware/c_board/bootloader/src/usb/dfu.hpp"
@@ -54,10 +56,17 @@ int main() {
             utility::jump_to_app(flash::kAppStartAddress);
     }
 
+    // watchdog::watchdog.init();
+
     utility::assert_always(tusb_rhport_init(0, nullptr));
 
     while (true) {
+        if (dwc2_recovery_required()) {
+            while (true) {}
+        }
+
         tud_task();
         usb::Dfu::instance().poll();
+        watchdog::watchdog->feed();
     }
 }

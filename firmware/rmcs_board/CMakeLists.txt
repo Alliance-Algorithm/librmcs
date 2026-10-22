@@ -12,6 +12,7 @@ set(RV_ARCH "rv32imafdcb" CACHE STRING "RISC-V arch")
 set(RV_ABI "ilp32d" CACHE STRING "RISC-V ABI")
 set(BOARD_BOOTLOADER_MODE "auto" CACHE STRING "Bootloader mode (auto / manual)")
 set_property(CACHE BOARD_BOOTLOADER_MODE PROPERTY STRINGS auto manual)
+option(LIBRMCS_USB_FAULT_INJECT "Force a DCD bus-reset timeout to exercise the USB recovery path" OFF)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "debug")
@@ -40,6 +41,7 @@ function(add_rmcs_board_subbuild target_name source_subdir)
         -DSOURCE_PATH_MAP=${LIBRMCS_SOURCE_PATH_MAP}
         -DLIBRMCS_PROJECT_VERSION=${LIBRMCS_PROJECT_VERSION}
         -DLIBRMCS_DEBUG_ASSERTS=${LIBRMCS_DEBUG_ASSERTS}
+        -DLIBRMCS_USB_FAULT_INJECT=${LIBRMCS_USB_FAULT_INJECT}
     )
     if(CMAKE_MAKE_PROGRAM)
         list(APPEND configure_args -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM})

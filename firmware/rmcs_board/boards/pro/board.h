@@ -38,6 +38,9 @@ void board_init_usb(void);
 /* Bootloader-specific helper for force-stay button handling. */
 bool board_check_bootloader_force_stay_requested(void);
 
+void board_init_user_key(void);
+bool board_user_key_pressed(void);
+
 void board_delay_us(uint32_t us);
 void board_delay_ms(uint32_t ms);
 

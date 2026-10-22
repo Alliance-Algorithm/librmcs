@@ -71,8 +71,18 @@ file(GLOB_RECURSE PROJECT_SOURCE CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
 )
+list(REMOVE_ITEM PROJECT_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/usb/fault_inject.c")
+if(LIBRMCS_USB_FAULT_INJECT)
+    list(APPEND PROJECT_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/usb/fault_inject.c")
+endif()
+
 sdk_app_src(${PROJECT_SOURCE})
 sdk_app_src("$ENV{HPM_SDK_BASE}/middleware/tinyusb/src/class/dfu/dfu_rt_device.c")
+
+if(LIBRMCS_USB_FAULT_INJECT)
+    target_compile_definitions(app PRIVATE LIBRMCS_USB_FAULT_INJECT=1)
+    target_link_options(${APP_ELF_NAME} PRIVATE "-Wl,--wrap=usb_dcd_bus_reset")
+endif()
 
 sdk_linker_global_symbols("_uf2_bl_length=0x20000")
 
