@@ -34,7 +34,7 @@ static inline void init_py_pins_as_soc_gpio(void);
 static inline void board_init_clock(void);
 static inline void board_init_usb_dp_dm_pins(void);
 
-void board_init_user_key(void) {
+static void init_bootloader_force_stay_button_pin(void) {
     const uint32_t pad_ctl =
         IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1) | IOC_PAD_PAD_CTL_HYS_SET(1);
 
@@ -47,19 +47,17 @@ void board_init_user_key(void) {
     gpio_set_pin_input(HPM_GPIO0, GPIO_OE_GPIOA, 7);
 }
 
-bool board_user_key_pressed(void) { return gpio_read_pin(HPM_GPIO0, GPIO_DI_GPIOA, 7) == 0U; }
-
 static void restore_bootloader_force_stay_button_pin(void) {
     HPM_IOC->PAD[IOC_PAD_PA07].FUNC_CTL = IOC_PA07_FUNC_CTL_JTAG_TMS;
 }
 
 bool board_check_bootloader_force_stay_requested(void) {
-    board_init_user_key();
+    init_bootloader_force_stay_button_pin();
 
     bool pressed = true;
     for (uint32_t sample_index = 0; sample_index < 4; ++sample_index) {
         board_delay_us(250);
-        if (!board_user_key_pressed()) {
+        if (gpio_read_pin(HPM_GPIO0, GPIO_DI_GPIOA, 7) != 0U) {
             pressed = false;
             break;
         }

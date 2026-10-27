@@ -13,9 +13,6 @@
 #include "firmware/rmcs_board/app/src/timer/timer.hpp"
 #include "firmware/rmcs_board/app/src/uart/uart.hpp"
 #include "firmware/rmcs_board/app/src/usb/dcd_recovery.hpp"
-#ifdef LIBRMCS_USB_FAULT_INJECT
-# include "firmware/rmcs_board/app/src/usb/fault_inject.hpp"
-#endif
 #include "firmware/rmcs_board/app/src/usb/vendor.hpp"
 #include "firmware/rmcs_board/app/src/utility/boot_mailbox.hpp"
 #include "firmware/rmcs_board/app/src/utility/interrupt_lock.hpp"
@@ -61,10 +58,6 @@ App::App() {
         if (usb_device_recovery_required()) {
             while (true) {}
         }
-
-#ifdef LIBRMCS_USB_FAULT_INJECT
-        usb_fault_inject_poll();
-#endif
 
         tud_task();
         usb::vendor->try_transmit();

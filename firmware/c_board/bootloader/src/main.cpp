@@ -56,7 +56,7 @@ int main() {
             utility::jump_to_app(flash::kAppStartAddress);
     }
 
-    // watchdog::watchdog.init();
+    watchdog::watchdog.init();
 
     utility::assert_always(tusb_rhport_init(0, nullptr));
 
