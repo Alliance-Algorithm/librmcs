@@ -42,6 +42,7 @@ target_include_directories(c_board_bootloader PRIVATE
 )
 
 c_board_apply_target_options(c_board_bootloader "STM32F407XX_BOOTLOADER.ld")
+target_compile_definitions(c_board_bootloader PRIVATE LIBRMCS_WATCHDOG_RELOAD=2000)
 target_link_libraries(c_board_bootloader PRIVATE
     tinyusb_bootloader
 )

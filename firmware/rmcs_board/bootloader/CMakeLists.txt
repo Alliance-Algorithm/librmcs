@@ -63,6 +63,7 @@ endif()
 
 sdk_compile_definitions(-DLIBRMCS_PROJECT_VERSION_STRING="${LIBRMCS_PROJECT_VERSION}")
 sdk_compile_definitions(-DLIBRMCS_DEBUG_ASSERTS=${LIBRMCS_DEBUG_ASSERTS})
+sdk_compile_definitions(-DLIBRMCS_WATCHDOG_TIMEOUT_US=1000000)
 sdk_compile_definitions(-DCFG_TUSB_MCU=OPT_MCU_HPM)
 sdk_compile_definitions(-DUSB_HOST_MCU_CORE=HPM_CORE0)
 sdk_compile_definitions(-DLIBRMCS_BOOTLOADER_MODE_AUTO=${bootloader_mode_auto})

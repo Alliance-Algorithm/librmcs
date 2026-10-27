@@ -20,6 +20,7 @@
 #include "firmware/c_board/app/src/spi/spi.hpp"
 #include "firmware/c_board/app/src/timer/timer.hpp"
 #include "firmware/c_board/app/src/uart/uart.hpp"
+#include "firmware/c_board/app/src/usb/dcd_recovery.hpp"
 #include "firmware/c_board/app/src/usb/vendor.hpp"
 #include "firmware/c_board/app/src/utility/boot_mailbox.hpp"
 #include "firmware/c_board/app/src/utility/interrupt_lock.hpp"
@@ -75,6 +76,10 @@ App::App() {
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 [[noreturn]] void App::run() {
     while (true) {
+        if (dwc2_recovery_required()) {
+            while (true) {}
+        }
+
         tud_task();
 
         gpio::gpio->poll_periodic_input_samples();

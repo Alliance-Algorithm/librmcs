@@ -14,6 +14,7 @@
 #include <hpm_soc.h>
 #include <hpm_soc_feature.h>
 
+#include "firmware/rmcs_board/app/src/watchdog/watchdog.hpp"
 #include "firmware/rmcs_board/bootloader/src/flash/layout.hpp"
 #include "firmware/rmcs_board/bootloader/src/utility/assert.hpp"
 
@@ -30,6 +31,8 @@ public:
 
     void erase_sector(uintptr_t address) {
         utility::assert_debug((address % sector_size_) == 0U);
+
+        watchdog::Watchdog::feed();
 
         const uint32_t irq_flags = disable_global_irq(CSR_MSTATUS_MIE_MASK);
         const hpm_stat_t status = rom_xpi_nor_erase_sector(

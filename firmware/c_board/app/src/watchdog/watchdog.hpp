@@ -7,6 +7,10 @@
 
 #include "firmware/c_board/app/src/utility/lazy.hpp"
 
+#ifndef LIBRMCS_WATCHDOG_RELOAD
+# define LIBRMCS_WATCHDOG_RELOAD 250U
+#endif
+
 namespace librmcs::firmware::watchdog {
 
 class Watchdog {
@@ -27,7 +31,7 @@ public:
     static void feed() { LL_IWDG_ReloadCounter(IWDG); }
 
 private:
-    static constexpr uint32_t kReloadValue = 250U;
+    static constexpr uint32_t kReloadValue = LIBRMCS_WATCHDOG_RELOAD;
 };
 
 inline constinit Watchdog::Lazy watchdog;
