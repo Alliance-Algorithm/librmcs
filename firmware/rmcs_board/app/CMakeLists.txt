@@ -71,6 +71,10 @@ file(GLOB_RECURSE PROJECT_SOURCE CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
 )
+get_property(excluded_sources GLOBAL PROPERTY LIBRMCS_APP_EXCLUDED_SOURCES)
+foreach(source IN LISTS excluded_sources)
+    list(REMOVE_ITEM PROJECT_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/${source}")
+endforeach()
 sdk_app_src(${PROJECT_SOURCE})
 sdk_app_src("$ENV{HPM_SDK_BASE}/middleware/tinyusb/src/class/dfu/dfu_rt_device.c")
 
