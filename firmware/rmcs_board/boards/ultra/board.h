@@ -1,0 +1,31 @@
+#pragma once
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#include <hpm_common.h>
+#include <hpm_soc.h>
+
+#define BOARD_NAME                     "RMCS_Slave_Ultra"
+#define BOARD_UF2_SIGNATURE            (0x0A4D5048UL)
+#define BOARD_FLASH_BASE_ADDRESS       (0x80000000UL)
+#define BOARD_FLASH_SIZE               (SIZE_1MB)
+#define BOARD_APP_XPI_NOR_XPI_BASE     (HPM_XPI0)
+#define BOARD_APP_XPI_NOR_CFG_OPT_HDR  (0xfcf90002U)
+#define BOARD_APP_XPI_NOR_CFG_OPT_OPT0 (0x00000005U)
+#define BOARD_APP_XPI_NOR_CFG_OPT_OPT1 (0x00001000U)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void board_init(void);
+void board_init_usb(void);
+bool board_check_bootloader_force_stay_requested(void);
+
+void board_delay_us(uint32_t us);
+void board_delay_ms(uint32_t ms);
+
+#ifdef __cplusplus
+}
+#endif

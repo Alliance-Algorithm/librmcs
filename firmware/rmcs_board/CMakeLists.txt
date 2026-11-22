@@ -5,8 +5,8 @@ project(rmcs_board_superbuild LANGUAGES NONE)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/../common/cmake/librmcs_firmware.cmake")
 
-set(BOARD "pro" CACHE STRING "Target board (pro / lite)")
-set_property(CACHE BOARD PROPERTY STRINGS pro lite)
+set(BOARD "pro" CACHE STRING "Target board (pro / lite / ultra)")
+set_property(CACHE BOARD PROPERTY STRINGS pro lite ultra)
 set(BOARD_SEARCH_PATH "${CMAKE_CURRENT_SOURCE_DIR}/boards" CACHE PATH "Board search path")
 set(RV_ARCH "rv32imafdcb" CACHE STRING "RISC-V arch")
 set(RV_ABI "ilp32d" CACHE STRING "RISC-V ABI")
@@ -56,15 +56,19 @@ function(add_rmcs_board_subbuild target_name source_subdir)
     )
 endfunction()
 
-add_rmcs_board_subbuild(rmcs_board_app app)
 add_rmcs_board_subbuild(
     rmcs_board_bootloader
     bootloader
     -DBOARD_BOOTLOADER_MODE=${BOARD_BOOTLOADER_MODE}
 )
 
-set(RMCS_BOARD_APP_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/app/compile_commands.json")
-set(RMCS_BOARD_BOOTLOADER_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/bootloader/compile_commands.json")
+set(rmcs_board_targets rmcs_board_bootloader)
+set(rmcs_board_compile_commands "${CMAKE_CURRENT_BINARY_DIR}/bootloader/compile_commands.json")
+if(NOT BOARD STREQUAL "ultra")
+    add_rmcs_board_subbuild(rmcs_board_app app)
+    list(PREPEND rmcs_board_targets rmcs_board_app)
+    list(PREPEND rmcs_board_compile_commands "${CMAKE_CURRENT_BINARY_DIR}/app/compile_commands.json")
+endif()
 set(RMCS_BOARD_MERGED_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
 
 add_custom_command(
@@ -72,13 +76,11 @@ add_custom_command(
     COMMAND
     ${CMAKE_COMMAND}
     "-DOUTPUT_FILE=${RMCS_BOARD_MERGED_COMPILE_COMMANDS}"
-    "-DINPUT_FILES=${RMCS_BOARD_APP_COMPILE_COMMANDS};${RMCS_BOARD_BOOTLOADER_COMPILE_COMMANDS}"
+    "-DINPUT_FILES=${rmcs_board_compile_commands}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/merge_compile_commands.cmake"
     DEPENDS
-    rmcs_board_app
-    rmcs_board_bootloader
-    "${RMCS_BOARD_APP_COMPILE_COMMANDS}"
-    "${RMCS_BOARD_BOOTLOADER_COMPILE_COMMANDS}"
+    ${rmcs_board_targets}
+    ${rmcs_board_compile_commands}
     COMMENT "Merging rmcs_board compile commands"
     VERBATIM
 )
