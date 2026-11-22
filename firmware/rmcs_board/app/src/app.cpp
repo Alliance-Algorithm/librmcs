@@ -9,9 +9,9 @@
 #include "firmware/rmcs_board/app/src/timer/timer.hpp"
 #include "firmware/rmcs_board/app/src/usb/dcd_recovery.hpp"
 #include "firmware/rmcs_board/app/src/usb/vendor.hpp"
-#include "firmware/rmcs_board/app/src/utility/boot_mailbox.hpp"
 #include "firmware/rmcs_board/app/src/utility/interrupt_lock.hpp"
 #include "firmware/rmcs_board/app/src/watchdog/watchdog.hpp"
+#include "firmware/rmcs_board/common/boot_mailbox.hpp"
 
 int main() { librmcs::firmware::app.init().run(); }
 

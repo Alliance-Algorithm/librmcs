@@ -3,6 +3,9 @@ sdk_src(board.c)
 set_property(GLOBAL PROPERTY LIBRMCS_USB_PID 0xAF02)
 sdk_compile_definitions(LIBRMCS_USB_PID=0xAF02)
 
+# HPM5E31 loses SYSCTL GPRs on software reset; use the retained PMIC registers.
+sdk_compile_definitions(BOARD_BOOT_MAILBOX_PGPR=HPM_PGPR0)
+
 if(LIBRMCS_BUILDING_FIRMWARE_APP)
     sdk_app_inc(app)
     sdk_app_src(app/peripherals.cpp app/status_led.cpp)
