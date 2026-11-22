@@ -7,7 +7,7 @@
 #include <device/usbd.h>
 
 #include "core/src/protocol/serializer.hpp"
-#include "firmware/rmcs_board/app/src/utility/boot_mailbox.hpp"
+#include "firmware/rmcs_board/common/boot_mailbox.hpp"
 
 namespace librmcs::firmware::usb {
 
