@@ -47,6 +47,11 @@ enum class DataId : uint8_t {
     kUart1Config = 27,
     kUart2Config = 28,
     kUart3Config = 29,
+
+    kRs4850 = 30,
+    kRs4851 = 31,
+    kRs4850Config = 32,
+    kRs4851Config = 33,
 };
 
 enum class SessionType : uint8_t {

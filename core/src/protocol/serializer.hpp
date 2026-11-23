@@ -433,7 +433,9 @@ private:
         case FieldId::kUart0Config:
         case FieldId::kUart1Config:
         case FieldId::kUart2Config:
-        case FieldId::kUart3Config: return true;
+        case FieldId::kUart3Config:
+        case FieldId::kRs4850Config:
+        case FieldId::kRs4851Config: return true;
         default: return false;
         }
     }
