@@ -137,6 +137,10 @@ public:
      *   shared with other threads.
      */
     virtual void receive(std::function<void(std::span<const std::byte>)> callback) = 0;
+
+    // A failed link is terminal for transports without an in-place recovery policy.
+    virtual bool connected() const noexcept { return true; }
+    virtual void stop() noexcept {}
 };
 
 namespace usb {
