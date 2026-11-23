@@ -5,6 +5,7 @@
 #include <hpm_csr_regs.h>
 #include <riscv/riscv_core.h>
 
+#include "firmware/rmcs_board/app/src/buzzer/status_buzzer.hpp"
 #include "firmware/rmcs_board/app/src/led/status_led.hpp"
 
 namespace librmcs::core::utility {
@@ -21,6 +22,7 @@ const char* volatile assert_function = nullptr;
     assert_function = location.function_name();
 
     firmware::led::StatusLed::show_assertion();
+    firmware::buzzer::StatusBuzzer::show_assertion();
     __builtin_trap();
 }
 

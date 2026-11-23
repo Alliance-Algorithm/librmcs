@@ -21,6 +21,7 @@
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
+#include "firmware/rmcs_board/app/src/buzzer/status_buzzer.hpp"
 #include "firmware/rmcs_board/app/src/led/led.hpp"
 #include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
@@ -89,8 +90,10 @@ public:
             std::memcpy(frame.data_8, data.can_data.data(), data.can_data.size());
 
         const hpm_stat_t status = mcan_transmit_via_txfifo_nonblocking(can_base_, &frame, nullptr);
-        if (status != status_success)
+        if (status != status_success) {
             led::led->downlink_buffer_full();
+            buzzer::StatusBuzzer::downlink_buffer_full();
+        }
     }
 
     void handle_uplink(core::protocol::FieldId field_id, core::protocol::Serializer& serializer) {

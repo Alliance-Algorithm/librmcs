@@ -8,6 +8,7 @@
 # include "board_app.hpp"
 # include "firmware/rmcs_board/app/src/ecat/slave.hpp"
 #endif
+#include "firmware/rmcs_board/app/src/buzzer/status_buzzer.hpp"
 #include "firmware/rmcs_board/app/src/led/led.hpp"
 #include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/timer/timer.hpp"
@@ -33,6 +34,7 @@ App::App() {
     watchdog::watchdog.init();
 
     led::led.init();
+    buzzer::StatusBuzzer::init();
     timer::timer.init();
 
 #if defined(LIBRMCS_ENABLE_ETHERCAT)
