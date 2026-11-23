@@ -52,4 +52,6 @@ App::App() {
     }
 }
 
+core::protocol::Serializer& Peripherals::uplink_serializer() { return usb::vendor->serializer(); }
+
 } // namespace librmcs::firmware

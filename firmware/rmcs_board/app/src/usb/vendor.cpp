@@ -6,11 +6,7 @@
 #include <common/tusb_types.h>
 #include <device/usbd.h>
 
-#include "core/src/protocol/serializer.hpp"
-
 namespace librmcs::firmware::usb {
-
-core::protocol::Serializer& get_serializer() { return vendor->serializer(); }
 
 // TinyUSB device callbacks
 extern "C" {
