@@ -8,6 +8,12 @@
 
 namespace librmcs::firmware::board {
 
+// Logical CAN ports follow the connector positions, not the MCAN instance numbers.
+#define BOARD_CAN0(prefix, suffix) prefix##2##suffix
+#define BOARD_CAN1(prefix, suffix) prefix##1##suffix
+#define BOARD_CAN2(prefix, suffix) prefix##3##suffix
+#define BOARD_CAN3(prefix, suffix) prefix##0##suffix
+
 inline constexpr auto kUserHsFsSwitchPin = make_gpio_pin<gpiom_soc_gpio0, 'F', 17, false>();
 
 inline void init_user_button_and_switch_pins() {
