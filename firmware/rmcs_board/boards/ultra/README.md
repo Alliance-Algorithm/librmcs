@@ -1,8 +1,8 @@
 # RMCS Board Ultra
 
 Ultra uses the HPM5E31 built-in 1 MiB NOR. The runtime app exposes the existing
-USB vendor interface and DFU Runtime interface. External peripherals are not
-enabled in this image.
+USB vendor interface and DFU Runtime interface. External peripherals and the
+status LED are not enabled in this image.
 
 ```sh
 cmake --preset debug -S firmware/rmcs_board -B build/ultra -DBOARD=ultra
@@ -49,23 +49,27 @@ this run.
 Early prototype PCBs crossed D+ and D- at L2. Use a corrected PCB or a dedicated
 crossed-data USB 2.0 test cable for those prototypes only.
 
-## Status LED
+## UART and DBUS
 
-The app uses the same status effects as Lite: green breathing during normal
-operation, blinking yellow for an uplink buffer overflow, blinking cyan for
-a downlink buffer overflow, yellow/cyan alternating for both, and red on an
-assertion after LED initialization. Overflow indicators time out after five
-seconds. The LED is not driven by the bootloader. Indicators apply to the
-paths enabled in the current app; this change does not enable CAN or UART.
+The port names below follow the RMCS physical numbering convention.
 
-LED1 data uses PE05 (`PWM0.P5`) through R85. Counter 2 reloads generate PWM0
-DMA2 requests, routed through TRGM0 DMA output 0 to HDMA. This sends 24 GRB bits
-at 800 kHz without per-bit interrupts. The signal stays low between frames,
-including when a delayed status tick makes two updates arrive close together.
+| Port | Pin order |
+| --- | --- |
+| **UART0** | 1 RX, 2 TX, 3 GND, 4 +5 V |
+| **UART1** | 1 GND, 2 TX, 3 RX |
+| **UART2** | 1 RX, 2 TX, 3 GND, 4 +5 V |
+| **DBUS** | 1 GND, 2 +5 V, 3 RX |
 
-**LED hardware acceptance: pending.** On a cold boot, check the green breathing
-effect while the USB session is active. At LED1 DIN, verify 24 pulses with a
-1.25 us bit period, roughly 0.4/0.8 us high pulses, and more than 280 us low
-between frames. LED1 is powered by +5 V with a direct 3.3 V data signal, so
-check the populated part's input high threshold if the waveform is correct but
-the LED does not light.
+TX/RX jumpers were verified electrically on the three UART ports in separate
+tests. Ordinary UART data transfer has not been tested yet.
+
+With UART1 pin 2 connected to DBUS pin 3, the DBUS hardware receive path
+passed 40/40 test bytes at 100000 baud, eight data bits, even parity and one
+stop bit, with no parity, framing or overrun errors. The test generated
+inverted serial waveforms from the UART1 TX pin using a hardware timer to
+account for the onboard DBUS inverter. It did not test the UART1 transmitter,
+the production DMA receive path, USB data upload or remote-control decoding.
+No Flash was written; the original peripheral settings were restored.
+
+The board header declares the port mappings. The USB-only app above still
+does not initialize or expose UART or DBUS.
