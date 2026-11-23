@@ -36,16 +36,6 @@ void Peripherals::poll() {
     gpio::gpio->poll_periodic_input_samples();
 }
 
-bool Peripherals::write_can(data::DataId id, const data::CanDataView& data) {
-    switch (id) {
-    case data::DataId::kCan0: can::can_array[0]->handle_downlink(data); return true;
-    case data::DataId::kCan1: can::can_array[1]->handle_downlink(data); return true;
-    case data::DataId::kCan2: can::can_array[2]->handle_downlink(data); return true;
-    case data::DataId::kCan3: can::can_array[3]->handle_downlink(data); return true;
-    default: return false;
-    }
-}
-
 bool Peripherals::write_uart(data::DataId id, const data::UartDataView& data) {
     switch (id) {
     case data::DataId::kUart0: uart::uart_array[0]->handle_downlink(data); return true;

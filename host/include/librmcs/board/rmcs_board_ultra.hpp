@@ -1,30 +1,52 @@
 #pragma once
 
 #include <cstdint>
+#include <stdexcept>
 #include <string_view>
 
 #include <librmcs/board/common.hpp>
 #include <librmcs/data/datas.hpp>
 #include <librmcs/protocol/handler.hpp>
+#include <librmcs/spec/rmcs_board_ultra/can.hpp>
 
 namespace librmcs::board {
 
-// The callback must outlive the board and may be invoked during construction.
+/**
+ * @brief Host interface for the four Classic CAN ports on RMCS Board Ultra.
+ *
+ * The callback must outlive the board. Receive callbacks can run before the board constructor
+ * returns. Copy the payload if it needs to outlive the callback.
+ */
 class RmcsBoardUltra final {
 public:
     class Callback : public data::DataCallback {
     public:
+        struct Spec {
+            using Can = spec::rmcs_board_ultra::CanDescriptor;
+            static constexpr spec::rmcs_board_ultra::internal::CanDescriptors kCans{};
+        };
+
         struct View {
+            using Can = data::CanDataView;
             using ImuAccelerometer = data::ImuAccelerometerDataView;
             using ImuGyroscope = data::ImuGyroscopeDataView;
             using ImuTemperature = data::ImuTemperatureDataView;
         };
 
-        void accelerometer_receive_callback(const View::ImuAccelerometer&) override {}
-        void gyroscope_receive_callback(const View::ImuGyroscope&) override {}
-        void temperature_receive_callback(const View::ImuTemperature&) override {}
+        virtual void can_receive_callback(const Spec::Can& can, const View::Can& data) {
+            (void)can;
+            (void)data;
+        }
 
-        bool can_receive_callback(data::DataId, const data::CanDataView&) final { return false; }
+        bool can_receive_callback(data::DataId id, const data::CanDataView& data) final {
+            const auto* descriptor = spec::rmcs_board_ultra::kCanDescriptors.find(id);
+            if (descriptor == nullptr) [[unlikely]]
+                return false;
+            can_receive_callback(*descriptor, data);
+            return true;
+        }
+
+        // Other data types are not supported by this board interface.
         bool uart_receive_callback(data::DataId, const data::UartDataView&) final { return false; }
         bool gpio_digital_read_result_callback(uint8_t, const data::GpioDigitalDataView&) final {
             return false;
@@ -32,6 +54,9 @@ public:
         bool gpio_analog_read_result_callback(uint8_t, const data::GpioAnalogDataView&) final {
             return false;
         }
+        void accelerometer_receive_callback(const View::ImuAccelerometer&) override {}
+        void gyroscope_receive_callback(const View::ImuGyroscope&) override {}
+        void temperature_receive_callback(const View::ImuTemperature&) override {}
     };
 
     explicit RmcsBoardUltra(
@@ -52,6 +77,26 @@ public:
 
     // An EtherCAT session does not reconnect in place. Reconstruct after link loss.
     bool connected() const noexcept { return handler_.connected(); }
+
+    class PacketBuilder {
+        friend class RmcsBoardUltra;
+
+    public:
+        PacketBuilder& can_transmit(
+            const spec::rmcs_board_ultra::CanDescriptor& can, const data::CanDataView& data) {
+            if (!builder_.write_can(can.data_id, data)) [[unlikely]]
+                throw std::invalid_argument{"CAN transmission failed: Invalid CAN data"};
+            return *this;
+        }
+
+    private:
+        explicit PacketBuilder(host::protocol::Handler& handler) noexcept
+            : builder_(handler.start_transmit()) {}
+
+        host::protocol::Handler::PacketBuilder builder_;
+    };
+
+    PacketBuilder start_transmit() noexcept { return PacketBuilder{handler_}; }
 
 private:
     static inline Callback default_callback_{};

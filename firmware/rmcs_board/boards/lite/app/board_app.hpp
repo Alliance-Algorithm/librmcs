@@ -7,7 +7,6 @@
 #include <hpm_common.h>
 #include <hpm_gpiom_soc_drv.h>
 #include <hpm_iomux.h>
-#include <hpm_mcan_regs.h>
 #include <hpm_soc.h>
 #include <hpm_soc_irq.h>
 #include <hpm_spi_regs.h>
@@ -25,9 +24,6 @@ namespace spec = librmcs::spec::rmcs_board_lite; // NOLINT(misc-unused-alias-dec
 #define BOARD_CAN1(prefix, suffix) prefix##0##suffix
 #define BOARD_CAN2(prefix, suffix) prefix##3##suffix
 #define BOARD_CAN3(prefix, suffix) prefix##2##suffix
-
-uint32_t init_can(MCAN_Type* ptr);
-void can_irq_handler(size_t board_can_index);
 
 #define BOARD_UART_DBUS(prefix, suffix) prefix##7##suffix
 #define BOARD_UART0(prefix, suffix)     prefix##0##suffix
