@@ -10,7 +10,6 @@
 #include <device/usbd.h>
 #include <tusb.h>
 
-#include "board_app.hpp"
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/deserializer.hpp"
 #include "core/src/protocol/protocol.hpp"
@@ -20,7 +19,6 @@
 #include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/timer/timer.hpp"
 #include "firmware/rmcs_board/app/src/usb/interrupt_safe_buffer.hpp"
-#include "firmware/rmcs_board/app/src/usb/usb_descriptors.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::usb {
@@ -32,17 +30,6 @@ public:
     using Lazy = utility::Lazy<Vendor>;
 
     static constexpr uint64_t kSessionLeaseQuarterUs = 4'000'000;
-
-    Vendor() {
-        usb::usb_descriptors.init();
-
-        board::init_user_button_and_switch_pins();
-        const tusb_rhport_init_t init_config{
-            .role = TUSB_ROLE_DEVICE,
-            .speed = board::kUserHsFsSwitchPin.is_active() ? TUSB_SPEED_HIGH : TUSB_SPEED_FULL,
-        };
-        core::utility::assert_always(tusb_rhport_init(0, &init_config));
-    }
 
     core::protocol::Serializer& serializer() { return serializer_; }
 
