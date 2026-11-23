@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -94,7 +95,8 @@ public:
             core::utility::assert_always(status == status_success);
 
             data::CanDataView data;
-            const size_t data_length = rx.dlc;
+            // Classic CAN DLC values 8-15 all carry eight bytes; RTR carries none.
+            const size_t data_length = rx.rtr ? 0U : std::min<size_t>(rx.dlc, 8);
             data.is_fdcan = false;
             data.is_extended_can_id = rx.use_ext_id;
             data.is_remote_transmission = rx.rtr;
