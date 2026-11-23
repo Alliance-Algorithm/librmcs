@@ -12,7 +12,7 @@
 namespace librmcs::board {
 
 /**
- * @brief Host interface for the four Classic CAN ports on RMCS Board Ultra.
+ * @brief Host interface for RMCS Board Ultra.
  *
  * The callback must outlive the board. Receive callbacks can run before the board constructor
  * returns. Copy the payload if it needs to outlive the callback.
@@ -28,6 +28,9 @@ public:
 
         struct View {
             using Can = data::CanDataView;
+            using ImuAccelerometer = data::ImuAccelerometerDataView;
+            using ImuGyroscope = data::ImuGyroscopeDataView;
+            using ImuTemperature = data::ImuTemperatureDataView;
         };
 
         virtual void can_receive_callback(const Spec::Can& can, const View::Can& data) {
@@ -51,9 +54,9 @@ public:
         bool gpio_analog_read_result_callback(uint8_t, const data::GpioAnalogDataView&) final {
             return false;
         }
-        void accelerometer_receive_callback(const data::ImuAccelerometerDataView&) final {}
-        void gyroscope_receive_callback(const data::ImuGyroscopeDataView&) final {}
-        void temperature_receive_callback(const data::ImuTemperatureDataView&) final {}
+        void accelerometer_receive_callback(const View::ImuAccelerometer&) override {}
+        void gyroscope_receive_callback(const View::ImuGyroscope&) override {}
+        void temperature_receive_callback(const View::ImuTemperature&) override {}
     };
 
     explicit RmcsBoardUltra(

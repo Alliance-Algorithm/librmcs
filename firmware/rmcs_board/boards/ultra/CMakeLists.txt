@@ -14,10 +14,6 @@ if(LIBRMCS_BUILDING_FIRMWARE_APP)
         buzzer/status_buzzer.cpp
         gpio/gpio.cpp
         peripherals.cpp
-        spi/bmi088/accel.cpp
-        spi/bmi088/gyro.cpp
-        spi/bmi088/temperature.cpp
-        spi/spi.cpp
         led/status_led.cpp
         uart/uart.cpp
     )

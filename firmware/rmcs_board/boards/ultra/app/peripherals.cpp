@@ -5,12 +5,18 @@
 #include <librmcs/data/datas.hpp>
 
 #include "firmware/rmcs_board/app/src/can/can.hpp"
+#include "firmware/rmcs_board/app/src/spi/bmi088/accel.hpp"
+#include "firmware/rmcs_board/app/src/spi/bmi088/gyro.hpp"
+#include "firmware/rmcs_board/app/src/spi/bmi088/temperature.hpp"
 
 namespace librmcs::firmware {
 
 void Peripherals::init() {
     for (auto& can : can::can_array)
         can.init();
+    spi::bmi088::accelerometer.init();
+    spi::bmi088::gyroscope.init();
+    spi::bmi088::temperature.init();
 }
 
 void Peripherals::poll() {}

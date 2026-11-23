@@ -40,7 +40,6 @@ constexpr GpioPin kBmi088AccelIntPin = make_gpio_pin<gpiom_soc_gpio0, 'B', 10, f
 constexpr GpioPin kBmi088GyroChipSelectPin = make_gpio_pin<gpiom_core0_fast, 'B', 11, false>();
 constexpr GpioPin kBmi088AccelChipSelectPin = make_gpio_pin<gpiom_core0_fast, 'B', 13, false>();
 
-uint32_t init_spi(SPI_Type* ptr);
 void spi_bmi088_irq_handler();
 
 void bmi088_gyro_dataready_irq_handler();

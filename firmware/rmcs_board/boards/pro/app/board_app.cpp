@@ -15,6 +15,7 @@
 #include <hpm_uart_regs.h>
 
 #include "firmware/rmcs_board/app/src/can/can.hpp"
+#include "firmware/rmcs_board/app/src/spi/spi.hpp"
 
 namespace librmcs::firmware::can {
 
@@ -128,62 +129,6 @@ uint32_t init_uart(UART_Type* ptr) {
     return init_uart_clock(ptr);
 }
 
-uint32_t init_spi(SPI_Type* ptr) {
-    if (ptr == HPM_SPI1) { // SPI1: W25Q128
-        HPM_IOC->PAD[IOC_PAD_PA27].FUNC_CTL =
-            IOC_PA27_FUNC_CTL_SPI1_SCLK | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;
-
-        HPM_IOC->PAD[IOC_PAD_PA29].FUNC_CTL = IOC_PA29_FUNC_CTL_SPI1_MOSI;
-        HPM_IOC->PAD[IOC_PAD_PA28].FUNC_CTL = IOC_PA28_FUNC_CTL_SPI1_MISO;
-        HPM_IOC->PAD[IOC_PAD_PA26].FUNC_CTL = IOC_PA26_FUNC_CTL_SPI1_CS_0;
-
-    } else if (ptr == HPM_SPI2) { // SPI2: BMI088
-        HPM_IOC->PAD[IOC_PAD_PB11].FUNC_CTL =
-            IOC_PB11_FUNC_CTL_SPI2_SCLK | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;
-
-        HPM_IOC->PAD[IOC_PAD_PB13].FUNC_CTL = IOC_PB13_FUNC_CTL_SPI2_MOSI;
-        HPM_IOC->PAD[IOC_PAD_PB12].FUNC_CTL = IOC_PB12_FUNC_CTL_SPI2_MISO;
-
-        kBmi088GyroIntPin.configure_controller();
-        kBmi088GyroIntPin.configure_ioc_function();
-        kBmi088GyroIntPin.configure_as_input();
-        kBmi088GyroIntPin.configure_interrupt(gpio_interrupt_trigger_edge_falling);
-        kBmi088GyroIntPin.clear_interrupt_flag();
-        kBmi088GyroIntPin.enable_interrupt();
-        intc_m_enable_irq_with_priority(IRQn_GPIO0_B, 1);
-
-        kBmi088AccelIntPin.configure_controller();
-        kBmi088AccelIntPin.configure_pioc_function();
-        kBmi088AccelIntPin.configure_ioc_function();
-        kBmi088AccelIntPin.configure_as_input();
-        kBmi088AccelIntPin.configure_interrupt(gpio_interrupt_trigger_edge_falling);
-        kBmi088AccelIntPin.clear_interrupt_flag();
-        kBmi088AccelIntPin.enable_interrupt();
-        intc_m_enable_irq_with_priority(IRQn_GPIO0_Y, 1);
-
-        kBmi088GyroChipSelectPin.configure_controller();
-        kBmi088GyroChipSelectPin.configure_ioc_function();
-        kBmi088GyroChipSelectPin.set_active(false);
-        kBmi088GyroChipSelectPin.configure_as_output();
-
-        kBmi088AccelChipSelectPin.configure_controller();
-        kBmi088AccelChipSelectPin.configure_ioc_function();
-        kBmi088AccelChipSelectPin.set_active(false);
-        kBmi088AccelChipSelectPin.configure_as_output();
-
-    } else if (ptr == HPM_SPI3) { // SPI3: PinSocket Output
-        HPM_IOC->PAD[IOC_PAD_PA11].FUNC_CTL =
-            IOC_PA11_FUNC_CTL_SPI3_SCLK | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;
-        HPM_IOC->PAD[IOC_PAD_PA12].FUNC_CTL = IOC_PA12_FUNC_CTL_SPI3_MISO;
-        HPM_IOC->PAD[IOC_PAD_PA13].FUNC_CTL = IOC_PA13_FUNC_CTL_SPI3_MOSI;
-
-        HPM_IOC->PAD[IOC_PAD_PA10].FUNC_CTL = IOC_PA10_FUNC_CTL_SPI3_CS_0;
-        HPM_IOC->PAD[IOC_PAD_PA09].FUNC_CTL = IOC_PA09_FUNC_CTL_SPI3_CS_1;
-    }
-
-    return init_spi_clock(ptr);
-}
-
 void init_user_button_and_switch_pins() {
     kUserButtonPin.configure_controller();
     kUserButtonPin.configure_pioc_function();
@@ -256,3 +201,59 @@ SDK_DECLARE_EXT_ISR_M(BOARD_SPI_BMI088(IRQn_SPI, ), spi_isr)
 void spi_isr() { spi_bmi088_irq_handler(); }
 
 } // namespace librmcs::firmware::board
+
+uint32_t librmcs::firmware::spi::Spi::init_hardware(SPI_Type* ptr) {
+    if (ptr == HPM_SPI1) { // SPI1: W25Q128
+        HPM_IOC->PAD[IOC_PAD_PA27].FUNC_CTL =
+            IOC_PA27_FUNC_CTL_SPI1_SCLK | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;
+
+        HPM_IOC->PAD[IOC_PAD_PA29].FUNC_CTL = IOC_PA29_FUNC_CTL_SPI1_MOSI;
+        HPM_IOC->PAD[IOC_PAD_PA28].FUNC_CTL = IOC_PA28_FUNC_CTL_SPI1_MISO;
+        HPM_IOC->PAD[IOC_PAD_PA26].FUNC_CTL = IOC_PA26_FUNC_CTL_SPI1_CS_0;
+
+    } else if (ptr == HPM_SPI2) { // SPI2: BMI088
+        HPM_IOC->PAD[IOC_PAD_PB11].FUNC_CTL =
+            IOC_PB11_FUNC_CTL_SPI2_SCLK | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;
+
+        HPM_IOC->PAD[IOC_PAD_PB13].FUNC_CTL = IOC_PB13_FUNC_CTL_SPI2_MOSI;
+        HPM_IOC->PAD[IOC_PAD_PB12].FUNC_CTL = IOC_PB12_FUNC_CTL_SPI2_MISO;
+
+        board::kBmi088GyroIntPin.configure_controller();
+        board::kBmi088GyroIntPin.configure_ioc_function();
+        board::kBmi088GyroIntPin.configure_as_input();
+        board::kBmi088GyroIntPin.configure_interrupt(gpio_interrupt_trigger_edge_falling);
+        board::kBmi088GyroIntPin.clear_interrupt_flag();
+        board::kBmi088GyroIntPin.enable_interrupt();
+        intc_m_enable_irq_with_priority(IRQn_GPIO0_B, 1);
+
+        board::kBmi088AccelIntPin.configure_controller();
+        board::kBmi088AccelIntPin.configure_pioc_function();
+        board::kBmi088AccelIntPin.configure_ioc_function();
+        board::kBmi088AccelIntPin.configure_as_input();
+        board::kBmi088AccelIntPin.configure_interrupt(gpio_interrupt_trigger_edge_falling);
+        board::kBmi088AccelIntPin.clear_interrupt_flag();
+        board::kBmi088AccelIntPin.enable_interrupt();
+        intc_m_enable_irq_with_priority(IRQn_GPIO0_Y, 1);
+
+        board::kBmi088GyroChipSelectPin.configure_controller();
+        board::kBmi088GyroChipSelectPin.configure_ioc_function();
+        board::kBmi088GyroChipSelectPin.set_active(false);
+        board::kBmi088GyroChipSelectPin.configure_as_output();
+
+        board::kBmi088AccelChipSelectPin.configure_controller();
+        board::kBmi088AccelChipSelectPin.configure_ioc_function();
+        board::kBmi088AccelChipSelectPin.set_active(false);
+        board::kBmi088AccelChipSelectPin.configure_as_output();
+
+    } else if (ptr == HPM_SPI3) { // SPI3: PinSocket Output
+        HPM_IOC->PAD[IOC_PAD_PA11].FUNC_CTL =
+            IOC_PA11_FUNC_CTL_SPI3_SCLK | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;
+        HPM_IOC->PAD[IOC_PAD_PA12].FUNC_CTL = IOC_PA12_FUNC_CTL_SPI3_MISO;
+        HPM_IOC->PAD[IOC_PAD_PA13].FUNC_CTL = IOC_PA13_FUNC_CTL_SPI3_MOSI;
+
+        HPM_IOC->PAD[IOC_PAD_PA10].FUNC_CTL = IOC_PA10_FUNC_CTL_SPI3_CS_0;
+        HPM_IOC->PAD[IOC_PAD_PA09].FUNC_CTL = IOC_PA09_FUNC_CTL_SPI3_CS_1;
+    }
+
+    return board::init_spi_clock(ptr);
+}
