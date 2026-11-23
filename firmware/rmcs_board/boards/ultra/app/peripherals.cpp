@@ -5,6 +5,9 @@
 #include <librmcs/data/datas.hpp>
 
 #include "firmware/rmcs_board/app/src/can/can.hpp"
+#include "firmware/rmcs_board/app/src/spi/bmi088/accel.hpp"
+#include "firmware/rmcs_board/app/src/spi/bmi088/gyro.hpp"
+#include "firmware/rmcs_board/app/src/spi/bmi088/temperature.hpp"
 #include "firmware/rmcs_board/boards/uart_ports.hpp"
 
 namespace librmcs::firmware {
@@ -15,6 +18,9 @@ void Peripherals::init() {
     board::uart_dbus.init();
     for (auto& port : board::uart_array)
         port.init();
+    spi::bmi088::accelerometer.init();
+    spi::bmi088::gyroscope.init();
+    spi::bmi088::temperature.init();
 }
 
 void Peripherals::poll() {

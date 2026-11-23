@@ -41,7 +41,7 @@ public:
         , irq_num_(irq_num) {
 
         spi_timing_config_t timing{};
-        timing.master_config.clk_src_freq_in_hz = board::init_spi(spi_base_);
+        timing.master_config.clk_src_freq_in_hz = init_hardware(spi_base_);
         timing.master_config.sclk_freq_in_hz = serial_clock_frequency;
         timing.master_config.cs2sclk = spi_cs2sclk_half_sclk_1;
         timing.master_config.csht = spi_csht_half_sclk_1;
@@ -145,6 +145,8 @@ public:
     alignas(HPM_L1C_CACHELINE_SIZE) std::byte rx_buffer[HPM_L1C_CACHELINE_SIZE];
 
 private:
+    static uint32_t init_hardware(SPI_Type* ptr);
+
     void begin_transfer(SpiModule& module, std::size_t size) {
         module_ = &module;
         tx_rx_size_ = size;

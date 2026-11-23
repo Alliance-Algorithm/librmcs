@@ -19,6 +19,19 @@ namespace librmcs::firmware::board {
 #define BOARD_UART1(prefix, suffix)     prefix##0##suffix
 #define BOARD_UART2(prefix, suffix)     prefix##7##suffix
 
+#define BOARD_SPI_BMI088(prefix, suffix) prefix##3##suffix
+
+inline constexpr GpioPin kBmi088GyroIntPin = make_gpio_pin<gpiom_soc_gpio0, 'D', 7, false>();
+inline constexpr GpioPin kBmi088AccelIntPin = make_gpio_pin<gpiom_soc_gpio0, 'D', 6, false>();
+inline constexpr GpioPin kBmi088GyroChipSelectPin =
+    make_gpio_pin<gpiom_core0_fast, 'C', 19, false>();
+inline constexpr GpioPin kBmi088AccelChipSelectPin =
+    make_gpio_pin<gpiom_core0_fast, 'C', 21, false>();
+
+void spi_bmi088_irq_handler();
+void bmi088_gyro_dataready_irq_handler();
+void bmi088_accel_dataready_irq_handler();
+
 inline constexpr auto kModeSwitchPin = make_gpio_pin<gpiom_soc_gpio0, 'F', 17, false>();
 #if !defined(LIBRMCS_ENABLE_ETHERCAT)
 inline constexpr auto kUserHsFsSwitchPin = kModeSwitchPin;
