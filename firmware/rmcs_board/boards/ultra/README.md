@@ -1,8 +1,11 @@
 # RMCS Board Ultra
 
-Ultra uses the HPM5E31 built-in 1 MiB NOR. The runtime app exposes the existing
-USB vendor interface and DFU Runtime interface. External peripherals and the
-status LED are not enabled in this image.
+The integrated app enables the status LED, buzzer, four Classic CAN ports,
+BMI088, and two RS485 ports. USB is the default data transport. EtherCAT is an
+opt-in build with USB retained for DFU Runtime. The UART/DBUS mapping below
+does not imply that those ports are enabled.
+
+Ultra uses the HPM5E31 built-in 1 MiB NOR.
 
 ```sh
 cmake --preset debug -S firmware/rmcs_board -B build/ultra -DBOARD=ultra

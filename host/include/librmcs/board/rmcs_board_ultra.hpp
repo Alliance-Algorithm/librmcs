@@ -100,13 +100,15 @@ public:
             return *this;
         }
 
-        PacketBuilder& rs485_transmit(const Callback::Spec::Rs485& port, const data::UartDataView& data) {
+        PacketBuilder&
+            rs485_transmit(const Callback::Spec::Rs485& port, const data::UartDataView& data) {
             if (!builder_.write_uart(port.data_id, data)) [[unlikely]]
                 throw std::invalid_argument{"RS485 transmission failed: Invalid serial data"};
             return *this;
         }
 
-        PacketBuilder& rs485_config(const Callback::Spec::Rs485& port, const data::UartConfigView& data) {
+        PacketBuilder&
+            rs485_config(const Callback::Spec::Rs485& port, const data::UartConfigView& data) {
             if (!builder_.write_uart_config(port.config_data_id, data)) [[unlikely]]
                 throw std::invalid_argument{"RS485 configuration failed: Invalid serial config"};
             return *this;

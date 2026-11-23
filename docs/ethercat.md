@@ -4,8 +4,10 @@ The development transport supports one Ultra connected directly to a dedicated
 Linux interface through ECAT0. The device runs the same librmcs Start/Keepalive
 session and data protocol as USB. The EtherCAT app exposes only DFU Runtime over
 USB; it does not switch transports at runtime. USB-only builds remain the
-default on both Host and firmware. The current Ultra baseline does not provide
-CAN, UART, GPIO or BMI088 data over EtherCAT.
+default on both Host and firmware. The integrated app routes Classic CAN,
+RS485 and BMI088 through the selected transport. GPIO and the separate
+UART/DBUS ports are not enabled. The integrated EtherCAT peripheral paths
+have not yet been verified on hardware.
 
 ## Hardware prerequisite
 

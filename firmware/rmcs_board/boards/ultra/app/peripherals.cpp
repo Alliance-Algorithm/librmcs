@@ -27,7 +27,6 @@ void Peripherals::poll() {
         port->try_transmit();
 }
 
-bool Peripherals::configure_uart(data::DataId, const data::UartConfigView&) { return false; }
 bool Peripherals::write_uart(data::DataId id, const data::UartDataView& data) {
     switch (id) {
     case data::DataId::kRs4850: rs485::ports[0]->handle_downlink(data); return true;
