@@ -16,6 +16,7 @@
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
+#include "firmware/rmcs_board/app/src/buzzer/status_buzzer.hpp"
 #include "firmware/rmcs_board/app/src/led/led.hpp"
 #include "firmware/rmcs_board/app/src/uart/rx_buffer.hpp"
 #include "firmware/rmcs_board/app/src/uart/tx_buffer.hpp"
@@ -61,8 +62,10 @@ public:
     }
 
     void handle_downlink(const data::UartDataView& data) {
-        if (!TxBuffer::try_enqueue(data))
+        if (!TxBuffer::try_enqueue(data)) {
             led::led->downlink_buffer_full();
+            buzzer::StatusBuzzer::downlink_buffer_full();
+        }
     }
 
     void try_transmit() { TxBuffer::try_dequeue(); }

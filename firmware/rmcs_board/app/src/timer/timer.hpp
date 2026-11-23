@@ -7,6 +7,7 @@
 #include <hpm_soc.h>
 
 #include "core/src/utility/assert.hpp"
+#include "firmware/rmcs_board/app/src/buzzer/status_buzzer.hpp"
 #include "firmware/rmcs_board/app/src/led/led.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
@@ -35,6 +36,7 @@ public:
     void irq_handler() {
         tick_counter_ = tick_counter_ + 1;
         led::led->update(tick_counter_);
+        buzzer::StatusBuzzer::update(tick_counter_);
 
         do {
             next_tick_compare_value_ += kTickPeriodTicks;

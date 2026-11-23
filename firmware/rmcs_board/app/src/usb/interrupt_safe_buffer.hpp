@@ -10,6 +10,7 @@
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
+#include "firmware/rmcs_board/app/src/buzzer/status_buzzer.hpp"
 #include "firmware/rmcs_board/app/src/led/led.hpp"
 
 namespace librmcs::firmware::usb {
@@ -45,6 +46,7 @@ public:
             auto writeable = kBatchCount - readable - 1;
             if (!writeable) {
                 led::led->uplink_buffer_full();
+                buzzer::StatusBuzzer::uplink_buffer_full();
                 return {};
             }
 

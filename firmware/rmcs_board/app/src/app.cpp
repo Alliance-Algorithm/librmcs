@@ -4,6 +4,7 @@
 #include <device/usbd.h>
 #include <hpm_dma_mgr.h>
 
+#include "firmware/rmcs_board/app/src/buzzer/status_buzzer.hpp"
 #include "firmware/rmcs_board/app/src/led/led.hpp"
 #include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/timer/timer.hpp"
@@ -29,6 +30,7 @@ App::App() {
     watchdog::watchdog.init();
 
     led::led.init();
+    buzzer::StatusBuzzer::init();
     timer::timer.init();
 
     usb::vendor.init();
