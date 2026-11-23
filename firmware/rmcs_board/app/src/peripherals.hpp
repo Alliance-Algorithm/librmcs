@@ -4,12 +4,17 @@
 
 #include <librmcs/data/datas.hpp>
 
+namespace librmcs::core::protocol {
+class Serializer;
+} // namespace librmcs::core::protocol
+
 namespace librmcs::firmware {
 
 class Peripherals {
 public:
     static void init();
     static void poll();
+    static core::protocol::Serializer& uplink_serializer();
 
     static bool write_can(data::DataId id, const data::CanDataView& data);
     static bool write_uart(data::DataId id, const data::UartDataView& data);

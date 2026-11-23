@@ -75,11 +75,19 @@ public:
         const AdvancedOptions& options = {})
         : handler_(0xA11C, 0xAF02, serial_filter, options, callback) {}
 
+    explicit RmcsBoardUltra(
+        const EthercatOptions& ethercat, Callback& callback = default_callback_,
+        const AdvancedOptions& options = {})
+        : handler_(ethercat, options, callback) {}
+
     RmcsBoardUltra(const RmcsBoardUltra&) = delete;
     RmcsBoardUltra& operator=(const RmcsBoardUltra&) = delete;
     RmcsBoardUltra(RmcsBoardUltra&&) = delete;
     RmcsBoardUltra& operator=(RmcsBoardUltra&&) = delete;
     ~RmcsBoardUltra() = default;
+
+    // An EtherCAT session does not reconnect in place. Reconstruct after link loss.
+    bool connected() const noexcept { return handler_.connected(); }
 
     class PacketBuilder {
         friend class RmcsBoardUltra;

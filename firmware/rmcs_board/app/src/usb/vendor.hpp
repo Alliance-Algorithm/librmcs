@@ -5,48 +5,35 @@
 #include <cstdint>
 #include <span>
 
-#include <class/vendor/vendor_device.h>
-#include <common/tusb_types.h>
-#include <device/usbd.h>
 #include <tusb.h>
 
-#include "core/include/librmcs/data/datas.hpp"
-#include "core/src/protocol/deserializer.hpp"
-#include "core/src/protocol/protocol.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
-#include "firmware/rmcs_board/app/src/peripherals.hpp"
-#include "firmware/rmcs_board/app/src/timer/timer.hpp"
-#include "firmware/rmcs_board/app/src/usb/interrupt_safe_buffer.hpp"
+#include "firmware/rmcs_board/app/src/session.hpp"
+#include "firmware/rmcs_board/app/src/utility/interrupt_safe_buffer.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::usb {
 
-class Vendor
-    : private core::protocol::DeserializeCallback
-    , private core::utility::Immovable {
+class Vendor : private core::utility::Immovable {
 public:
     using Lazy = utility::Lazy<Vendor>;
 
-    static constexpr uint64_t kSessionLeaseQuarterUs = 4'000'000;
-
     core::protocol::Serializer& serializer() { return serializer_; }
 
-    void deactivate_session() { session_established_ = false; }
+    void deactivate_session() { session_.deactivate(); }
 
     void handle_downlink(std::span<const std::byte> buffer, bool finished) {
-        deserializer_.feed(buffer);
-        if (finished)
-            deserializer_.finish_transfer();
+        session_.feed(buffer, finished);
     }
 
-    void finish_downlink_transfer() { deserializer_.finish_transfer(); }
+    void finish_downlink_transfer() { session_.finish_transfer(); }
 
     bool try_transmit() {
-        refresh_session_state();
+        session_.expire();
 
-        if (!session_established_) {
+        if (!session_.established()) {
             return false;
         }
 
@@ -82,139 +69,22 @@ public:
     }
 
 private:
-    void activate_session(uint32_t nonce) {
+    void reset_transmit() {
         if (transmitting_batch_) {
             transmit_buffer_.release_batch(transmitting_batch_);
             transmitting_batch_ = nullptr;
             transmitted_size_ = 0;
         }
         transmit_buffer_.clear();
-
-        current_session_nonce_ = nonce;
-        last_session_refresh_quarter_us_ = timer::Timer::timestamp64_quarter_us();
-        session_established_ = true;
     }
 
-    bool can_deserialized_callback(
-        core::protocol::FieldId id, const data::CanDataView& data) override {
-        if (!session_established_)
-            return true;
-        return Peripherals::write_can(id, data);
-    }
-
-    bool uart_deserialized_callback(
-        core::protocol::FieldId id, const data::UartDataView& data) override {
-        if (!session_established_)
-            return true;
-        return Peripherals::write_uart(id, data);
-    }
-
-    bool uart_config_deserialized_callback(
-        core::protocol::FieldId id, const data::UartConfigView& data) override {
-        if (!session_established_)
-            return true;
-        return Peripherals::configure_uart(id, data);
-    }
-
-    bool gpio_digital_data_deserialized_callback(
-        uint8_t channel_index, const data::GpioDigitalDataView& data) override {
-        if (!session_established_)
-            return true;
-        return Peripherals::write_gpio_digital(channel_index, data);
-    }
-
-    bool gpio_analog_data_deserialized_callback(
-        uint8_t channel_index, const data::GpioAnalogDataView& data) override {
-        if (!session_established_)
-            return true;
-        return Peripherals::write_gpio_analog(channel_index, data);
-    }
-
-    bool gpio_digital_read_config_deserialized_callback(
-        uint8_t channel_index, const data::GpioReadConfigView& data) override {
-        if (!session_established_)
-            return true;
-        return Peripherals::configure_gpio_digital(channel_index, data);
-    }
-
-    bool gpio_analog_read_config_deserialized_callback(
-        uint8_t channel_index, const data::GpioReadConfigView& data) override {
-        if (!session_established_)
-            return true;
-        (void)channel_index;
-        (void)data;
-        return false;
-    }
-
-    void accelerometer_deserialized_callback(const data::ImuAccelerometerDataView& data) override {
-        (void)data;
-    }
-
-    void gyroscope_deserialized_callback(const data::ImuGyroscopeDataView& data) override {
-        (void)data;
-    }
-
-    void temperature_deserialized_callback(const data::ImuTemperatureDataView& data) override {
-        (void)data;
-    }
-
-    void session_control_deserialized_callback(const data::SessionControlView& data) override {
-        switch (data.type) {
-        case data::SessionType::kStart: {
-            const bool same_session = session_established_ && data.nonce == current_session_nonce_;
-
-            if (!same_session)
-                activate_session(data.nonce);
-            else
-                last_session_refresh_quarter_us_ = timer::Timer::timestamp64_quarter_us();
-
-            const auto result = serializer_.write_session_control(
-                {.type = data::SessionType::kStartAck, .nonce = data.nonce});
-            core::utility::assert_always(
-                result != core::protocol::Serializer::SerializeResult::kInvalidArgument);
-            break;
-        }
-        case data::SessionType::kKeepalive:
-            if (!session_established_ || data.nonce != current_session_nonce_)
-                return;
-
-            last_session_refresh_quarter_us_ = timer::Timer::timestamp64_quarter_us();
-            {
-                const auto result = serializer_.write_session_control(
-                    {.type = data::SessionType::kKeepaliveAck, .nonce = data.nonce});
-                core::utility::assert_always(
-                    result != core::protocol::Serializer::SerializeResult::kInvalidArgument);
-            }
-            break;
-        default: return;
-        }
-    }
-
-    void error_callback() override {
-        // TODO: Report USB downlink deserialization errors through a dedicated error path.
-    }
-
-    void refresh_session_state() {
-        if (!session_established_)
-            return;
-
-        const uint64_t now = timer::Timer::timestamp64_quarter_us();
-        if (now - last_session_refresh_quarter_us_ < kSessionLeaseQuarterUs)
-            return;
-
-        deactivate_session();
-    }
-
-    core::protocol::Deserializer deserializer_{*this};
-
-    InterruptSafeBuffer transmit_buffer_;
+    utility::InterruptSafeBuffer transmit_buffer_;
     core::protocol::Serializer serializer_{transmit_buffer_};
+    Session session_{
+        serializer_, [](void* context) { static_cast<Vendor*>(context)->reset_transmit(); }, this};
 
-    const InterruptSafeBuffer::Batch* transmitting_batch_ = nullptr;
+    const utility::InterruptSafeBuffer::Batch* transmitting_batch_ = nullptr;
     size_t transmitted_size_ = 0;
-    bool session_established_ = false;
-    uint32_t current_session_nonce_ = 0;
-    uint64_t last_session_refresh_quarter_us_ = 0;
 };
 
 inline constinit Vendor::Lazy vendor;

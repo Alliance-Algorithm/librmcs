@@ -22,7 +22,7 @@
 #include "core/src/utility/immovable.hpp"
 #include "firmware/rmcs_board/app/src/buzzer/status_buzzer.hpp"
 #include "firmware/rmcs_board/app/src/led/led.hpp"
-#include "firmware/rmcs_board/app/src/usb/helper.hpp"
+#include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::can {
@@ -127,7 +127,7 @@ public:
         if (flags & MCAN_INT_RXFIFO0_NEW_MSG) [[likely]] {
             mcan_clear_interrupt_flags(can_base_, MCAN_INT_RXFIFO0_NEW_MSG);
 
-            auto& serializer = usb::get_serializer();
+            auto& serializer = Peripherals::uplink_serializer();
             handle_uplink(data_id_, serializer);
 
             remaining_flags &= ~MCAN_INT_RXFIFO0_NEW_MSG;

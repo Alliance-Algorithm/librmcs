@@ -161,7 +161,9 @@ private: // Device Descriptor
 private: // Configuration Descriptor
          // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class)
     enum InterfaceNumber : uint8_t {
+#if CFG_TUD_VENDOR
         kItfNumVendor = 0,
+#endif
         kItfNumDfuRuntime,
         kItfNumTotal,
     };
@@ -180,8 +182,9 @@ private: // Configuration Descriptor
         TUD_CONFIG_DESCRIPTOR(
             1, kItfNumTotal, 0, kConfigTotalLen, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
 
-        // Interface number, string index, EP data address (out, in) and size.
+#if CFG_TUD_VENDOR
         TUD_VENDOR_DESCRIPTOR(kItfNumVendor, 0, kEpnumCdc0DataOut, kEpnumCdc0DataIn, 64),
+#endif
         TUD_DFU_RT_DESCRIPTOR(
             kItfNumDfuRuntime, 4, DFU_ATTR_CAN_DOWNLOAD | DFU_ATTR_WILL_DETACH, 1000, 1024),
     };
@@ -192,8 +195,9 @@ private: // Configuration Descriptor
         TUD_CONFIG_DESCRIPTOR(
             1, kItfNumTotal, 0, kConfigTotalLen, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
 
-        // Interface number, string index, EP data address (out, in) and size.
+#if CFG_TUD_VENDOR
         TUD_VENDOR_DESCRIPTOR(kItfNumVendor, 0, kEpnumCdc0DataOut, kEpnumCdc0DataIn, 512),
+#endif
         TUD_DFU_RT_DESCRIPTOR(
             kItfNumDfuRuntime, 4, DFU_ATTR_CAN_DOWNLOAD | DFU_ATTR_WILL_DETACH, 1000, 1024),
     };

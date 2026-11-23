@@ -23,6 +23,7 @@
 #include "core/src/utility/assert.hpp"
 #include "host/src/logging/logging.hpp"
 #include "host/src/protocol/stream_buffer.hpp"
+#include "host/src/transport/ethercat/ethercat.hpp"
 #include "host/src/transport/transport.hpp"
 #include "librmcs/board/common.hpp"
 #include "librmcs/data/datas.hpp"
@@ -35,11 +36,14 @@ public:
     static constexpr size_t kSessionAckRetryCount = 5;
     static constexpr auto kSessionRefreshInterval = std::chrono::milliseconds{250};
 
-    explicit Impl(std::unique_ptr<transport::Transport> transport, data::DataCallback& callback)
+    explicit Impl(
+        std::unique_ptr<transport::Transport> transport, data::DataCallback& callback,
+        bool stop_on_disconnect = false)
         : callback_(callback)
         , deserializer_(*this)
         , expected_session_nonce_(generate_session_nonce())
-        , transport_(std::move(transport)) {
+        , transport_(std::move(transport))
+        , stop_on_disconnect_(stop_on_disconnect) {
         transport_->receive([this](std::span<const std::byte> buffer) {
             // Operating system automatically assembles the packet
             deserializer_.feed(buffer);
@@ -60,6 +64,7 @@ public:
     }
 
     PacketBuilder start_transmit() { return PacketBuilder{transport_.get()}; }
+    bool connected() const noexcept { return session_established() && transport_->connected(); }
 
     bool can_deserialized_callback(
         core::protocol::FieldId id, const data::CanDataView& data) override {
@@ -190,6 +195,8 @@ private:
 
     void establish_session() {
         for (size_t attempt = 0; attempt < kSessionAckRetryCount; ++attempt) {
+            if (!transport_->connected())
+                throw std::runtime_error{"Transport disconnected during session start"};
             uint64_t previous_session_start_ack_count = 0;
             {
                 const std::scoped_lock guard{session_mutex_};
@@ -214,6 +221,8 @@ private:
 
     void refresh_session() {
         for (size_t attempt = 0; attempt < kSessionAckRetryCount; ++attempt) {
+            if (!transport_->connected())
+                throw std::runtime_error{"Transport disconnected"};
             uint64_t previous_session_keepalive_ack_count = 0;
             {
                 const std::scoped_lock guard{session_mutex_};
@@ -265,6 +274,12 @@ private:
             try {
                 refresh_session();
             } catch (const std::exception& exception) {
+                if (stop_on_disconnect_) {
+                    session_established_.store(false, std::memory_order_relaxed);
+                    transport_->stop();
+                    logging::get_logger().error("EtherCAT session ended: {}", exception.what());
+                    return;
+                }
                 logging::get_logger().error(
                     "Failed to refresh session: {}. Terminating...", exception.what());
                 std::terminate();
@@ -289,6 +304,7 @@ private:
     uint32_t expected_session_nonce_ = 0;
 
     std::unique_ptr<transport::Transport> transport_;
+    bool stop_on_disconnect_;
 
     std::atomic<bool> stop_keepalive_{false};
     std::thread keepalive_thread_;
@@ -425,6 +441,12 @@ Handler::Handler(
     : impl_(new Impl(
           transport::usb::create_transport(usb_vid, usb_pid, serial_filter, options), callback)) {}
 
+Handler::Handler(
+    const board::EthercatOptions& ethercat, const board::AdvancedOptions& options,
+    data::DataCallback& callback)
+    : impl_(new Impl(
+          transport::ethercat::EthercatFactory::create(ethercat, options), callback, true)) {}
+
 Handler::Handler(Handler&& other) noexcept
     : impl_(std::exchange(other.impl_, nullptr)) {}
 
@@ -442,5 +464,7 @@ Handler::PacketBuilder Handler::start_transmit() noexcept {
     core::utility::assert_debug(impl_);
     return impl_->start_transmit();
 }
+
+bool Handler::connected() const noexcept { return impl_ && impl_->connected(); }
 
 } // namespace librmcs::host::protocol

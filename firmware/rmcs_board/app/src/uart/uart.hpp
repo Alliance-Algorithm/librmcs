@@ -16,9 +16,9 @@
 #include "core/src/utility/immovable.hpp"
 #include "firmware/rmcs_board/app/src/buzzer/status_buzzer.hpp"
 #include "firmware/rmcs_board/app/src/led/led.hpp"
+#include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/uart/rx_buffer.hpp"
 #include "firmware/rmcs_board/app/src/uart/tx_buffer.hpp"
-#include "firmware/rmcs_board/app/src/usb/helper.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::uart {
@@ -109,7 +109,7 @@ private:
 
     void handle_uplink(
         std::span<const std::byte> payload, std::span<const std::byte> payload2, bool is_idle) {
-        auto& serializer = usb::get_serializer();
+        auto& serializer = Peripherals::uplink_serializer();
         core::utility::assert_debug(
             serializer.write_uart(
                 data_id_, {.uart_data = payload, .idle_delimited = is_idle}, payload2)
