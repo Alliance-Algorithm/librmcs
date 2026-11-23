@@ -9,7 +9,11 @@
 #include "firmware/rmcs_board/app/src/timer/timer.hpp"
 #include "firmware/rmcs_board/app/src/usb/dcd_recovery.hpp"
 #include "firmware/rmcs_board/app/src/usb/device.hpp"
-#include "firmware/rmcs_board/app/src/usb/vendor.hpp"
+#if defined(LIBRMCS_ENABLE_ETHERCAT)
+# include "firmware/rmcs_board/app/src/ecat/slave.hpp"
+#else
+# include "firmware/rmcs_board/app/src/usb/vendor.hpp"
+#endif
 #include "firmware/rmcs_board/app/src/utility/interrupt_lock.hpp"
 #include "firmware/rmcs_board/app/src/watchdog/watchdog.hpp"
 #include "firmware/rmcs_board/common/boot_mailbox.hpp"
@@ -31,7 +35,11 @@ App::App() {
     led::led.init();
     timer::timer.init();
 
+#if defined(LIBRMCS_ENABLE_ETHERCAT)
+    ecat::slave.init().start();
+#else
     usb::vendor.init();
+#endif
     usb::Device::init();
     Peripherals::init();
 }
@@ -45,13 +53,23 @@ App::App() {
         }
 
         tud_task();
+#if defined(LIBRMCS_ENABLE_ETHERCAT)
+        ecat::slave->poll();
+#else
         usb::vendor->try_transmit();
+#endif
 
         Peripherals::poll();
         watchdog::watchdog->feed();
     }
 }
 
-core::protocol::Serializer& Peripherals::uplink_serializer() { return usb::vendor->serializer(); }
+core::protocol::Serializer& Peripherals::uplink_serializer() {
+#if defined(LIBRMCS_ENABLE_ETHERCAT)
+    return ecat::slave->serializer();
+#else
+    return usb::vendor->serializer();
+#endif
+}
 
 } // namespace librmcs::firmware
