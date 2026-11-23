@@ -31,6 +31,8 @@ inline constexpr GpioPin kBmi088AccelChipSelectPin =
 void spi_bmi088_irq_handler();
 void bmi088_gyro_dataready_irq_handler();
 void bmi088_accel_dataready_irq_handler();
+#define BOARD_RS4850(prefix, suffix) prefix##1##suffix
+#define BOARD_RS4851(prefix, suffix) prefix##4##suffix
 
 inline constexpr auto kUserHsFsSwitchPin = make_gpio_pin<gpiom_soc_gpio0, 'F', 17, false>();
 

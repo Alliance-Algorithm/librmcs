@@ -8,6 +8,7 @@
 #include <librmcs/data/datas.hpp>
 #include <librmcs/protocol/handler.hpp>
 #include <librmcs/spec/rmcs_board_ultra/can.hpp>
+#include <librmcs/spec/rmcs_board_ultra/rs485.hpp>
 
 namespace librmcs::board {
 
@@ -24,10 +25,13 @@ public:
         struct Spec {
             using Can = spec::rmcs_board_ultra::CanDescriptor;
             static constexpr spec::rmcs_board_ultra::internal::CanDescriptors kCans{};
+            using Rs485 = spec::rmcs_board_ultra::Rs485Descriptor;
+            static constexpr spec::rmcs_board_ultra::internal::Rs485Descriptors kRs485s{};
         };
 
         struct View {
             using Can = data::CanDataView;
+            using Rs485 = data::UartDataView;
             using ImuAccelerometer = data::ImuAccelerometerDataView;
             using ImuGyroscope = data::ImuGyroscopeDataView;
             using ImuTemperature = data::ImuTemperatureDataView;
@@ -46,8 +50,15 @@ public:
             return true;
         }
 
-        // Other data types are not supported by this board interface.
-        bool uart_receive_callback(data::DataId, const data::UartDataView&) final { return false; }
+        virtual void rs485_receive_callback(const Spec::Rs485&, const View::Rs485&) {}
+
+        bool uart_receive_callback(data::DataId id, const data::UartDataView& data) final {
+            const auto* descriptor = Spec::kRs485s.find(id);
+            if (descriptor == nullptr) [[unlikely]]
+                return false;
+            rs485_receive_callback(*descriptor, data);
+            return true;
+        }
         bool gpio_digital_read_result_callback(uint8_t, const data::GpioDigitalDataView&) final {
             return false;
         }
@@ -78,6 +89,18 @@ public:
             const spec::rmcs_board_ultra::CanDescriptor& can, const data::CanDataView& data) {
             if (!builder_.write_can(can.data_id, data)) [[unlikely]]
                 throw std::invalid_argument{"CAN transmission failed: Invalid CAN data"};
+            return *this;
+        }
+
+        PacketBuilder& rs485_transmit(const Callback::Spec::Rs485& port, const data::UartDataView& data) {
+            if (!builder_.write_uart(port.data_id, data)) [[unlikely]]
+                throw std::invalid_argument{"RS485 transmission failed: Invalid serial data"};
+            return *this;
+        }
+
+        PacketBuilder& rs485_config(const Callback::Spec::Rs485& port, const data::UartConfigView& data) {
+            if (!builder_.write_uart_config(port.config_data_id, data)) [[unlikely]]
+                throw std::invalid_argument{"RS485 configuration failed: Invalid serial config"};
             return *this;
         }
 

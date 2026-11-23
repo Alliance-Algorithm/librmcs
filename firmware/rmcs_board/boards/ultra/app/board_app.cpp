@@ -79,3 +79,70 @@ void bmi088_dataready_isr() {
 
 SDK_DECLARE_EXT_ISR_M(BOARD_SPI_BMI088(IRQn_SPI, ), spi_bmi088_isr)
 void spi_bmi088_isr() { librmcs::firmware::board::spi_bmi088_irq_handler(); }
+
+#include <hpm_clock_drv.h>
+#include <hpm_common.h>
+#include <hpm_interrupt.h>
+#include <hpm_ioc_regs.h>
+#include <hpm_iomux.h>
+#include <hpm_soc.h>
+#include <hpm_soc_ip_feature.h>
+#include <hpm_uart_drv.h>
+#include <hpm_uart_regs.h>
+
+#include "core/src/utility/assert.hpp"
+#include "firmware/rmcs_board/app/src/uart/uart.hpp"
+#include "rs485.hpp"
+
+namespace librmcs::firmware::uart {
+
+uint32_t Uart::init_hardware(UART_Type* ptr) {
+    constexpr uint32_t tx_pad = IOC_PAD_PAD_CTL_PE_SET(1) | IOC_PAD_PAD_CTL_PS_SET(1);
+    constexpr uint32_t rx_pad = tx_pad | IOC_PAD_PAD_CTL_HYS_SET(1);
+    clock_name_t clock;
+    uint32_t de_pad;
+    uint32_t de_function;
+    if (ptr == HPM_UART1) {
+        clock = clock_uart1;
+        de_pad = IOC_PAD_PC05;
+        de_function = IOC_PC05_FUNC_CTL_UART1_DE;
+        HPM_IOC->PAD[IOC_PAD_PC06].PAD_CTL = rx_pad;
+        HPM_IOC->PAD[IOC_PAD_PC06].FUNC_CTL = IOC_PC06_FUNC_CTL_UART1_RXD;
+        HPM_IOC->PAD[IOC_PAD_PC07].PAD_CTL = tx_pad;
+        HPM_IOC->PAD[IOC_PAD_PC07].FUNC_CTL = IOC_PC07_FUNC_CTL_UART1_TXD;
+    } else {
+        core::utility::assert_always(ptr == HPM_UART4);
+        clock = clock_uart4;
+        de_pad = IOC_PAD_PC18;
+        de_function = IOC_PC18_FUNC_CTL_UART4_DE;
+        HPM_IOC->PAD[IOC_PAD_PC17].PAD_CTL = rx_pad;
+        HPM_IOC->PAD[IOC_PAD_PC17].FUNC_CTL = IOC_PC17_FUNC_CTL_UART4_RXD;
+        HPM_IOC->PAD[IOC_PAD_PC16].PAD_CTL = tx_pad;
+        HPM_IOC->PAD[IOC_PAD_PC16].FUNC_CTL = IOC_PC16_FUNC_CTL_UART4_TXD;
+    }
+
+    clock_add_to_group(clock, 0);
+    core::utility::assert_always(
+        clock_set_source_divider(clock, clk_src_osc24m, 1) == status_success);
+    // RE# and DE are tied: low receives, high transmits. Let UART own the
+    // turnaround, including the last stop bit; DMA completion is too early.
+    static_assert(HPM_IP_FEATURE_UART_DE_DELAY == 1);
+    constexpr uint8_t de_delay_divided_clock_ticks = 2;
+    uart_set_de_delay_before_start_bit(ptr, de_delay_divided_clock_ticks);
+    uart_set_de_delay_after_stop_bit(ptr, de_delay_divided_clock_ticks);
+    HPM_IOC->PAD[de_pad].PAD_CTL = IOC_PAD_PAD_CTL_PE_SET(1);
+    HPM_IOC->PAD[de_pad].FUNC_CTL = de_function;
+    return clock_get_frequency(clock);
+}
+
+} // namespace librmcs::firmware::uart
+
+namespace librmcs::firmware::board {
+
+SDK_DECLARE_EXT_ISR_M(BOARD_RS4850(IRQn_UART, ), rs4850_isr)
+void rs4850_isr() { rs485::ports[0]->irq_handler(); }
+
+SDK_DECLARE_EXT_ISR_M(BOARD_RS4851(IRQn_UART, ), rs4851_isr)
+void rs4851_isr() { rs485::ports[1]->irq_handler(); }
+
+} // namespace librmcs::firmware::board

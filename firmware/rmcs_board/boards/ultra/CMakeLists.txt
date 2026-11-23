@@ -15,6 +15,5 @@ if(LIBRMCS_BUILDING_FIRMWARE_APP)
         gpio/gpio.cpp
         peripherals.cpp
         led/status_led.cpp
-        uart/uart.cpp
     )
 endif()
