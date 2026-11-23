@@ -9,6 +9,13 @@ sdk_compile_definitions(BOARD_BOOT_MAILBOX_PGPR=HPM_PGPR0)
 if(LIBRMCS_BUILDING_FIRMWARE_APP)
     sdk_app_inc(app)
     sdk_app_src(app/peripherals.cpp app/status_led.cpp)
+    if(LIBRMCS_ENABLE_ETHERCAT)
+        if(NOT LIBRMCS_ULTRA_ECAT_WIRING_CONFIRMED)
+            message(FATAL_ERROR "Verify Ultra EtherCAT REFCLK/RX_ER routing before enabling it.")
+        endif()
+        sdk_app_src(app/ethercat_phy.cpp)
+        sdk_compile_definitions(HPM_ESC_DRV_DEFAULT_RETRY_COUNT=100000U)
+    endif()
     sdk_linker_global_symbols("_flash_size=0x100000")
     set_property(GLOBAL PROPERTY LIBRMCS_APP_EXCLUDED_SOURCES
         can/can.cpp

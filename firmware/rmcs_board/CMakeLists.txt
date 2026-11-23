@@ -12,6 +12,11 @@ set(RV_ARCH "rv32imafdcb" CACHE STRING "RISC-V arch")
 set(RV_ABI "ilp32d" CACHE STRING "RISC-V ABI")
 set(BOARD_BOOTLOADER_MODE "auto" CACHE STRING "Bootloader mode (auto / manual)")
 set_property(CACHE BOARD_BOOTLOADER_MODE PROPERTY STRINGS auto manual)
+option(LIBRMCS_ENABLE_ETHERCAT "Build the Ultra EtherCAT app (USB DFU Runtime only)" OFF)
+option(LIBRMCS_ULTRA_ECAT_WIRING_CONFIRMED "Confirm Ultra and PHY board REFCLK/RX_ER routing" OFF)
+if(LIBRMCS_ENABLE_ETHERCAT AND NOT BOARD STREQUAL "ultra")
+    message(FATAL_ERROR "EtherCAT currently requires BOARD=ultra")
+endif()
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "debug")
@@ -62,7 +67,13 @@ add_rmcs_board_subbuild(
     -DBOARD_BOOTLOADER_MODE=${BOARD_BOOTLOADER_MODE}
 )
 
-add_rmcs_board_subbuild(rmcs_board_app app)
+add_rmcs_board_subbuild(
+    rmcs_board_app
+    app
+    -DLIBRMCS_ENABLE_ETHERCAT=${LIBRMCS_ENABLE_ETHERCAT}
+    -DLIBRMCS_ULTRA_ECAT_WIRING_CONFIRMED=${LIBRMCS_ULTRA_ECAT_WIRING_CONFIRMED}
+    -DFETCHCONTENT_SOURCE_DIR_LIBRMCS_SOES=${FETCHCONTENT_SOURCE_DIR_LIBRMCS_SOES}
+)
 set(RMCS_BOARD_APP_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/app/compile_commands.json")
 set(RMCS_BOARD_BOOTLOADER_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/bootloader/compile_commands.json")
 set(RMCS_BOARD_MERGED_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
