@@ -14,6 +14,11 @@ namespace librmcs::firmware::board {
 #define BOARD_CAN2(prefix, suffix) prefix##3##suffix
 #define BOARD_CAN3(prefix, suffix) prefix##0##suffix
 
+#define BOARD_UART_DBUS(prefix, suffix) prefix##2##suffix
+#define BOARD_UART0(prefix, suffix)     prefix##6##suffix
+#define BOARD_UART1(prefix, suffix)     prefix##0##suffix
+#define BOARD_UART2(prefix, suffix)     prefix##7##suffix
+
 inline constexpr auto kModeSwitchPin = make_gpio_pin<gpiom_soc_gpio0, 'F', 17, false>();
 #if !defined(LIBRMCS_ENABLE_ETHERCAT)
 inline constexpr auto kUserHsFsSwitchPin = kModeSwitchPin;
