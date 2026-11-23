@@ -52,6 +52,11 @@ else()
 endif()
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+option(LIBRMCS_ENABLE_ETHERCAT "Build the Linux EtherCAT transport" OFF)
+if(LIBRMCS_ENABLE_ETHERCAT AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message(FATAL_ERROR "EtherCAT transport is supported only on Linux")
+endif()
+
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
 # Get project sources
@@ -61,6 +66,7 @@ file(GLOB_RECURSE PROJECT_SOURCE CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c
 )
+list(FILTER PROJECT_SOURCE EXCLUDE REGEX "/transport/ethercat/")
 
 option(BUILD_STATIC_LIBRMCS "Build static librmcs" ON)
 if(BUILD_STATIC_LIBRMCS)
@@ -85,6 +91,14 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE BUILDING_LIBRMCS)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../core/include)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../host/include)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+
+if(LIBRMCS_ENABLE_ETHERCAT)
+    include(cmake/soem.cmake)
+    target_sources(${PROJECT_NAME} PRIVATE src/transport/ethercat/ethercat.cpp)
+    target_link_libraries(${PROJECT_NAME} PRIVATE librmcs_soem)
+else()
+    target_sources(${PROJECT_NAME} PRIVATE src/transport/ethercat/disabled.cpp)
+endif()
 
 # Force optimization in debug mode
 if(MSVC)
