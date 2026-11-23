@@ -8,6 +8,7 @@
 #include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/timer/timer.hpp"
 #include "firmware/rmcs_board/app/src/usb/dcd_recovery.hpp"
+#include "firmware/rmcs_board/app/src/usb/device.hpp"
 #include "firmware/rmcs_board/app/src/usb/vendor.hpp"
 #include "firmware/rmcs_board/app/src/utility/interrupt_lock.hpp"
 #include "firmware/rmcs_board/app/src/watchdog/watchdog.hpp"
@@ -31,6 +32,7 @@ App::App() {
     timer::timer.init();
 
     usb::vendor.init();
+    usb::Device::init();
     Peripherals::init();
 }
 
