@@ -1,17 +1,21 @@
 #include "host/src/transport/ethercat/ethercat.hpp"
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cerrno>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <ctime>
 #include <exception>
 #include <format>
 #include <functional>
 #include <future>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <random>
 #include <span>
 #include <stdexcept>
@@ -23,6 +27,7 @@
 #include <utility>
 
 #include <ethercat.h> // IWYU pragma: keep
+#include <ethercatbase.h>
 #include <ethercatcoe.h>
 #include <ethercatconfig.h>
 #include <ethercatmain.h>
@@ -32,6 +37,10 @@
 #include <nicdrv.h>
 #include <osal.h>
 #include <pthread.h>
+#include <sys/poll.h>
+#include <sys/socket.h>
+#include <sys/timerfd.h>
+#include <unistd.h>
 
 // clang-format off
 #include <linux/if.h> // IWYU pragma: keep (IFF_LOWER_UP; must follow net/if.h)
@@ -50,9 +59,21 @@
 namespace librmcs::host::transport::ethercat {
 
 using core::protocol::ethercat::ProcessData;
+using core::protocol::ethercat::ProcessDataChannel;
 
 class Master : private core::utility::Immovable {
 public:
+    using FrameBuffer = std::array<std::byte, EC_BUFSIZE>;
+    // Leave SOEM's index range available for startup and shutdown datagrams.
+    static constexpr uint8_t kFirstCyclicIndex = EC_MAXBUF;
+
+    struct CycleReply {
+        uint8_t index;
+        int wkc;
+        std::span<const std::byte> input;
+        std::optional<ec_alstatust> al_status;
+    };
+
     void start(std::string_view interface, bool allow_version_mismatch) {
         if (interface.empty() || interface.size() >= IFNAMSIZ || interface.contains('\0')) {
             throw std::invalid_argument{"Invalid EtherCAT interface name"};
@@ -97,6 +118,7 @@ public:
         do {
             exchange();
             if (state_is(EC_STATE_OPERATIONAL)) {
+                prepare_cyclic_frames();
                 logging::get_logger().info(
                     "EtherCAT Ultra is OP on {} ({} bytes each direction, expected WKC {})", name,
                     ProcessData::kSize, expected_wkc_);
@@ -124,29 +146,135 @@ public:
     }
 
     ProcessData::Output outputs() {
-        return std::as_writable_bytes(
-            std::span<uint8_t, ProcessData::kSize>{slaves_[kSlave].outputs, ProcessData::kSize});
+        return std::as_writable_bytes(std::span{port_.txbuf[kOutputFrame]})
+            .subspan<kPayloadOffset, ProcessData::kSize>();
     }
 
-    std::span<const std::byte> inputs() const {
-        return std::as_bytes(std::span{slaves_[kSlave].inputs, ProcessData::kSize});
+    void send_cycle(uint8_t index) {
+        port_.txbuf[kOutputFrame][kIndexOffset] = index;
+        port_.txbuf[kInputFrame][kIndexOffset] = index;
+        port_.txbuf[kInputFrame][kAlIndexOffset] = index;
+        if (try_send_frame(kOutputFrame))
+            static_cast<void>(try_send_frame(kInputFrame));
     }
 
-    int exchange() {
-        ecx_send_processdata(&context_);
-        return ecx_receive_processdata(&context_, EC_TIMEOUTRET);
+    std::optional<CycleReply> receive_cycle(FrameBuffer& buffer) const {
+        pollfd socket{.fd = port_.sockhandle, .events = POLLIN, .revents = 0};
+        constexpr int receive_wait_ms = 10;
+        const int ready = ::poll(&socket, 1, receive_wait_ms);
+        if (ready < 0 && errno != EINTR)
+            throw std::system_error{errno, std::generic_category(), "Polling EtherCAT PDO socket"};
+        if (ready <= 0)
+            return std::nullopt;
+        constexpr unsigned error_events = POLLERR | POLLHUP | POLLNVAL;
+        if ((static_cast<unsigned>(socket.revents) & error_events) != 0)
+            throw std::runtime_error{"EtherCAT PDO socket became unavailable"};
+
+        const auto size = ::recv(socket.fd, buffer.data(), buffer.size(), MSG_DONTWAIT);
+        if (size < 0 && errno != EAGAIN && errno != EINTR)
+            throw std::system_error{errno, std::generic_category(), "Receiving EtherCAT PDO"};
+        if (std::cmp_less(size, kPdoFrameSize))
+            return std::nullopt;
+
+        ec_comt header{};
+        std::memcpy(&header, buffer.data() + ETH_HEADERSIZE, sizeof(header));
+        const auto length = static_cast<unsigned>(etohs(header.dlength));
+        if (header.command != EC_CMD_LRW || header.index < kFirstCyclicIndex
+            || (length & kDatagramLengthMask) != ProcessData::kSize || (length & kCirculating) == 0)
+            return std::nullopt;
+
+        const auto logical_address = (static_cast<uint32_t>(etohs(header.ADO)) << 16U)
+                                   | static_cast<uint32_t>(etohs(header.ADP));
+        CycleReply reply{
+            .index = header.index,
+            .wkc = read_word(buffer, kPdoFrameSize - EC_WKCSIZE),
+            .input = {},
+            .al_status = std::nullopt,
+        };
+        if (logical_address == groups_[0].logstartaddr)
+            return reply;
+        if (logical_address != groups_[0].logstartaddr + ProcessData::kSize
+            || (length & static_cast<unsigned>(EC_DATAGRAMFOLLOWS)) == 0
+            || std::cmp_less(size, kAlFrameSize))
+            return std::nullopt;
+
+        reply.input = std::span{buffer}.subspan(kPayloadOffset, ProcessData::kSize);
+        ec_comt al_header{};
+        std::memcpy(&al_header, buffer.data() + kPdoFrameSize - EC_ELENGTHSIZE, sizeof(al_header));
+        if (al_header.command == EC_CMD_FPRD && al_header.index == header.index
+            && etohs(al_header.ADP) == slaves_[kSlave].configadr
+            && etohs(al_header.ADO) == ECT_REG_ALSTAT
+            && (etohs(al_header.dlength) & kDatagramLengthMask) == sizeof(ec_alstatust)
+            && read_word(buffer, kAlFrameSize - EC_WKCSIZE) == 1) {
+            ec_alstatust al{};
+            std::memcpy(&al, buffer.data() + kAlPayloadOffset, sizeof(al));
+            reply.al_status = al;
+        }
+        return reply;
     }
 
     int expected_wkc() const { return expected_wkc_; }
+
+private:
+    using Clock = std::chrono::steady_clock;
+    static constexpr uint16_t kSlave = 1;
+    static constexpr size_t kOutputFrame = 0;
+    static constexpr size_t kInputFrame = 1;
+    static constexpr unsigned kDatagramLengthMask = 0x07ffU;
+    static constexpr unsigned kCirculating = 0x4000U;
+    static constexpr size_t kIndexOffset = ETH_HEADERSIZE + offsetof(ec_comt, index);
+    static constexpr size_t kPayloadOffset = ETH_HEADERSIZE + EC_HEADERSIZE;
+    static constexpr size_t kPdoFrameSize = kPayloadOffset + ProcessData::kSize + EC_WKCSIZE;
+    static constexpr size_t kAlIndexOffset =
+        kPdoFrameSize - EC_ELENGTHSIZE + offsetof(ec_comt, index);
+    static constexpr size_t kAlPayloadOffset = kPdoFrameSize - EC_ELENGTHSIZE + EC_HEADERSIZE;
+    static constexpr size_t kAlFrameSize = kAlPayloadOffset + sizeof(ec_alstatust) + EC_WKCSIZE;
+    static_assert(kAlFrameSize <= EC_BUFSIZE);
+
+    void exchange() {
+        ecx_send_processdata(&context_);
+        ecx_receive_processdata(&context_, EC_TIMEOUTRET);
+    }
 
     bool state_is(uint16_t state) {
         ecx_statecheck(&context_, kSlave, state, EC_TIMEOUTRET);
         return slaves_[kSlave].state == state;
     }
 
-private:
-    using Clock = std::chrono::steady_clock;
-    static constexpr uint16_t kSlave = 1;
+    void prepare_cyclic_frames() {
+        // Split I/O uses the same logical mapping as the startup exchange.
+        // The receiver reads the socket directly and leaves SOEM's index stack alone.
+        std::array<std::byte, ProcessData::kSize> empty_pdo{};
+        const auto output_address = groups_[0].logstartaddr;
+        const auto input_address = output_address + static_cast<uint32_t>(ProcessData::kSize);
+        ecx_setupdatagram(
+            &port_, port_.txbuf[kOutputFrame], EC_CMD_LRW, kOutputFrame,
+            static_cast<uint16_t>(output_address), static_cast<uint16_t>(output_address >> 16U),
+            ProcessData::kSize, empty_pdo.data());
+        ecx_setupdatagram(
+            &port_, port_.txbuf[kInputFrame], EC_CMD_LRW, kInputFrame,
+            static_cast<uint16_t>(input_address), static_cast<uint16_t>(input_address >> 16U),
+            ProcessData::kSize, empty_pdo.data());
+        ecx_adddatagram(
+            &port_, port_.txbuf[kInputFrame], EC_CMD_FPRD, kInputFrame, FALSE,
+            slaves_[kSlave].configadr, ECT_REG_ALSTAT, sizeof(ec_alstatust), nullptr);
+    }
+
+    bool try_send_frame(size_t frame) {
+        const auto size = static_cast<size_t>(port_.txbuflength[frame]);
+        const auto sent = ::send(port_.sockhandle, port_.txbuf[frame], size, MSG_DONTWAIT);
+        if (sent >= 0)
+            return std::cmp_equal(sent, size);
+        if (errno == EAGAIN || errno == ENOBUFS || errno == EINTR)
+            return false;
+        throw std::system_error{errno, std::generic_category(), "Sending EtherCAT PDO"};
+    }
+
+    static uint16_t read_word(const FrameBuffer& buffer, size_t offset) {
+        uint16_t word{};
+        std::memcpy(&word, buffer.data() + offset, sizeof(word));
+        return etohs(word);
+    }
 
     static void check_interface_link(const std::string& name) {
         ifaddrs* addresses = nullptr;
@@ -196,7 +324,7 @@ private:
         const auto& device = slaves_[kSlave];
         if (mapped != 2 * ProcessData::kSize || device.Obytes != ProcessData::kSize
             || device.Ibytes != ProcessData::kSize || device.Ostartbit != 0 || device.Istartbit != 0
-            || device.outputs != io_map_.data()
+            || groups_[0].blockLRW != 0 || device.outputs != io_map_.data()
             || device.inputs != io_map_.data() + ProcessData::kSize) {
             throw std::runtime_error{std::format(
                 "Unexpected EtherCAT PDO mapping (out {}, in {}, total {})", device.Obytes,
@@ -276,6 +404,7 @@ public:
         std::random_device entropy;
         process_data_.reset(std::uniform_int_distribution<uint32_t>{1, UINT32_MAX}(entropy));
         master_.start(ethercat.interface, options.dangerously_skip_version_checks);
+        process_data_.write(master_.outputs());
         connected_.store(true, std::memory_order_relaxed);
 
         std::promise<void> setup;
@@ -303,10 +432,12 @@ public:
 
     bool connected() const noexcept override { return connected_.load(std::memory_order_relaxed); }
 
-    std::unique_ptr<TransportBuffer> acquire_transmit_buffer() noexcept override {
+    std::unique_ptr<TransportBuffer> acquire_transmit_buffer(TransmitKind kind) noexcept override {
         const std::scoped_lock lock{buffer_mutex_};
         if (!connected())
             return nullptr;
+        if (kind == TransmitKind::kSessionControl)
+            return std::move(free_session_);
         std::unique_ptr<TransportBuffer> buffer;
         free_.pop_front([&buffer](std::unique_ptr<TransportBuffer>&& available) noexcept {
             buffer = std::move(available);
@@ -318,17 +449,20 @@ public:
         verify_buffer(buffer.get());
         core::utility::assert_always(size != 0 && size <= buffer->data().size());
         const std::scoped_lock lock{buffer_mutex_};
-        if (connected()) {
-            core::utility::assert_always(pending_.emplace_back(std::move(buffer), size));
+        if (!connected()) {
+            recycle_buffer(std::move(buffer));
+        } else if (buffer.get() == session_buffer_) {
+            core::utility::assert_always(!pending_session_.buffer);
+            pending_session_ = {.buffer = std::move(buffer), .size = size};
         } else {
-            core::utility::assert_always(free_.push_back(std::move(buffer)));
+            core::utility::assert_always(pending_.emplace_back(std::move(buffer), size));
         }
     }
 
     void release_transmit_buffer(std::unique_ptr<TransportBuffer> buffer) override {
         verify_buffer(buffer.get());
         const std::scoped_lock lock{buffer_mutex_};
-        core::utility::assert_always(free_.push_back(std::move(buffer)));
+        recycle_buffer(std::move(buffer));
     }
 
     void receive(std::function<void(std::span<const std::byte>)> callback) override {
@@ -338,6 +472,36 @@ public:
     }
 
 private:
+    using Clock = std::chrono::steady_clock;
+
+    class Timer : private core::utility::Immovable {
+    public:
+        Timer()
+            : fd_(::timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC)) {
+            if (fd_ < 0)
+                throw std::system_error{errno, std::generic_category(), "Creating EtherCAT timer"};
+        }
+
+        ~Timer() { ::close(fd_); }
+
+        void arm(const itimerspec& schedule) const {
+            if (::timerfd_settime(fd_, 0, &schedule, nullptr) < 0)
+                throw std::system_error{errno, std::generic_category(), "Arming EtherCAT timer"};
+        }
+
+        void consume() const {
+            uint64_t expirations{};
+            while (::read(fd_, &expirations, sizeof(expirations)) < 0) {
+                if (errno != EINTR)
+                    throw std::system_error{
+                        errno, std::generic_category(), "Reading EtherCAT timer"};
+            }
+        }
+
+    private:
+        int fd_;
+    };
+
     class Buffer final : public TransportBuffer {
     public:
         explicit Buffer(const Ethercat& owner)
@@ -360,58 +524,136 @@ private:
         core::utility::assert_always(own && &own->owner() == this);
     }
 
+    void recycle_buffer(std::unique_ptr<TransportBuffer> buffer) noexcept {
+        if (buffer.get() == session_buffer_) {
+            core::utility::assert_always(!free_session_);
+            free_session_ = std::move(buffer);
+        } else {
+            core::utility::assert_always(free_.push_back(std::move(buffer)));
+        }
+    }
+
     void load_output() {
         if (process_data_.busy())
             return;
-        const std::scoped_lock lock{buffer_mutex_};
-        pending_.pop_front([this](Transfer transfer) noexcept {
+        const std::unique_lock lock{buffer_mutex_, std::try_to_lock};
+        if (!lock.owns_lock())
+            return;
+        const auto enqueue = [this](Transfer transfer) noexcept {
             core::utility::assert_always(
                 process_data_.enqueue(transfer.buffer->data().first(transfer.size)));
-            core::utility::assert_always(free_.push_back(std::move(transfer.buffer)));
-        });
+            recycle_buffer(std::move(transfer.buffer));
+        };
+        if (!pending_session_.buffer) {
+            pending_.pop_front(enqueue);
+            return;
+        }
+
+        // Carry session control with the next data packet when both fit in one PDO.
+        auto session = std::exchange(pending_session_, {});
+        if (const auto* next = pending_.peek_front();
+            next && next->size <= session.buffer->data().size() - session.size) {
+            pending_.pop_front([this, &session](Transfer data) noexcept {
+                const auto destination = session.buffer->data().subspan(session.size, data.size);
+                std::ranges::copy(data.buffer->data().first(data.size), destination.begin());
+                session.size += data.size;
+                recycle_buffer(std::move(data.buffer));
+            });
+        }
+        enqueue(std::move(session));
     }
 
-    bool process_input() {
-        const auto frame = ProcessData::decode(master_.inputs());
+    bool process_input(std::span<const std::byte> input) {
+        const auto frame = ProcessData::decode(input);
         if (!frame)
             return false;
-        const auto received = process_data_.receive(*frame);
-        if (received && !received->empty() && receiving_.load(std::memory_order_acquire))
+        const auto received = [&] {
+            const std::scoped_lock lock{process_data_mutex_};
+            return process_data_.receive(*frame);
+        }();
+        if (!received)
+            return false;
+        if (!received->empty() && receiving_.load(std::memory_order_acquire))
             callback_(*received);
-        return received.has_value();
+        return true;
+    }
+
+    void send_cycles(const std::stop_token& stop_token) {
+        const Timer timer;
+        constexpr std::timespec period{.tv_sec = 0, .tv_nsec = 1'000'000};
+        timer.arm({.it_interval = period, .it_value = period});
+
+        uint8_t index = Master::kFirstCyclicIndex;
+        while (!stop_token.stop_requested() && connected()) {
+            timer.consume();
+            if (stop_token.stop_requested() || !connected())
+                return;
+
+            {
+                // Do not block a transmit tick on receive-side acknowledgement processing.
+                const std::unique_lock lock{process_data_mutex_, std::try_to_lock};
+                if (lock.owns_lock()) {
+                    load_output();
+                    process_data_.write(master_.outputs());
+                }
+            }
+            // The input PDO carries the latest published data, including cumulative ACKs.
+            master_.send_cycle(index);
+            index =
+                index == UINT8_MAX ? Master::kFirstCyclicIndex : static_cast<uint8_t>(index + 1);
+        }
+    }
+
+    void receive_cycles(const std::stop_token& stop_token) {
+        constexpr auto timeout = std::chrono::milliseconds{100};
+        auto last_response = Clock::now();
+        Master::FrameBuffer buffer;
+        std::optional<uint8_t> output_index;
+        int output_wkc = 0;
+        int wkc = EC_NOFRAME;
+        while (!stop_token.stop_requested() && connected()) {
+            const auto reply = master_.receive_cycle(buffer);
+            const auto now = Clock::now();
+            if (reply && reply->input.empty()) {
+                output_index = reply->index;
+                output_wkc = reply->wkc;
+            } else if (reply) {
+                if (reply->al_status && etohs(reply->al_status->alstatus) != EC_STATE_OPERATIONAL) {
+                    logging::get_logger().warn(
+                        "EtherCAT Ultra left OP (state {:#04x}, AL status code {:#06x})",
+                        etohs(reply->al_status->alstatus), etohs(reply->al_status->alstatuscode));
+                    return;
+                }
+                const bool paired = output_index == reply->index;
+                output_index.reset();
+                wkc = reply->wkc + (paired ? output_wkc : 0);
+                if (paired && output_wkc == 2 && reply->wkc == 1 && process_input(reply->input))
+                    last_response = now;
+            } else {
+                wkc = EC_NOFRAME;
+            }
+            if (now - last_response >= timeout) {
+                logging::get_logger().warn(
+                    "EtherCAT process data lost (WKC {}, expected {})", wkc,
+                    master_.expected_wkc());
+                return;
+            }
+        }
     }
 
     void run(const std::stop_token& stop_token) noexcept {
-        using Clock = std::chrono::steady_clock;
-        constexpr auto cycle = std::chrono::milliseconds{2};
-        constexpr auto timeout = std::chrono::milliseconds{100};
-        auto last_response = Clock::now();
-        auto last_state_check = last_response;
         try {
-            while (!stop_token.stop_requested()) {
-                const auto now = Clock::now();
-                load_output();
-                process_data_.write(master_.outputs());
-                const int wkc = master_.exchange();
-                if (wkc == master_.expected_wkc() && process_input())
-                    last_response = now;
-                if (now - last_response >= timeout) {
-                    logging::get_logger().warn(
-                        "EtherCAT process data lost (WKC {}, expected {})", wkc,
-                        master_.expected_wkc());
-                    break;
+            const std::jthread sender{[this](const std::stop_token& sender_stop) {
+                try {
+                    send_cycles(sender_stop);
+                } catch (const std::exception& e) {
+                    connected_.store(false, std::memory_order_relaxed);
+                    logging::get_logger().error("EtherCAT PDO sender stopped: {}", e.what());
                 }
-                if (now - last_state_check >= timeout) {
-                    last_state_check = now;
-                    if (!master_.state_is(EC_STATE_OPERATIONAL)) {
-                        logging::get_logger().warn("EtherCAT Ultra left OP");
-                        break;
-                    }
-                }
-                std::this_thread::sleep_until(now + cycle);
-            }
+            }};
+            receive_cycles(stop_token);
         } catch (const std::exception& e) {
-            logging::get_logger().error("EtherCAT event loop stopped: {}", e.what());
+            logging::get_logger().error("EtherCAT PDO receiver stopped: {}", e.what());
         }
         connected_.store(false, std::memory_order_relaxed);
         master_.close();
@@ -419,12 +661,17 @@ private:
 
     static constexpr size_t kBufferCount = 16;
     Master master_;
-    ProcessData process_data_;
+    ProcessDataChannel<2> process_data_;
+    std::mutex process_data_mutex_;
     std::atomic<bool> connected_{false};
     std::atomic<bool> receiving_{false};
     std::mutex buffer_mutex_;
     utility::RingBuffer<std::unique_ptr<TransportBuffer>> free_{kBufferCount};
     utility::RingBuffer<Transfer> pending_{kBufferCount};
+    // Application traffic must leave enough capacity to refresh the session.
+    std::unique_ptr<TransportBuffer> free_session_{std::make_unique<Buffer>(*this)};
+    const TransportBuffer* const session_buffer_ = free_session_.get();
+    Transfer pending_session_{};
     std::function<void(std::span<const std::byte>)> callback_;
     std::jthread thread_;
 };

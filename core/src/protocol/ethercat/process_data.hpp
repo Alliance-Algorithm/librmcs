@@ -17,18 +17,23 @@ inline constexpr uint32_t kProductCode = 0x554c5452;
 inline constexpr uint32_t kRevision = 1;
 inline constexpr uint16_t kSoftwareVersionIndex = 0x100a;
 
-class ProcessData {
+struct ProcessDataFrame {
+    uint32_t epoch;
+    uint32_t sequence;
+    uint32_t acknowledgement;
+    std::span<const std::byte> payload;
+};
+
+template <size_t transmit_window>
+class ProcessDataChannel {
+    static_assert(transmit_window > 0);
+
 public:
     static constexpr size_t kHeaderSize = 16;
     static constexpr size_t kSize = (kHeaderSize + kProtocolBufferSize + 3) & ~size_t{3};
     using Output = std::span<std::byte, kSize>;
 
-    struct Frame {
-        uint32_t epoch;
-        uint32_t sequence;
-        uint32_t acknowledgement;
-        std::span<const std::byte> payload;
-    };
+    using Frame = ProcessDataFrame;
 
     static std::optional<Frame> decode(std::span<const std::byte> bytes) {
         if (bytes.size() != kSize || bytes[0] != kVersion || bytes[1] != std::byte{0})
@@ -51,18 +56,22 @@ public:
         epoch_ = epoch;
         transmitted_ = 0;
         received_ = 0;
-        pending_size_ = 0;
+        pending_head_ = 0;
+        pending_count_ = 0;
+        next_packet_ = 0;
     }
 
     uint32_t epoch() const { return epoch_; }
-    bool busy() const { return pending_size_ != 0; }
+    bool busy() const { return pending_count_ == transmit_window; }
 
     bool enqueue(std::span<const std::byte> payload) {
-        if (epoch_ == 0 || busy() || payload.empty() || payload.size() > pending_.size())
+        if (epoch_ == 0 || busy() || payload.empty() || payload.size() > kProtocolBufferSize)
             return false;
-        std::ranges::copy(payload, pending_.begin());
-        pending_size_ = payload.size();
         transmitted_ = next_sequence(transmitted_);
+        auto& packet = pending_at(pending_count_++);
+        std::ranges::copy(payload, packet.bytes.begin());
+        packet.size = payload.size();
+        packet.sequence = transmitted_;
         return true;
     }
 
@@ -76,8 +85,7 @@ public:
         if (!fresh && frame.sequence != 0 && frame.sequence != received_)
             return std::nullopt;
 
-        if (frame.acknowledgement == transmitted_)
-            pending_size_ = 0;
+        acknowledge(frame.acknowledgement);
         if (!fresh)
             return std::span<const std::byte>{};
 
@@ -85,22 +93,51 @@ public:
         return frame.payload;
     }
 
-    void write(Output bytes) const {
+    void write(Output bytes) {
         std::ranges::fill(bytes, std::byte{0});
         if (epoch_ == 0)
             return;
 
         bytes[0] = kVersion;
-        put(bytes.subspan<2, 2>(), static_cast<uint32_t>(pending_size_));
         put(bytes.subspan<4, 4>(), epoch_);
-        put(bytes.subspan<8, 4>(), busy() ? transmitted_ : 0);
         put(bytes.subspan<12, 4>(), received_);
+        if (pending_count_ == 0)
+            return;
+
+        // Replay from the oldest unacknowledged packet once the window has been sent.
+        if (next_packet_ == pending_count_)
+            next_packet_ = 0;
+        const auto& packet = pending_at(next_packet_++);
+        put(bytes.subspan<2, 2>(), static_cast<uint32_t>(packet.size));
+        put(bytes.subspan<8, 4>(), packet.sequence);
         std::ranges::copy(
-            std::span{pending_}.first(pending_size_), bytes.subspan<kHeaderSize>().begin());
+            std::span{packet.bytes}.first(packet.size), bytes.subspan<kHeaderSize>().begin());
     }
 
 private:
+    struct PendingPacket {
+        std::array<std::byte, kProtocolBufferSize> bytes{};
+        size_t size = 0;
+        uint32_t sequence = 0;
+    };
+
     static constexpr std::byte kVersion{1};
+
+    PendingPacket& pending_at(size_t offset) {
+        return pending_[(pending_head_ + offset) % transmit_window];
+    }
+
+    void acknowledge(uint32_t sequence) {
+        for (size_t i = 0; i < pending_count_; ++i) {
+            if (pending_at(i).sequence != sequence)
+                continue;
+            const auto completed = i + 1;
+            pending_head_ = (pending_head_ + completed) % transmit_window;
+            pending_count_ -= completed;
+            next_packet_ = next_packet_ > completed ? next_packet_ - completed : 0;
+            return;
+        }
+    }
 
     static uint32_t next_sequence(uint32_t value) { return value == UINT32_MAX ? 1 : value + 1; }
 
@@ -118,11 +155,15 @@ private:
         }
     }
 
-    std::array<std::byte, kProtocolBufferSize> pending_{};
-    size_t pending_size_ = 0;
+    std::array<PendingPacket, transmit_window> pending_{};
+    size_t pending_head_ = 0;
+    size_t pending_count_ = 0;
+    size_t next_packet_ = 0;
     uint32_t epoch_ = 0;
     uint32_t transmitted_ = 0;
     uint32_t received_ = 0;
 };
+
+using ProcessData = ProcessDataChannel<1>;
 
 } // namespace librmcs::core::protocol::ethercat
