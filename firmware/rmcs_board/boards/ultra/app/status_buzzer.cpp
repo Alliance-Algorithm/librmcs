@@ -103,16 +103,20 @@ public:
         }
 
         normal_prompt_pending_ = false;
-        if (beeps_ == 2 && elapsed >= kAlarmPeriodMs) {
-            set_sounding(false);
-            return;
-        }
         const uint32_t phase = elapsed % kAlarmPeriodMs;
-        const uint32_t slot = kAlarmPeriodMs / beeps_;
+        constexpr uint32_t slot = kShortMs * 2;
         set_sounding(phase / slot < beeps_ && phase % slot < kShortMs);
     }
 
-    void show_assertion() { set_sounding(true); }
+    [[noreturn]] void show_assertion() {
+        // Interrupts are disabled. Let the watchdog reset the board while the alarm plays.
+        for (;;) {
+            set_sounding(true);
+            clock_cpu_delay_us(kAssertionPulseUs);
+            set_sounding(false);
+            clock_cpu_delay_us(kAssertionPulseUs);
+        }
+    }
 
 private:
     static bool consume_tick(std::atomic<uint32_t>& ticks) {
@@ -143,10 +147,11 @@ private:
     static constexpr uint32_t kToneHz = 2'000;
     static constexpr uint32_t kStartupMs = 120;
     static constexpr uint32_t kShortMs = 80;
-    static constexpr uint32_t kNormalToneMs = 1'000;
+    static constexpr uint32_t kNormalToneMs = 2'000;
     static constexpr uint32_t kNormalGapMs = 1'000;
     static constexpr uint32_t kAlarmPeriodMs = 1'000;
     static constexpr uint32_t kOverflowMs = 5'000;
+    static constexpr uint32_t kAssertionPulseUs = 40'000;
 
     std::atomic<uint32_t> uplink_full_ticks_{0};
     std::atomic<uint32_t> downlink_full_ticks_{0};
