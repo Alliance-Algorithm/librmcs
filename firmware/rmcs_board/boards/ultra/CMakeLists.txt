@@ -26,6 +26,5 @@ if(LIBRMCS_BUILDING_FIRMWARE_APP)
         spi/bmi088/temperature.cpp
         spi/spi.cpp
         led/status_led.cpp
-        uart/uart.cpp
     )
 endif()

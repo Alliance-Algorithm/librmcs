@@ -5,19 +5,41 @@
 #include <librmcs/data/datas.hpp>
 
 #include "firmware/rmcs_board/app/src/can/can.hpp"
+#include "firmware/rmcs_board/boards/uart_ports.hpp"
 
 namespace librmcs::firmware {
 
 void Peripherals::init() {
     for (auto& can : can::can_array)
         can.init();
+    board::uart_dbus.init();
+    for (auto& port : board::uart_array)
+        port.init();
 }
 
-void Peripherals::poll() {}
+void Peripherals::poll() {
+    for (auto& port : board::uart_array)
+        port->try_transmit();
+}
 
-bool Peripherals::write_uart(data::DataId, const data::UartDataView&) { return false; }
+bool Peripherals::write_uart(data::DataId id, const data::UartDataView& data) {
+    switch (id) {
+    case data::DataId::kUart0: board::uart_array[0]->handle_downlink(data); return true;
+    case data::DataId::kUart1: board::uart_array[1]->handle_downlink(data); return true;
+    case data::DataId::kUart2: board::uart_array[2]->handle_downlink(data); return true;
+    default: return false;
+    }
+}
 
-bool Peripherals::configure_uart(data::DataId, const data::UartConfigView&) { return false; }
+bool Peripherals::configure_uart(data::DataId id, const data::UartConfigView& data) {
+    switch (id) {
+    case data::DataId::kUartDbusConfig: return board::uart_dbus->handle_config(data);
+    case data::DataId::kUart0Config: return board::uart_array[0]->handle_config(data);
+    case data::DataId::kUart1Config: return board::uart_array[1]->handle_config(data);
+    case data::DataId::kUart2Config: return board::uart_array[2]->handle_config(data);
+    default: return false;
+    }
+}
 
 bool Peripherals::write_gpio_digital(uint8_t, const data::GpioDigitalDataView&) { return false; }
 

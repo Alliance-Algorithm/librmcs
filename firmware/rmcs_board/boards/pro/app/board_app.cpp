@@ -15,6 +15,8 @@
 #include <hpm_uart_regs.h>
 
 #include "firmware/rmcs_board/app/src/can/can.hpp"
+#include "firmware/rmcs_board/app/src/uart/uart.hpp"
+#include "firmware/rmcs_board/boards/uart_ports.hpp"
 
 namespace librmcs::firmware::can {
 
@@ -81,7 +83,11 @@ inline uint32_t init_spi_clock(SPI_Type* ptr) {
 
 } // namespace
 
-uint32_t init_uart(UART_Type* ptr) {
+} // namespace librmcs::firmware::board
+
+namespace librmcs::firmware::uart {
+
+uint32_t Uart::init_hardware(UART_Type* ptr) {
     constexpr uint32_t tx_pad = IOC_PAD_PAD_CTL_PE_SET(1) | // Pull enable
                                 IOC_PAD_PAD_CTL_PS_SET(1);  // Pull select - Pull up
     constexpr uint32_t rx_pad = IOC_PAD_PAD_CTL_PE_SET(1) | // Pull enable
@@ -125,8 +131,12 @@ uint32_t init_uart(UART_Type* ptr) {
         HPM_IOC->PAD[IOC_PAD_PA22].PAD_CTL = rx_pad;
     }
 
-    return init_uart_clock(ptr);
+    return board::init_uart_clock(ptr);
 }
+
+} // namespace librmcs::firmware::uart
+
+namespace librmcs::firmware::board {
 
 uint32_t init_spi(SPI_Type* ptr) {
     if (ptr == HPM_SPI1) { // SPI1: W25Q128
@@ -238,19 +248,19 @@ void gpio_bmi088_int_accel_isr() {
 }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_UART0(IRQn_UART, ), uart0_isr)
-void uart0_isr() { uart_irq_handler(0); }
+void uart0_isr() { uart_array[0]->irq_handler(); }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_UART1(IRQn_UART, ), uart1_isr)
-void uart1_isr() { uart_irq_handler(1); }
+void uart1_isr() { uart_array[1]->irq_handler(); }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_UART2(IRQn_UART, ), uart2_isr)
-void uart2_isr() { uart_irq_handler(2); }
+void uart2_isr() { uart_array[2]->irq_handler(); }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_UART3(IRQn_UART, ), uart3_isr)
-void uart3_isr() { uart_irq_handler(3); }
+void uart3_isr() { uart_array[3]->irq_handler(); }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_UART_DBUS(IRQn_UART, ), uart_dbus_isr)
-void uart_dbus_isr() { uart_dbus_irq_handler(); }
+void uart_dbus_isr() { uart_dbus->irq_handler(); }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_SPI_BMI088(IRQn_SPI, ), spi_isr)
 void spi_isr() { spi_bmi088_irq_handler(); }

@@ -10,7 +10,6 @@
 #include <hpm_soc.h>
 #include <hpm_soc_irq.h>
 #include <hpm_spi_regs.h>
-#include <hpm_uart_regs.h>
 
 #include "core/include/librmcs/spec/rmcs_board_lite/gpio.hpp" // IWYU pragma: export
 #include "firmware/rmcs_board/app/src/gpio/analog_gpio_pin.hpp"
@@ -28,10 +27,6 @@ namespace spec = librmcs::spec::rmcs_board_lite; // NOLINT(misc-unused-alias-dec
 #define BOARD_UART_DBUS(prefix, suffix) prefix##7##suffix
 #define BOARD_UART0(prefix, suffix)     prefix##0##suffix
 #define BOARD_UART1(prefix, suffix)     prefix##2##suffix
-
-uint32_t init_uart(UART_Type* ptr);
-void uart_irq_handler(size_t board_uart_index);
-void uart_dbus_irq_handler();
 
 #define BOARD_SPI_BMI088(prefix, suffix) prefix##1##suffix
 

@@ -8,11 +8,12 @@
 #include <librmcs/data/datas.hpp>
 #include <librmcs/protocol/handler.hpp>
 #include <librmcs/spec/rmcs_board_ultra/can.hpp>
+#include <librmcs/spec/rmcs_board_ultra/uart.hpp>
 
 namespace librmcs::board {
 
 /**
- * @brief Host interface for the four Classic CAN ports on RMCS Board Ultra.
+ * @brief Host interface for RMCS Board Ultra.
  *
  * The callback must outlive the board. Receive callbacks can run before the board constructor
  * returns. Copy the payload if it needs to outlive the callback.
@@ -24,12 +25,15 @@ public:
         struct Spec {
             using Can = spec::rmcs_board_ultra::CanDescriptor;
             static constexpr spec::rmcs_board_ultra::internal::CanDescriptors kCans{};
+            using Uart = spec::rmcs_board_ultra::UartDescriptor;
+            static constexpr spec::rmcs_board_ultra::internal::UartDescriptors kUarts{};
         };
 
         using Can = Spec::Can;
 
         struct View {
             using Can = data::CanDataView;
+            using Uart = data::UartDataView;
             using ImuAccelerometer = data::ImuAccelerometerDataView;
             using ImuGyroscope = data::ImuGyroscopeDataView;
             using ImuTemperature = data::ImuTemperatureDataView;
@@ -48,8 +52,15 @@ public:
             return true;
         }
 
-        // Other data types are not supported by this board interface.
-        bool uart_receive_callback(data::DataId, const data::UartDataView&) final { return false; }
+        virtual void uart_receive_callback(const Spec::Uart&, const View::Uart&) {}
+
+        bool uart_receive_callback(data::DataId id, const data::UartDataView& data) final {
+            const auto* descriptor = Spec::kUarts.find(id);
+            if (descriptor == nullptr) [[unlikely]]
+                return false;
+            uart_receive_callback(*descriptor, data);
+            return true;
+        }
         bool gpio_digital_read_result_callback(uint8_t, const data::GpioDigitalDataView&) final {
             return false;
         }
@@ -88,6 +99,22 @@ public:
             const spec::rmcs_board_ultra::CanDescriptor& can, const data::CanDataView& data) {
             if (!builder_.write_can(can.data_id, data)) [[unlikely]]
                 throw std::invalid_argument{"CAN transmission failed: Invalid CAN data"};
+            return *this;
+        }
+
+        PacketBuilder&
+            uart_transmit(const Callback::Spec::Uart& port, const data::UartDataView& data) {
+            if (port == Callback::Spec::kUarts.kDbus) [[unlikely]]
+                throw std::invalid_argument{"DBUS is receive-only"};
+            if (!builder_.write_uart(port.data_id, data)) [[unlikely]]
+                throw std::invalid_argument{"UART transmission failed: Invalid UART data"};
+            return *this;
+        }
+
+        PacketBuilder&
+            uart_config(const Callback::Spec::Uart& port, const data::UartConfigView& data) {
+            if (!builder_.write_uart_config(port.config_data_id, data)) [[unlikely]]
+                throw std::invalid_argument{"UART configuration failed: Invalid UART config"};
             return *this;
         }
 
