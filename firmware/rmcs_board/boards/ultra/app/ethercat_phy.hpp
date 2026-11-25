@@ -11,6 +11,9 @@ public:
 
 private:
     static void configure_pins();
+    static bool start_reference_clock();
+    static bool has_phy(uint8_t address);
+    static bool disable_phy1_broadcast();
     static bool configure_phy(uint8_t address);
 };
 
