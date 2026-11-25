@@ -50,12 +50,16 @@ coroutine::LifoTask<void> Deserializer::process_stream() {
         case FieldId::kUart0:
         case FieldId::kUart1:
         case FieldId::kUart2:
-        case FieldId::kUart3: success = co_await process_uart_field(id); break;
+        case FieldId::kUart3:
+        case FieldId::kRs4850:
+        case FieldId::kRs4851: success = co_await process_uart_field(id); break;
         case FieldId::kUartDbusConfig:
         case FieldId::kUart0Config:
         case FieldId::kUart1Config:
         case FieldId::kUart2Config:
-        case FieldId::kUart3Config: success = co_await process_uart_config_field(id); break;
+        case FieldId::kUart3Config:
+        case FieldId::kRs4850Config:
+        case FieldId::kRs4851Config: success = co_await process_uart_config_field(id); break;
         case FieldId::kGpio: success = co_await process_gpio_field(id); break;
         case FieldId::kImu: success = co_await process_imu_field(id); break;
         case FieldId::kSession: success = co_await process_session_field(id); break;

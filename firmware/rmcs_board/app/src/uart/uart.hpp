@@ -2,24 +2,23 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <iterator>
 #include <span>
 
 #include <hpm_common.h>
-#include <hpm_soc.h>
+#include <hpm_interrupt.h>
 #include <hpm_soc_ip_feature.h>
 #include <hpm_uart_drv.h>
 #include <hpm_uart_regs.h>
 
-#include "board_app.hpp"
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
+#include "firmware/rmcs_board/app/src/buzzer/status_buzzer.hpp"
 #include "firmware/rmcs_board/app/src/led/led.hpp"
+#include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/uart/rx_buffer.hpp"
 #include "firmware/rmcs_board/app/src/uart/tx_buffer.hpp"
-#include "firmware/rmcs_board/app/src/usb/helper.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::uart {
@@ -61,8 +60,10 @@ public:
     }
 
     void handle_downlink(const data::UartDataView& data) {
-        if (!TxBuffer::try_enqueue(data))
+        if (!TxBuffer::try_enqueue(data)) {
             led::led->downlink_buffer_full();
+            buzzer::StatusBuzzer::downlink_buffer_full();
+        }
     }
 
     void try_transmit() { TxBuffer::try_dequeue(); }
@@ -76,7 +77,7 @@ public:
 
 private:
     [[nodiscard]] uint32_t init_uart(uint32_t irq_num, uint32_t baudrate, parity_setting_t parity) {
-        const uint32_t uart_clock = board::init_uart(uart_base_);
+        const uint32_t uart_clock = init_hardware(uart_base_);
 
         uart_config_t config{};
         uart_default_config(uart_base_, &config);
@@ -104,9 +105,11 @@ private:
         return uart_clock;
     }
 
+    static uint32_t init_hardware(UART_Type* ptr);
+
     void handle_uplink(
         std::span<const std::byte> payload, std::span<const std::byte> payload2, bool is_idle) {
-        auto& serializer = usb::get_serializer();
+        auto& serializer = Peripherals::uplink_serializer();
         core::utility::assert_debug(
             serializer.write_uart(
                 data_id_, {.uart_data = payload, .idle_delimited = is_idle}, payload2)
@@ -117,51 +120,5 @@ private:
     UART_Type* uart_base_;
     uint32_t uart_clock_hz_;
 };
-
-constexpr HardwareConfig kDbusBoardConfig = {
-    .base = BOARD_UART_DBUS(HPM_UART, _BASE),
-    .irq_num = BOARD_UART_DBUS(IRQn_UART, ),
-    .dma_src_tx = BOARD_UART_DBUS(HPM_DMA_SRC_UART, _TX),
-    .dma_src_rx = BOARD_UART_DBUS(HPM_DMA_SRC_UART, _RX),
-};
-
-constexpr HardwareConfig kBoardConfigs[] = {
-    {.base = BOARD_UART0(HPM_UART, _BASE),
-     .irq_num = BOARD_UART0(IRQn_UART, ),
-     .dma_src_tx = BOARD_UART0(HPM_DMA_SRC_UART, _TX),
-     .dma_src_rx = BOARD_UART0(HPM_DMA_SRC_UART, _RX)},
-    {.base = BOARD_UART1(HPM_UART, _BASE),
-     .irq_num = BOARD_UART1(IRQn_UART, ),
-     .dma_src_tx = BOARD_UART1(HPM_DMA_SRC_UART, _TX),
-     .dma_src_rx = BOARD_UART1(HPM_DMA_SRC_UART, _RX)},
-#ifdef BOARD_UART2
-    {.base = BOARD_UART2(HPM_UART, _BASE),
-     .irq_num = BOARD_UART2(IRQn_UART, ),
-     .dma_src_tx = BOARD_UART2(HPM_DMA_SRC_UART, _TX),
-     .dma_src_rx = BOARD_UART2(HPM_DMA_SRC_UART, _RX)},
-#endif
-#ifdef BOARD_UART3
-    {.base = BOARD_UART3(HPM_UART, _BASE),
-     .irq_num = BOARD_UART3(IRQn_UART, ),
-     .dma_src_tx = BOARD_UART3(HPM_DMA_SRC_UART, _TX),
-     .dma_src_rx = BOARD_UART3(HPM_DMA_SRC_UART, _RX)},
-#endif
-};
-
-inline constinit Uart::Lazy uart_dbus{
-    data::DataId::kUartDbus, kDbusBoardConfig, 100000, parity_even};
-
-inline constinit Uart::Lazy uart_array[]{
-    Uart::Lazy{data::DataId::kUart0, kBoardConfigs[0], 115200, parity_none},
-    Uart::Lazy{data::DataId::kUart1, kBoardConfigs[1], 115200, parity_none},
-#ifdef BOARD_UART2
-    Uart::Lazy{data::DataId::kUart2, kBoardConfigs[2], 115200, parity_none},
-#endif
-#ifdef BOARD_UART3
-    Uart::Lazy{data::DataId::kUart3, kBoardConfigs[3], 115200, parity_none},
-#endif
-};
-
-constexpr size_t kUartCount = std::size(uart_array);
 
 } // namespace librmcs::firmware::uart

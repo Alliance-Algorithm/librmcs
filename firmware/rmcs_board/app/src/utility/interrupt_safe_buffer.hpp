@@ -10,9 +10,10 @@
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
+#include "firmware/rmcs_board/app/src/buzzer/status_buzzer.hpp"
 #include "firmware/rmcs_board/app/src/led/led.hpp"
 
-namespace librmcs::firmware::usb {
+namespace librmcs::firmware::utility {
 
 class InterruptSafeBuffer final
     : public core::protocol::SerializeBuffer
@@ -45,6 +46,7 @@ public:
             auto writeable = kBatchCount - readable - 1;
             if (!writeable) {
                 led::led->uplink_buffer_full();
+                buzzer::StatusBuzzer::uplink_buffer_full();
                 return {};
             }
 
@@ -133,4 +135,4 @@ private:
     Batch batches_[kBatchCount];
 };
 
-} // namespace librmcs::firmware::usb
+} // namespace librmcs::firmware::utility

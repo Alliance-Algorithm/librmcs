@@ -10,9 +10,9 @@
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "firmware/rmcs_board/app/src/gpio/gpio_pin.hpp"
+#include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/base.hpp"
 #include "firmware/rmcs_board/app/src/spi/spi.hpp"
-#include "firmware/rmcs_board/app/src/usb/vendor.hpp"
 #include "firmware/rmcs_board/app/src/utility/interrupt_lock.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
@@ -139,7 +139,8 @@ private:
         core::utility::assert_debug(!size || has_active_capture_timestamp);
         if (size && has_active_capture_timestamp) [[likely]] {
             auto& data = parse_rx_data(spi_.rx_buffer, size);
-            handle_uplink(usb::vendor->serializer(), data, active_capture_timestamp_quarter_us);
+            handle_uplink(
+                Peripherals::uplink_serializer(), data, active_capture_timestamp_quarter_us);
         }
         spi_.unlock();
     }

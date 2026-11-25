@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include <hpm_gptmr_drv.h>
+#include <hpm_interrupt.h>
 #include <hpm_soc.h>
 #include <hpm_soc_irq.h>
 

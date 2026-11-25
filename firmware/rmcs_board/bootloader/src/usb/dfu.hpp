@@ -13,7 +13,7 @@
 #include "firmware/rmcs_board/bootloader/src/flash/metadata.hpp"
 #include "firmware/rmcs_board/bootloader/src/flash/validation.hpp"
 #include "firmware/rmcs_board/bootloader/src/flash/writer.hpp"
-#include "firmware/rmcs_board/bootloader/src/utility/boot_mailbox.hpp"
+#include "firmware/rmcs_board/common/boot_mailbox.hpp"
 
 namespace librmcs::firmware::usb {
 

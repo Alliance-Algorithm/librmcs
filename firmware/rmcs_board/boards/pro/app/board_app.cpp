@@ -14,32 +14,33 @@
 #include <hpm_spi_regs.h>
 #include <hpm_uart_regs.h>
 
+#include "firmware/rmcs_board/app/src/can/can.hpp"
+#include "firmware/rmcs_board/app/src/spi/spi.hpp"
+#include "firmware/rmcs_board/app/src/uart/uart.hpp"
+#include "firmware/rmcs_board/boards/uart_ports.hpp"
+
+namespace librmcs::firmware::can {
+
+void Can::init_pins(MCAN_Type* ptr) {
+    if (ptr == HPM_MCAN0) {
+        HPM_IOC->PAD[IOC_PAD_PA17].FUNC_CTL = IOC_PA17_FUNC_CTL_MCAN0_RXD;
+        HPM_IOC->PAD[IOC_PAD_PA16].FUNC_CTL = IOC_PA16_FUNC_CTL_MCAN0_TXD;
+    } else if (ptr == HPM_MCAN1) {
+        HPM_IOC->PAD[IOC_PAD_PA20].FUNC_CTL = IOC_PA20_FUNC_CTL_MCAN1_RXD;
+        HPM_IOC->PAD[IOC_PAD_PA21].FUNC_CTL = IOC_PA21_FUNC_CTL_MCAN1_TXD;
+    } else if (ptr == HPM_MCAN2) {
+        HPM_IOC->PAD[IOC_PAD_PA25].FUNC_CTL = IOC_PA25_FUNC_CTL_MCAN2_RXD;
+        HPM_IOC->PAD[IOC_PAD_PA24].FUNC_CTL = IOC_PA24_FUNC_CTL_MCAN2_TXD;
+    } else if (ptr == HPM_MCAN3) {
+        HPM_IOC->PAD[IOC_PAD_PA30].FUNC_CTL = IOC_PA30_FUNC_CTL_MCAN3_RXD;
+        HPM_IOC->PAD[IOC_PAD_PA31].FUNC_CTL = IOC_PA31_FUNC_CTL_MCAN3_TXD;
+    }
+}
+
+} // namespace librmcs::firmware::can
+
 namespace librmcs::firmware::board {
 namespace {
-
-uint32_t init_can_clock(MCAN_Type* ptr) {
-    if (ptr == HPM_MCAN0) {
-        clock_add_to_group(clock_can0, 0);
-        clock_set_source_divider(clock_can0, clk_src_pll1_clk0, 10);
-        return clock_get_frequency(clock_can0);
-    }
-    if (ptr == HPM_MCAN1) {
-        clock_add_to_group(clock_can1, 0);
-        clock_set_source_divider(clock_can1, clk_src_pll1_clk0, 10);
-        return clock_get_frequency(clock_can1);
-    }
-    if (ptr == HPM_MCAN2) {
-        clock_add_to_group(clock_can2, 0);
-        clock_set_source_divider(clock_can2, clk_src_pll1_clk0, 10);
-        return clock_get_frequency(clock_can2);
-    }
-    if (ptr == HPM_MCAN3) {
-        clock_add_to_group(clock_can3, 0);
-        clock_set_source_divider(clock_can3, clk_src_pll1_clk0, 10);
-        return clock_get_frequency(clock_can3);
-    }
-    return 0;
-}
 
 inline uint32_t init_uart_clock(UART_Type* ptr) {
     if (ptr == HPM_UART0) {
@@ -83,24 +84,11 @@ inline uint32_t init_spi_clock(SPI_Type* ptr) {
 
 } // namespace
 
-uint32_t init_can(MCAN_Type* ptr) {
-    if (ptr == HPM_MCAN0) {
-        HPM_IOC->PAD[IOC_PAD_PA17].FUNC_CTL = IOC_PA17_FUNC_CTL_MCAN0_RXD;
-        HPM_IOC->PAD[IOC_PAD_PA16].FUNC_CTL = IOC_PA16_FUNC_CTL_MCAN0_TXD;
-    } else if (ptr == HPM_MCAN1) {
-        HPM_IOC->PAD[IOC_PAD_PA20].FUNC_CTL = IOC_PA20_FUNC_CTL_MCAN1_RXD;
-        HPM_IOC->PAD[IOC_PAD_PA21].FUNC_CTL = IOC_PA21_FUNC_CTL_MCAN1_TXD;
-    } else if (ptr == HPM_MCAN2) {
-        HPM_IOC->PAD[IOC_PAD_PA25].FUNC_CTL = IOC_PA25_FUNC_CTL_MCAN2_RXD;
-        HPM_IOC->PAD[IOC_PAD_PA24].FUNC_CTL = IOC_PA24_FUNC_CTL_MCAN2_TXD;
-    } else if (ptr == HPM_MCAN3) {
-        HPM_IOC->PAD[IOC_PAD_PA30].FUNC_CTL = IOC_PA30_FUNC_CTL_MCAN3_RXD;
-        HPM_IOC->PAD[IOC_PAD_PA31].FUNC_CTL = IOC_PA31_FUNC_CTL_MCAN3_TXD;
-    }
-    return init_can_clock(ptr);
-}
+} // namespace librmcs::firmware::board
 
-uint32_t init_uart(UART_Type* ptr) {
+namespace librmcs::firmware::uart {
+
+uint32_t Uart::init_hardware(UART_Type* ptr) {
     constexpr uint32_t tx_pad = IOC_PAD_PAD_CTL_PE_SET(1) | // Pull enable
                                 IOC_PAD_PAD_CTL_PS_SET(1);  // Pull select - Pull up
     constexpr uint32_t rx_pad = IOC_PAD_PAD_CTL_PE_SET(1) | // Pull enable
@@ -144,64 +132,12 @@ uint32_t init_uart(UART_Type* ptr) {
         HPM_IOC->PAD[IOC_PAD_PA22].PAD_CTL = rx_pad;
     }
 
-    return init_uart_clock(ptr);
+    return board::init_uart_clock(ptr);
 }
 
-uint32_t init_spi(SPI_Type* ptr) {
-    if (ptr == HPM_SPI1) { // SPI1: W25Q128
-        HPM_IOC->PAD[IOC_PAD_PA27].FUNC_CTL =
-            IOC_PA27_FUNC_CTL_SPI1_SCLK | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;
+} // namespace librmcs::firmware::uart
 
-        HPM_IOC->PAD[IOC_PAD_PA29].FUNC_CTL = IOC_PA29_FUNC_CTL_SPI1_MOSI;
-        HPM_IOC->PAD[IOC_PAD_PA28].FUNC_CTL = IOC_PA28_FUNC_CTL_SPI1_MISO;
-        HPM_IOC->PAD[IOC_PAD_PA26].FUNC_CTL = IOC_PA26_FUNC_CTL_SPI1_CS_0;
-
-    } else if (ptr == HPM_SPI2) { // SPI2: BMI088
-        HPM_IOC->PAD[IOC_PAD_PB11].FUNC_CTL =
-            IOC_PB11_FUNC_CTL_SPI2_SCLK | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;
-
-        HPM_IOC->PAD[IOC_PAD_PB13].FUNC_CTL = IOC_PB13_FUNC_CTL_SPI2_MOSI;
-        HPM_IOC->PAD[IOC_PAD_PB12].FUNC_CTL = IOC_PB12_FUNC_CTL_SPI2_MISO;
-
-        kBmi088GyroIntPin.configure_controller();
-        kBmi088GyroIntPin.configure_ioc_function();
-        kBmi088GyroIntPin.configure_as_input();
-        kBmi088GyroIntPin.configure_interrupt(gpio_interrupt_trigger_edge_falling);
-        kBmi088GyroIntPin.clear_interrupt_flag();
-        kBmi088GyroIntPin.enable_interrupt();
-        intc_m_enable_irq_with_priority(IRQn_GPIO0_B, 1);
-
-        kBmi088AccelIntPin.configure_controller();
-        kBmi088AccelIntPin.configure_pioc_function();
-        kBmi088AccelIntPin.configure_ioc_function();
-        kBmi088AccelIntPin.configure_as_input();
-        kBmi088AccelIntPin.configure_interrupt(gpio_interrupt_trigger_edge_falling);
-        kBmi088AccelIntPin.clear_interrupt_flag();
-        kBmi088AccelIntPin.enable_interrupt();
-        intc_m_enable_irq_with_priority(IRQn_GPIO0_Y, 1);
-
-        kBmi088GyroChipSelectPin.configure_controller();
-        kBmi088GyroChipSelectPin.configure_ioc_function();
-        kBmi088GyroChipSelectPin.set_active(false);
-        kBmi088GyroChipSelectPin.configure_as_output();
-
-        kBmi088AccelChipSelectPin.configure_controller();
-        kBmi088AccelChipSelectPin.configure_ioc_function();
-        kBmi088AccelChipSelectPin.set_active(false);
-        kBmi088AccelChipSelectPin.configure_as_output();
-
-    } else if (ptr == HPM_SPI3) { // SPI3: PinSocket Output
-        HPM_IOC->PAD[IOC_PAD_PA11].FUNC_CTL =
-            IOC_PA11_FUNC_CTL_SPI3_SCLK | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;
-        HPM_IOC->PAD[IOC_PAD_PA12].FUNC_CTL = IOC_PA12_FUNC_CTL_SPI3_MISO;
-        HPM_IOC->PAD[IOC_PAD_PA13].FUNC_CTL = IOC_PA13_FUNC_CTL_SPI3_MOSI;
-
-        HPM_IOC->PAD[IOC_PAD_PA10].FUNC_CTL = IOC_PA10_FUNC_CTL_SPI3_CS_0;
-        HPM_IOC->PAD[IOC_PAD_PA09].FUNC_CTL = IOC_PA09_FUNC_CTL_SPI3_CS_1;
-    }
-
-    return init_spi_clock(ptr);
-}
+namespace librmcs::firmware::board {
 
 void init_user_button_and_switch_pins() {
     kUserButtonPin.configure_controller();
@@ -256,34 +192,78 @@ void gpio_bmi088_int_accel_isr() {
     gpio_irq_handler(GPIO_DI_GPIOY);
 }
 
-SDK_DECLARE_EXT_ISR_M(BOARD_CAN0(IRQn_MCAN, ), can0_isr)
-void can0_isr() { can_irq_handler(0); }
-
-SDK_DECLARE_EXT_ISR_M(BOARD_CAN1(IRQn_MCAN, ), can1_isr)
-void can1_isr() { can_irq_handler(1); }
-
-SDK_DECLARE_EXT_ISR_M(BOARD_CAN2(IRQn_MCAN, ), can2_isr)
-void can2_isr() { can_irq_handler(2); }
-
-SDK_DECLARE_EXT_ISR_M(BOARD_CAN3(IRQn_MCAN, ), can3_isr)
-void can3_isr() { can_irq_handler(3); }
-
 SDK_DECLARE_EXT_ISR_M(BOARD_UART0(IRQn_UART, ), uart0_isr)
-void uart0_isr() { uart_irq_handler(0); }
+void uart0_isr() { uart_array[0]->irq_handler(); }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_UART1(IRQn_UART, ), uart1_isr)
-void uart1_isr() { uart_irq_handler(1); }
+void uart1_isr() { uart_array[1]->irq_handler(); }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_UART2(IRQn_UART, ), uart2_isr)
-void uart2_isr() { uart_irq_handler(2); }
+void uart2_isr() { uart_array[2]->irq_handler(); }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_UART3(IRQn_UART, ), uart3_isr)
-void uart3_isr() { uart_irq_handler(3); }
+void uart3_isr() { uart_array[3]->irq_handler(); }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_UART_DBUS(IRQn_UART, ), uart_dbus_isr)
-void uart_dbus_isr() { uart_dbus_irq_handler(); }
+void uart_dbus_isr() { uart_dbus->irq_handler(); }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_SPI_BMI088(IRQn_SPI, ), spi_isr)
 void spi_isr() { spi_bmi088_irq_handler(); }
 
 } // namespace librmcs::firmware::board
+
+uint32_t librmcs::firmware::spi::Spi::init_hardware(SPI_Type* ptr) {
+    if (ptr == HPM_SPI1) { // SPI1: W25Q128
+        HPM_IOC->PAD[IOC_PAD_PA27].FUNC_CTL =
+            IOC_PA27_FUNC_CTL_SPI1_SCLK | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;
+
+        HPM_IOC->PAD[IOC_PAD_PA29].FUNC_CTL = IOC_PA29_FUNC_CTL_SPI1_MOSI;
+        HPM_IOC->PAD[IOC_PAD_PA28].FUNC_CTL = IOC_PA28_FUNC_CTL_SPI1_MISO;
+        HPM_IOC->PAD[IOC_PAD_PA26].FUNC_CTL = IOC_PA26_FUNC_CTL_SPI1_CS_0;
+
+    } else if (ptr == HPM_SPI2) { // SPI2: BMI088
+        HPM_IOC->PAD[IOC_PAD_PB11].FUNC_CTL =
+            IOC_PB11_FUNC_CTL_SPI2_SCLK | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;
+
+        HPM_IOC->PAD[IOC_PAD_PB13].FUNC_CTL = IOC_PB13_FUNC_CTL_SPI2_MOSI;
+        HPM_IOC->PAD[IOC_PAD_PB12].FUNC_CTL = IOC_PB12_FUNC_CTL_SPI2_MISO;
+
+        board::kBmi088GyroIntPin.configure_controller();
+        board::kBmi088GyroIntPin.configure_ioc_function();
+        board::kBmi088GyroIntPin.configure_as_input();
+        board::kBmi088GyroIntPin.configure_interrupt(gpio_interrupt_trigger_edge_falling);
+        board::kBmi088GyroIntPin.clear_interrupt_flag();
+        board::kBmi088GyroIntPin.enable_interrupt();
+        intc_m_enable_irq_with_priority(IRQn_GPIO0_B, 1);
+
+        board::kBmi088AccelIntPin.configure_controller();
+        board::kBmi088AccelIntPin.configure_pioc_function();
+        board::kBmi088AccelIntPin.configure_ioc_function();
+        board::kBmi088AccelIntPin.configure_as_input();
+        board::kBmi088AccelIntPin.configure_interrupt(gpio_interrupt_trigger_edge_falling);
+        board::kBmi088AccelIntPin.clear_interrupt_flag();
+        board::kBmi088AccelIntPin.enable_interrupt();
+        intc_m_enable_irq_with_priority(IRQn_GPIO0_Y, 1);
+
+        board::kBmi088GyroChipSelectPin.configure_controller();
+        board::kBmi088GyroChipSelectPin.configure_ioc_function();
+        board::kBmi088GyroChipSelectPin.set_active(false);
+        board::kBmi088GyroChipSelectPin.configure_as_output();
+
+        board::kBmi088AccelChipSelectPin.configure_controller();
+        board::kBmi088AccelChipSelectPin.configure_ioc_function();
+        board::kBmi088AccelChipSelectPin.set_active(false);
+        board::kBmi088AccelChipSelectPin.configure_as_output();
+
+    } else if (ptr == HPM_SPI3) { // SPI3: PinSocket Output
+        HPM_IOC->PAD[IOC_PAD_PA11].FUNC_CTL =
+            IOC_PA11_FUNC_CTL_SPI3_SCLK | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;
+        HPM_IOC->PAD[IOC_PAD_PA12].FUNC_CTL = IOC_PA12_FUNC_CTL_SPI3_MISO;
+        HPM_IOC->PAD[IOC_PAD_PA13].FUNC_CTL = IOC_PA13_FUNC_CTL_SPI3_MOSI;
+
+        HPM_IOC->PAD[IOC_PAD_PA10].FUNC_CTL = IOC_PA10_FUNC_CTL_SPI3_CS_0;
+        HPM_IOC->PAD[IOC_PAD_PA09].FUNC_CTL = IOC_PA09_FUNC_CTL_SPI3_CS_1;
+    }
+
+    return board::init_spi_clock(ptr);
+}

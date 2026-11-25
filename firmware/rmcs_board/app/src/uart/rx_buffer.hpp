@@ -171,7 +171,7 @@ private:
     static_assert(std::is_standard_layout_v<dma_mgr_linked_descriptor_t>);
     static_assert(std::is_standard_layout_v<dma_linked_descriptor_t>);
     static_assert(sizeof(dma_mgr_linked_descriptor_t) == sizeof(dma_linked_descriptor_t));
-    static_assert(sizeof(dma_linked_descriptor_t) == HPM_L1C_CACHELINE_SIZE);
+    static_assert(sizeof(dma_linked_descriptors_) % HPM_L1C_CACHELINE_SIZE == 0);
 
     UART_Type* uart_base_;
     dma_resource_t dma_;
