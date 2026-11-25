@@ -26,12 +26,17 @@ class UsbDescriptors {
 public:
     UsbDescriptors() { update_serial_string(); }
 
+    void set_vendor_enabled(bool enabled) { vendor_enabled_ = enabled; }
+
     static uint8_t const* get_device_descriptor() {
         return reinterpret_cast<uint8_t const*>(&kDeviceDescriptor);
     }
 
-    static uint8_t const* get_configuration_descriptor(uint8_t index) {
+    uint8_t const* get_configuration_descriptor(uint8_t index) const {
         (void)index; // For multiple configurations
+
+        if (!vendor_enabled_)
+            return kConfigurationDescriptorDfu;
 
         if constexpr (TUD_OPT_HIGH_SPEED)
             return (tud_speed_get() == TUSB_SPEED_HIGH) ? kConfigurationDescriptorHs
@@ -159,7 +164,14 @@ private: // Device Descriptor
     };
 
 private: // Configuration Descriptor
-         // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class)
+    static constexpr size_t kDfuConfigTotalLen = TUD_CONFIG_DESC_LEN + TUD_DFU_RT_DESC_LEN;
+    static constexpr uint8_t const kConfigurationDescriptorDfu[] = {
+        TUD_CONFIG_DESCRIPTOR(1, 1, 0, kDfuConfigTotalLen, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
+        TUD_DFU_RT_DESCRIPTOR(0, 4, DFU_ATTR_CAN_DOWNLOAD | DFU_ATTR_WILL_DETACH, 1000, 1024),
+    };
+    static_assert(sizeof(kConfigurationDescriptorDfu) == kDfuConfigTotalLen);
+
+    // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class)
     enum InterfaceNumber : uint8_t {
 #if CFG_TUD_VENDOR
         kItfNumVendor = 0,
@@ -212,6 +224,7 @@ private: // String Descriptor
     std::array<char, 43> serial_string_{"AF-0000-0000-0000-0000-0000-0000-0000-0000"};
 
     std::array<uint16_t, 128> descriptor_string_buffer_{};
+    bool vendor_enabled_ = true;
 };
 inline constinit utility::Lazy<UsbDescriptors> usb_descriptors;
 

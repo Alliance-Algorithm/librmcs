@@ -4,16 +4,16 @@
 #include <device/usbd.h>
 #include <hpm_dma_mgr.h>
 
+#if defined(LIBRMCS_ENABLE_ETHERCAT)
+# include "board_app.hpp"
+# include "firmware/rmcs_board/app/src/ecat/slave.hpp"
+#endif
 #include "firmware/rmcs_board/app/src/led/led.hpp"
 #include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/timer/timer.hpp"
 #include "firmware/rmcs_board/app/src/usb/dcd_recovery.hpp"
 #include "firmware/rmcs_board/app/src/usb/device.hpp"
-#if defined(LIBRMCS_ENABLE_ETHERCAT)
-# include "firmware/rmcs_board/app/src/ecat/slave.hpp"
-#else
-# include "firmware/rmcs_board/app/src/usb/vendor.hpp"
-#endif
+#include "firmware/rmcs_board/app/src/usb/vendor.hpp"
 #include "firmware/rmcs_board/app/src/utility/interrupt_lock.hpp"
 #include "firmware/rmcs_board/app/src/watchdog/watchdog.hpp"
 #include "firmware/rmcs_board/common/boot_mailbox.hpp"
@@ -36,11 +36,17 @@ App::App() {
     timer::timer.init();
 
 #if defined(LIBRMCS_ENABLE_ETHERCAT)
-    ecat::slave.init().start();
+    board::init_user_button_and_switch_pins();
+    const bool ethercat_selected = board::kModeSwitchPin.is_active();
+    if (ethercat_selected)
+        ecat::slave.init().start();
+    else
+        usb::vendor.init();
+    usb::Device::init(!ethercat_selected);
 #else
     usb::vendor.init();
-#endif
     usb::Device::init();
+#endif
     Peripherals::init();
 }
 
@@ -53,10 +59,11 @@ App::App() {
         }
 
         tud_task();
+        if (auto* vendor = usb::vendor.try_get())
+            vendor->try_transmit();
 #if defined(LIBRMCS_ENABLE_ETHERCAT)
-        ecat::slave->poll();
-#else
-        usb::vendor->try_transmit();
+        else
+            ecat::slave->poll();
 #endif
 
         Peripherals::poll();
@@ -66,10 +73,10 @@ App::App() {
 
 core::protocol::Serializer& Peripherals::uplink_serializer() {
 #if defined(LIBRMCS_ENABLE_ETHERCAT)
-    return ecat::slave->serializer();
-#else
-    return usb::vendor->serializer();
+    if (auto* slave = ecat::slave.try_get())
+        return slave->serializer();
 #endif
+    return usb::vendor->serializer();
 }
 
 } // namespace librmcs::firmware
