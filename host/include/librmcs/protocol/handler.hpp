@@ -21,6 +21,7 @@ public:
         ~PacketBuilder() noexcept;
 
         bool write_can(data::DataId field_id, const data::CanDataView& view) noexcept;
+        bool try_write_can(data::DataId field_id, const data::CanDataView& view) noexcept;
 
         bool write_uart(data::DataId field_id, const data::UartDataView& view) noexcept;
 

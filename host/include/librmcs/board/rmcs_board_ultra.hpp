@@ -26,6 +26,8 @@ public:
             static constexpr spec::rmcs_board_ultra::internal::CanDescriptors kCans{};
         };
 
+        using Can = Spec::Can;
+
         struct View {
             using Can = data::CanDataView;
             using ImuAccelerometer = data::ImuAccelerometerDataView;
@@ -97,6 +99,10 @@ public:
     };
 
     PacketBuilder start_transmit() noexcept { return PacketBuilder{handler_}; }
+
+    bool try_can_transmit(const Callback::Can& can, const data::CanDataView& frame) noexcept {
+        return connected() && handler_.start_transmit().try_write_can(can.data_id, frame);
+    }
 
 private:
     static inline Callback default_callback_{};
