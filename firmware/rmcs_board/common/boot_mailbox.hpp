@@ -3,9 +3,8 @@
 #include <array>
 #include <cstdint>
 
-#include <hpm_soc.h>
-
 #include <hpm_ppor_drv.h>
+#include <hpm_soc.h>
 
 #ifdef BOARD_BOOT_MAILBOX_PGPR
 # include <riscv/riscv_core.h>
