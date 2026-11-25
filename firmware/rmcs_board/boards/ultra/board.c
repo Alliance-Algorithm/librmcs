@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include <hpm_clock_drv.h>
+#include <hpm_common.h>
 #include <hpm_gpio_drv.h>
 #include <hpm_gpio_regs.h>
 #include <hpm_gpiom_drv.h>
@@ -10,7 +11,9 @@
 #include <hpm_gpiom_soc_drv.h>
 #include <hpm_ioc_regs.h>
 #include <hpm_iomux.h>
+#include <hpm_l1c_drv.h>
 #include <hpm_pllctlv2_drv.h>
+#include <hpm_pmp_drv.h>
 #include <hpm_soc.h>
 #include <hpm_soc_feature.h>
 #include <hpm_sysctl_drv.h>
@@ -20,6 +23,11 @@
 __attribute__((section(".nor_cfg_option"), used)) const uint32_t kOption[] = {
     BOARD_APP_XPI_NOR_CFG_OPT_HDR, BOARD_APP_XPI_NOR_CFG_OPT_OPT0, BOARD_APP_XPI_NOR_CFG_OPT_OPT1,
     0};
+#endif
+
+#if defined(FLASH_UF2) && FLASH_UF2
+ATTR_PLACE_AT(".uf2_signature")
+__attribute__((used)) const uint32_t kUf2Signature = BOARD_UF2_SIGNATURE;
 #endif
 
 void board_init(void) {
@@ -38,11 +46,31 @@ void board_init(void) {
     clock_add_to_group(clock_rom0, 0);
     clock_add_to_group(clock_xpi0, 0);
     clock_add_to_group(clock_gpio, 0);
+#if defined(FLASH_UF2) && FLASH_UF2
+    clock_add_to_group(clock_hdma, 0);
+    clock_add_to_group(clock_xdma, 0);
+#endif
     clock_add_to_group(clock_mchtmr0, 0);
     clock_connect_group_to_cpu(0, 0);
 
     clock_update_core_clock();
     clock_set_source_divider(clock_mchtmr0, clk_src_osc24m, 6);
+
+#if defined(FLASH_UF2) && FLASH_UF2
+    // The linker aligns this AXI SRAM region for NAPOT; USB DMA needs it uncached.
+    // NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming)
+    extern uint8_t __noncacheable_start__[], __noncacheable_end__[];
+    const uintptr_t dma_start = (uintptr_t)__noncacheable_start__;
+    const uint32_t dma_size = (uint32_t)((uintptr_t)__noncacheable_end__ - dma_start);
+    if (l1c_dc_is_enabled()) {
+        l1c_dc_flush(dma_start, dma_size);
+    }
+    const pma_attr_t dma_region = {
+        .pma_cfg.val = PMA_CFG(ADDR_MATCH_NAPOT, MEM_TYPE_MEM_NON_CACHE_BUF, AMO_EN),
+        .pma_addr = PMA_NAPOT_ADDR(dma_start, dma_size),
+    };
+    (void)pma_config_attributes(&dma_region, 1U);
+#endif
 }
 
 bool board_check_bootloader_force_stay_requested(void) {

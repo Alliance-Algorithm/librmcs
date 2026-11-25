@@ -62,13 +62,9 @@ add_rmcs_board_subbuild(
     -DBOARD_BOOTLOADER_MODE=${BOARD_BOOTLOADER_MODE}
 )
 
-set(rmcs_board_targets rmcs_board_bootloader)
-set(rmcs_board_compile_commands "${CMAKE_CURRENT_BINARY_DIR}/bootloader/compile_commands.json")
-if(NOT BOARD STREQUAL "ultra")
-    add_rmcs_board_subbuild(rmcs_board_app app)
-    list(PREPEND rmcs_board_targets rmcs_board_app)
-    list(PREPEND rmcs_board_compile_commands "${CMAKE_CURRENT_BINARY_DIR}/app/compile_commands.json")
-endif()
+add_rmcs_board_subbuild(rmcs_board_app app)
+set(RMCS_BOARD_APP_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/app/compile_commands.json")
+set(RMCS_BOARD_BOOTLOADER_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/bootloader/compile_commands.json")
 set(RMCS_BOARD_MERGED_COMPILE_COMMANDS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
 
 add_custom_command(
@@ -76,11 +72,13 @@ add_custom_command(
     COMMAND
     ${CMAKE_COMMAND}
     "-DOUTPUT_FILE=${RMCS_BOARD_MERGED_COMPILE_COMMANDS}"
-    "-DINPUT_FILES=${rmcs_board_compile_commands}"
+    "-DINPUT_FILES=${RMCS_BOARD_APP_COMPILE_COMMANDS};${RMCS_BOARD_BOOTLOADER_COMPILE_COMMANDS}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/merge_compile_commands.cmake"
     DEPENDS
-    ${rmcs_board_targets}
-    ${rmcs_board_compile_commands}
+    rmcs_board_app
+    rmcs_board_bootloader
+    "${RMCS_BOARD_APP_COMPILE_COMMANDS}"
+    "${RMCS_BOARD_BOOTLOADER_COMPILE_COMMANDS}"
     COMMENT "Merging rmcs_board compile commands"
     VERBATIM
 )

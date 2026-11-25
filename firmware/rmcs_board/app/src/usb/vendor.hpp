@@ -8,22 +8,16 @@
 #include <class/vendor/vendor_device.h>
 #include <common/tusb_types.h>
 #include <device/usbd.h>
-#include <tusb.h>
 
-#include "board_app.hpp"
 #include "core/include/librmcs/data/datas.hpp"
-#include "core/include/librmcs/spec/gpio.hpp"
 #include "core/src/protocol/deserializer.hpp"
 #include "core/src/protocol/protocol.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
-#include "firmware/rmcs_board/app/src/can/can.hpp"
-#include "firmware/rmcs_board/app/src/gpio/gpio.hpp"
+#include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/timer/timer.hpp"
-#include "firmware/rmcs_board/app/src/uart/uart.hpp"
 #include "firmware/rmcs_board/app/src/usb/interrupt_safe_buffer.hpp"
-#include "firmware/rmcs_board/app/src/usb/usb_descriptors.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::usb {
@@ -35,17 +29,6 @@ public:
     using Lazy = utility::Lazy<Vendor>;
 
     static constexpr uint64_t kSessionLeaseQuarterUs = 4'000'000;
-
-    Vendor() {
-        usb::usb_descriptors.init();
-
-        board::init_user_button_and_switch_pins();
-        const tusb_rhport_init_t init_config{
-            .role = TUSB_ROLE_DEVICE,
-            .speed = board::kUserHsFsSwitchPin.is_active() ? TUSB_SPEED_HIGH : TUSB_SPEED_FULL,
-        };
-        core::utility::assert_always(tusb_rhport_init(0, &init_config));
-    }
 
     core::protocol::Serializer& serializer() { return serializer_; }
 
@@ -115,95 +98,42 @@ private:
         core::protocol::FieldId id, const data::CanDataView& data) override {
         if (!session_established_)
             return true;
-        switch (id) {
-        case data::DataId::kCan0: can::can_array[0]->handle_downlink(data); return true;
-        case data::DataId::kCan1: can::can_array[1]->handle_downlink(data); return true;
-        case data::DataId::kCan2: can::can_array[2]->handle_downlink(data); return true;
-        case data::DataId::kCan3: can::can_array[3]->handle_downlink(data); return true;
-        default: return false;
-        }
+        return Peripherals::write_can(id, data);
     }
 
     bool uart_deserialized_callback(
         core::protocol::FieldId id, const data::UartDataView& data) override {
         if (!session_established_)
             return true;
-        switch (id) {
-        case data::DataId::kUart0: uart::uart_array[0]->handle_downlink(data); return true;
-        case data::DataId::kUart1: uart::uart_array[1]->handle_downlink(data); return true;
-#ifdef BOARD_UART2
-        case data::DataId::kUart2: uart::uart_array[2]->handle_downlink(data); return true;
-#endif
-#ifdef BOARD_UART3
-        case data::DataId::kUart3: uart::uart_array[3]->handle_downlink(data); return true;
-#endif
-        default: return false;
-        }
+        return Peripherals::write_uart(id, data);
     }
 
     bool uart_config_deserialized_callback(
         core::protocol::FieldId id, const data::UartConfigView& data) override {
         if (!session_established_)
             return true;
-        switch (id) {
-        case data::DataId::kUartDbusConfig: uart::uart_dbus->handle_config(data); return true;
-        case data::DataId::kUart0Config: uart::uart_array[0]->handle_config(data); return true;
-        case data::DataId::kUart1Config: uart::uart_array[1]->handle_config(data); return true;
-#ifdef BOARD_UART2
-        case data::DataId::kUart2Config: uart::uart_array[2]->handle_config(data); return true;
-#endif
-#ifdef BOARD_UART3
-        case data::DataId::kUart3Config: uart::uart_array[3]->handle_config(data); return true;
-#endif
-        default: return false;
-        }
+        return Peripherals::configure_uart(id, data);
     }
 
     bool gpio_digital_data_deserialized_callback(
         uint8_t channel_index, const data::GpioDigitalDataView& data) override {
         if (!session_established_)
             return true;
-        if (data.timestamp_quarter_us.has_value())
-            return false;
-        if (channel_index >= board::spec::kGpioDescriptors.size())
-            return false;
-
-        const auto& gpio_descriptor = board::spec::kGpioDescriptors[channel_index];
-        if (!gpio_descriptor.supports(spec::GpioCapability::kDigitalWrite))
-            return false;
-
-        gpio::gpio->handle_digital_write(channel_index, data);
-        return true;
+        return Peripherals::write_gpio_digital(channel_index, data);
     }
 
     bool gpio_analog_data_deserialized_callback(
         uint8_t channel_index, const data::GpioAnalogDataView& data) override {
         if (!session_established_)
             return true;
-        if (channel_index >= board::spec::kGpioDescriptors.size())
-            return false;
-
-        const auto& gpio_descriptor = board::spec::kGpioDescriptors[channel_index];
-        if (!gpio_descriptor.supports(spec::GpioCapability::kAnalogWrite))
-            return false;
-
-        gpio::gpio->handle_analog_write(channel_index, data);
-        return true;
+        return Peripherals::write_gpio_analog(channel_index, data);
     }
 
     bool gpio_digital_read_config_deserialized_callback(
         uint8_t channel_index, const data::GpioReadConfigView& data) override {
         if (!session_established_)
             return true;
-        if (channel_index >= board::spec::kGpioDescriptors.size())
-            return false;
-
-        const auto& gpio_descriptor = board::spec::kGpioDescriptors[channel_index];
-        if (!data.supported(gpio_descriptor))
-            return false;
-
-        gpio::gpio->handle_digital_read(channel_index, data);
-        return true;
+        return Peripherals::configure_gpio_digital(channel_index, data);
     }
 
     bool gpio_analog_read_config_deserialized_callback(

@@ -6,9 +6,14 @@
 #include <hpm_common.h>
 #include <hpm_ppor_drv.h>
 #include <hpm_soc.h>
-#include <hpm_sysctl_drv.h>
 
-#include "firmware/rmcs_board/bootloader/src/utility/assert.hpp"
+#ifdef BOARD_BOOT_MAILBOX_PGPR
+# include <riscv/riscv_core.h>
+#else
+# include <hpm_sysctl_drv.h>
+
+# include "core/src/utility/assert.hpp"
+#endif
 
 namespace librmcs::firmware::boot {
 
@@ -22,6 +27,11 @@ public:
         return consume_request(kMailboxRequestBootAppOnce);
     }
 
+    [[noreturn]] static void reboot_to_bootloader() {
+        write_pair(kMailboxMagic, kMailboxRequestEnterDfu);
+        reboot();
+    }
+
     [[noreturn]] static void reboot_to_app_once() {
         write_pair(kMailboxMagic, kMailboxRequestBootAppOnce);
         reboot();
@@ -29,37 +39,54 @@ public:
 
     [[noreturn]] static void reboot() {
         ppor_reset_mask_set_source_enable(HPM_PPOR, ppor_reset_software);
+#ifdef BOARD_BOOT_MAILBOX_PGPR
+        // PGPR survives a system cold reset. Order the mailbox writes before triggering it.
+        ppor_reset_set_cold_reset_enable(HPM_PPOR, ppor_reset_software);
+        fenceiorw();
+#else
         ppor_reset_set_hot_reset_enable(HPM_PPOR, ppor_reset_software);
+#endif
         ppor_sw_reset(HPM_PPOR, 10U);
-        while (true)
-            ;
+        while (true) {}
     }
 
 private:
+    static constexpr uint32_t kMailboxMagic = 0x524D4353U;              // "RMCS"
+    static constexpr uint32_t kMailboxRequestEnterDfu = 0x44465530U;    // "DFU0"
+    static constexpr uint32_t kMailboxRequestBootAppOnce = 0x41505031U; // "APP1"
+
     static bool consume_request(uint32_t request) {
         const auto values = read_pair();
         clear();
         return values[0] == kMailboxMagic && values[1] == request;
     }
 
-    static constexpr uint32_t kMailboxMagic = 0x524D4353U;              // "RMCS"
-    static constexpr uint32_t kMailboxRequestEnterDfu = 0x44465530U;    // "DFU0"
-    static constexpr uint32_t kMailboxRequestBootAppOnce = 0x41505031U; // "APP1"
-    static constexpr uint8_t kMagicGprIndex = 12U;
-
     static std::array<uint32_t, 2> read_pair() {
+#ifdef BOARD_BOOT_MAILBOX_PGPR
+        return {BOARD_BOOT_MAILBOX_PGPR->PMIC_GPR12, BOARD_BOOT_MAILBOX_PGPR->PMIC_GPR13};
+#else
         std::array<uint32_t, 2> values{};
-        utility::assert_always(
+        core::utility::assert_always(
             sysctl_cpu0_get_gpr(HPM_SYSCTL, kMagicGprIndex, values.size(), values.data())
             == status_success);
         return values;
+#endif
     }
 
     static void write_pair(uint32_t magic, uint32_t request) {
+#ifdef BOARD_BOOT_MAILBOX_PGPR
+        BOARD_BOOT_MAILBOX_PGPR->PMIC_GPR12 = magic;
+        BOARD_BOOT_MAILBOX_PGPR->PMIC_GPR13 = request;
+#else
         uint32_t values[2]{magic, request};
-        utility::assert_always(
+        core::utility::assert_always(
             sysctl_cpu0_set_gpr(HPM_SYSCTL, kMagicGprIndex, 2U, values, false) == status_success);
+#endif
     }
+
+#ifndef BOARD_BOOT_MAILBOX_PGPR
+    static constexpr uint8_t kMagicGprIndex = 12U;
+#endif
 };
 
 } // namespace librmcs::firmware::boot
