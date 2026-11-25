@@ -1,16 +1,19 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <iterator>
 
+#include <hpm_clock_drv.h>
 #include <hpm_common.h>
 #include <hpm_mcan_drv.h>
 #include <hpm_mcan_regs.h>
 #include <hpm_mcan_soc.h>
 #include <hpm_soc.h>
 #include <hpm_soc_feature.h>
+#include <hpm_soc_irq.h>
 
 #include "board_app.hpp"
 #include "core/include/librmcs/data/datas.hpp"
@@ -18,8 +21,9 @@
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
+#include "firmware/rmcs_board/app/src/buzzer/status_buzzer.hpp"
 #include "firmware/rmcs_board/app/src/led/led.hpp"
-#include "firmware/rmcs_board/app/src/usb/helper.hpp"
+#include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::can {
@@ -27,6 +31,7 @@ namespace librmcs::firmware::can {
 struct HardwareConfig {
     uint32_t base;
     uint32_t irq_num;
+    clock_name_t clock;
 };
 
 class Can : private core::utility::Immovable {
@@ -43,10 +48,13 @@ public:
             .ram_base = reinterpret_cast<uintptr_t>(ram_base),
             .ram_size = ram_size,
         };
-        auto status = mcan_set_msg_buf_attr(can_base_, &attr);
-        core::utility::assert_always(status == status_success);
+        core::utility::assert_always(mcan_set_msg_buf_attr(can_base_, &attr) == status_success);
 
-        const uint32_t can_source_clock_freq = board::init_can(can_base_);
+        init_pins(can_base_);
+        clock_add_to_group(board_config.clock, 0);
+        core::utility::assert_always(
+            clock_set_source_divider(board_config.clock, clk_src_pll1_clk0, 10) == status_success);
+        const uint32_t can_source_clock_freq = clock_get_frequency(board_config.clock);
 
         mcan_config_t config;
         mcan_get_default_config(can_base_, &config);
@@ -58,7 +66,8 @@ public:
         config.ram_config.txfifo_or_txqueue_mode = MCAN_TXBUF_OPERATION_MODE_FIFO;
         config.disable_auto_retransmission = true;
 
-        mcan_init(can_base_, &config, can_source_clock_freq);
+        core::utility::assert_always(
+            mcan_init(can_base_, &config, can_source_clock_freq) == status_success);
         mcan_enable_interrupts(can_base_, MCAN_INT_RXFIFO0_NEW_MSG);
         intc_m_enable_irq_with_priority(board_config.irq_num, 1);
     }
@@ -81,8 +90,10 @@ public:
             std::memcpy(frame.data_8, data.can_data.data(), data.can_data.size());
 
         const hpm_stat_t status = mcan_transmit_via_txfifo_nonblocking(can_base_, &frame, nullptr);
-        if (status != status_success)
+        if (status != status_success) {
             led::led->downlink_buffer_full();
+            buzzer::StatusBuzzer::downlink_buffer_full();
+        }
     }
 
     void handle_uplink(core::protocol::FieldId field_id, core::protocol::Serializer& serializer) {
@@ -94,7 +105,8 @@ public:
             core::utility::assert_always(status == status_success);
 
             data::CanDataView data;
-            const size_t data_length = rx.dlc;
+            // Classic CAN DLC values 8-15 all carry eight bytes; RTR carries none.
+            const size_t data_length = rx.rtr ? 0U : std::min<size_t>(rx.dlc, 8);
             data.is_fdcan = false;
             data.is_extended_can_id = rx.use_ext_id;
             data.is_remote_transmission = rx.rtr;
@@ -117,7 +129,7 @@ public:
         if (flags & MCAN_INT_RXFIFO0_NEW_MSG) [[likely]] {
             mcan_clear_interrupt_flags(can_base_, MCAN_INT_RXFIFO0_NEW_MSG);
 
-            auto& serializer = usb::get_serializer();
+            auto& serializer = Peripherals::uplink_serializer();
             handle_uplink(data_id_, serializer);
 
             remaining_flags &= ~MCAN_INT_RXFIFO0_NEW_MSG;
@@ -128,6 +140,8 @@ public:
     }
 
 private:
+    static void init_pins(MCAN_Type* ptr);
+
     const data::DataId data_id_;
     MCAN_Type* can_base_;
 };
@@ -137,10 +151,18 @@ inline constinit uint32_t can_msg_buffer[4][MCAN_MSG_BUF_SIZE_IN_WORDS]{};
 static_assert(MCAN_SOC_MSG_BUF_IN_AHB_RAM == 1);
 
 constexpr HardwareConfig kBoardConfigs[] = {
-    {.base = BOARD_CAN0(HPM_MCAN, _BASE), .irq_num = BOARD_CAN0(IRQn_MCAN, )},
-    {.base = BOARD_CAN1(HPM_MCAN, _BASE), .irq_num = BOARD_CAN1(IRQn_MCAN, )},
-    {.base = BOARD_CAN2(HPM_MCAN, _BASE), .irq_num = BOARD_CAN2(IRQn_MCAN, )},
-    {.base = BOARD_CAN3(HPM_MCAN, _BASE), .irq_num = BOARD_CAN3(IRQn_MCAN, )},
+    {.base = BOARD_CAN0(HPM_MCAN, _BASE),
+     .irq_num = BOARD_CAN0(IRQn_MCAN, ),
+     .clock = BOARD_CAN0(clock_can, )},
+    {.base = BOARD_CAN1(HPM_MCAN, _BASE),
+     .irq_num = BOARD_CAN1(IRQn_MCAN, ),
+     .clock = BOARD_CAN1(clock_can, )},
+    {.base = BOARD_CAN2(HPM_MCAN, _BASE),
+     .irq_num = BOARD_CAN2(IRQn_MCAN, ),
+     .clock = BOARD_CAN2(clock_can, )},
+    {.base = BOARD_CAN3(HPM_MCAN, _BASE),
+     .irq_num = BOARD_CAN3(IRQn_MCAN, ),
+     .clock = BOARD_CAN3(clock_can, )},
 };
 
 inline constinit Can::Lazy can_array[]{

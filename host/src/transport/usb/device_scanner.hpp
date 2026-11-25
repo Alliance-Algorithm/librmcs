@@ -99,6 +99,10 @@ private:
         struct ProtocolVersionMismatch {
             std::string product_string;
         };
+        struct ConfigurationReadFailed {
+            int libusb_error_number;
+        };
+        struct MissingDataInterface {};
 
         struct Matched {
             libusb_device_handle* handle = nullptr;
@@ -107,7 +111,8 @@ private:
         using MatchResult = std::variant<
             Matching, DescriptorReadFailed, DescriptorEmpty, VendorMismatch, MissingSerialNumber,
             ProductMismatch, OpenFailed, SerialReadFailed, SerialFilterMismatch,
-            MissingProductString, ProductStringReadFailed, ProtocolVersionMismatch, Matched>;
+            MissingProductString, ProductStringReadFailed, ProtocolVersionMismatch,
+            ConfigurationReadFailed, MissingDataInterface, Matched>;
         MatchResult result;
     };
 
@@ -117,6 +122,7 @@ private:
         bool pid_mismatch = false;
         bool serial_mismatch = false;
         bool firmware_mismatch = false;
+        bool missing_data_interface = false;
     };
 
     static std::vector<DeviceInfo> scan_devices(
@@ -161,11 +167,37 @@ private:
             if (!match_product_version(handle, info, options.dangerously_skip_version_checks))
                 continue;
 
+            if (!match_data_interface(info))
+                continue;
+
             info.result = DeviceInfo::Matched{handle};
             close_device.disable();
         }
 
         return infos;
+    }
+
+    static bool match_data_interface(DeviceInfo& info) {
+        libusb_config_descriptor* configuration = nullptr;
+        if (const int ret = libusb_get_active_config_descriptor(info.device, &configuration);
+            ret != 0) {
+            info.result = DeviceInfo::ConfigurationReadFailed{ret};
+            return false;
+        }
+        const utility::FinalAction free_configuration{
+            [configuration]() noexcept { libusb_free_config_descriptor(configuration); }};
+
+        for (const auto& interface :
+             std::span{configuration->interface, configuration->bNumInterfaces}) {
+            for (const auto& descriptor :
+                 std::span{interface.altsetting, static_cast<size_t>(interface.num_altsetting)}) {
+                if (descriptor.bInterfaceNumber == 0 && descriptor.bAlternateSetting == 0
+                    && descriptor.bInterfaceClass == LIBUSB_CLASS_VENDOR_SPEC)
+                    return true;
+            }
+        }
+        info.result = DeviceInfo::MissingDataInterface{};
+        return false;
     }
 
     static bool read_and_match_serial_number(
@@ -395,6 +427,17 @@ private:
             return std::format(
                 "Ignored: Firmware mismatch (Found: {})", protocol_mismatch->product_string);
         }
+        if (const auto* config_failed =
+                std::get_if<DeviceInfo::ConfigurationReadFailed>(&info.result)) {
+            return std::format(
+                "Ignored: USB configuration unreadable ({} / {})",
+                config_failed->libusb_error_number,
+                helper::libusb_errname(config_failed->libusb_error_number));
+        }
+        if (std::holds_alternative<DeviceInfo::MissingDataInterface>(info.result)) {
+            troubleshooting.missing_data_interface = true;
+            return "Ignored: USB data interface unavailable";
+        }
         if (std::holds_alternative<DeviceInfo::Matched>(info.result)) {
             matched_count++;
             return std::format("Matched #{}", matched_count);
@@ -427,6 +470,8 @@ private:
                     "Firmware mismatch: Flash device firmware to v{}.",
                     LIBRMCS_PROJECT_VERSION_STRING));
         }
+        if (troubleshooting.missing_data_interface)
+            append_hint("USB data unavailable: Check the board MODE switch and restart the board.");
         if (multiple_compatible_devices) {
             append_hint(
                 "Multiple matches: Provide a stricter serial filter to target a specific device.");
