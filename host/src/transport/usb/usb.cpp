@@ -86,7 +86,7 @@ public:
         libusb_exit(libusb_context_);
     }
 
-    std::unique_ptr<TransportBuffer> acquire_transmit_buffer() noexcept override {
+    std::unique_ptr<TransportBuffer> acquire_transmit_buffer(TransmitKind) noexcept override {
         TransferWrapper* transfer = nullptr;
         {
             const std::scoped_lock guard{transmit_transfer_pop_mutex_};

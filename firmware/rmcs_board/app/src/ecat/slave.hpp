@@ -23,7 +23,7 @@ public:
 private:
     void reset_session();
 
-    core::protocol::ethercat::ProcessData process_data_;
+    core::protocol::ethercat::ProcessDataChannel<2> process_data_;
     utility::InterruptSafeBuffer transmit_buffer_;
     core::protocol::Serializer serializer_{transmit_buffer_};
     Session session_{

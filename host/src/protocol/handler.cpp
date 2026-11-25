@@ -251,7 +251,7 @@ private:
     void send_session_control(data::SessionType type, std::string_view operation_name) {
         core::protocol::Serializer::SerializeResult result;
         {
-            StreamBuffer buffer{*transport_};
+            StreamBuffer<transport::TransmitKind::kSessionControl> buffer{*transport_};
             core::protocol::Serializer serializer{buffer};
             result =
                 serializer.write_session_control({.type = type, .nonce = expected_session_nonce_});
@@ -383,7 +383,7 @@ private:
         core::utility::assert_failed_debug();
     }
 
-    StreamBuffer buffer_;
+    StreamBuffer<> buffer_;
     core::protocol::Serializer serializer_;
 };
 

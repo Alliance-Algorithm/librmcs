@@ -58,6 +58,7 @@ namespace librmcs::host::protocol {
  *   // Destructor automatically transmits all written data
  * @endcode
  */
+template <transport::TransmitKind kind = transport::TransmitKind::kData>
 class StreamBuffer : public core::protocol::SerializeBuffer {
 public:
     /**
@@ -194,7 +195,7 @@ private:
     bool init_buffer() noexcept {
         core::utility::assert_debug(!buffer_ && !current_ && !end_);
 
-        buffer_ = transport_.acquire_transmit_buffer();
+        buffer_ = transport_.acquire_transmit_buffer(kind);
         if (!buffer_)
             return false;
 
