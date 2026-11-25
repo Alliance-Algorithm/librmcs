@@ -4,19 +4,20 @@
 #include <device/usbd.h>
 #include <hpm_dma_mgr.h>
 
-#include "firmware/rmcs_board/app/src/can/can.hpp"
-#include "firmware/rmcs_board/app/src/gpio/gpio.hpp"
+#if defined(LIBRMCS_ENABLE_ETHERCAT)
+# include "board_app.hpp"
+# include "firmware/rmcs_board/app/src/ecat/slave.hpp"
+#endif
+#include "firmware/rmcs_board/app/src/buzzer/status_buzzer.hpp"
 #include "firmware/rmcs_board/app/src/led/led.hpp"
-#include "firmware/rmcs_board/app/src/spi/bmi088/accel.hpp"
-#include "firmware/rmcs_board/app/src/spi/bmi088/gyro.hpp"
-#include "firmware/rmcs_board/app/src/spi/bmi088/temperature.hpp"
+#include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/timer/timer.hpp"
-#include "firmware/rmcs_board/app/src/uart/uart.hpp"
 #include "firmware/rmcs_board/app/src/usb/dcd_recovery.hpp"
+#include "firmware/rmcs_board/app/src/usb/device.hpp"
 #include "firmware/rmcs_board/app/src/usb/vendor.hpp"
-#include "firmware/rmcs_board/app/src/utility/boot_mailbox.hpp"
 #include "firmware/rmcs_board/app/src/utility/interrupt_lock.hpp"
 #include "firmware/rmcs_board/app/src/watchdog/watchdog.hpp"
+#include "firmware/rmcs_board/common/boot_mailbox.hpp"
 
 int main() { librmcs::firmware::app.init().run(); }
 
@@ -33,22 +34,22 @@ App::App() {
     watchdog::watchdog.init();
 
     led::led.init();
+    buzzer::StatusBuzzer::init();
     timer::timer.init();
 
+#if defined(LIBRMCS_ENABLE_ETHERCAT)
+    board::init_user_button_and_switch_pins();
+    const bool ethercat_selected = board::kModeSwitchPin.is_active();
+    if (ethercat_selected)
+        ecat::slave.init().start();
+    else
+        usb::vendor.init();
+    usb::Device::init(!ethercat_selected);
+#else
     usb::vendor.init();
-
-    for (auto& can : can::can_array)
-        can.init();
-
-    uart::uart_dbus.init();
-    for (auto& board_uart : uart::uart_array)
-        board_uart.init();
-
-    gpio::gpio.init();
-
-    spi::bmi088::accelerometer.init();
-    spi::bmi088::gyroscope.init();
-    spi::bmi088::temperature.init();
+    usb::Device::init();
+#endif
+    Peripherals::init();
 }
 
 // Non-static to ensure instantiation
@@ -60,13 +61,24 @@ App::App() {
         }
 
         tud_task();
-        usb::vendor->try_transmit();
+        if (auto* vendor = usb::vendor.try_get())
+            vendor->try_transmit();
+#if defined(LIBRMCS_ENABLE_ETHERCAT)
+        else
+            ecat::slave->poll();
+#endif
 
-        for (auto& board_uart : uart::uart_array)
-            board_uart->try_transmit();
-        gpio::gpio->poll_periodic_input_samples();
+        Peripherals::poll();
         watchdog::watchdog->feed();
     }
+}
+
+core::protocol::Serializer& Peripherals::uplink_serializer() {
+#if defined(LIBRMCS_ENABLE_ETHERCAT)
+    if (auto* slave = ecat::slave.try_get())
+        return slave->serializer();
+#endif
+    return usb::vendor->serializer();
 }
 
 } // namespace librmcs::firmware

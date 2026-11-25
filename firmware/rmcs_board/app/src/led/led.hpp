@@ -3,7 +3,7 @@
 #include <atomic>
 #include <cstdint>
 
-#include "firmware/rmcs_board/app/src/led/ws2812.hpp"
+#include "firmware/rmcs_board/app/src/led/status_led.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::led {
@@ -12,7 +12,7 @@ class Led {
 public:
     using Lazy = utility::Lazy<Led>;
 
-    Led() { ws2812.init(); }
+    Led() { StatusLed::init(); }
 
     void reset() {
         uplink_full_reset_counter_.store(0, std::memory_order::relaxed);
@@ -46,24 +46,24 @@ public:
 
         if (uplink_full && downlink_full) {
             if (tick & 128U)
-                ws2812->set_value(255, 255, 0);
+                StatusLed::set_color(255, 255, 0);
             else
-                ws2812->set_value(0, 255, 255);
+                StatusLed::set_color(0, 255, 255);
         } else if (uplink_full) {
             if (tick & 128U)
-                ws2812->set_value(255, 255, 0);
+                StatusLed::set_color(255, 255, 0);
             else
-                ws2812->set_value(0, 0, 0);
+                StatusLed::set_color(0, 0, 0);
         } else if (downlink_full) {
             if (tick & 128U)
-                ws2812->set_value(0, 0, 0);
+                StatusLed::set_color(0, 0, 0);
             else
-                ws2812->set_value(0, 255, 255);
+                StatusLed::set_color(0, 255, 255);
         } else {
             uint32_t brightness = (tick >> 2U) & 511U;
             if (brightness > 255U)
                 brightness = 511U - brightness;
-            ws2812->set_value(0, static_cast<uint8_t>(brightness), 0);
+            StatusLed::set_color(0, static_cast<uint8_t>(brightness), 0);
         }
     }
 

@@ -1,10 +1,15 @@
 #pragma once
 
 #include <functional>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
 namespace librmcs::board {
+
+struct EthercatOptions {
+    std::string_view interface; // Dedicated interface directly connected to a single slave.
+};
 
 /**
  * @brief Advanced transport options passed during board construction.
