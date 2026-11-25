@@ -8,9 +8,9 @@
 
 namespace librmcs::firmware::ecat {
 
-using ProcessData = core::protocol::ethercat::ProcessData;
-
 class Dictionary {
+    using ProcessData = core::protocol::ethercat::ProcessData;
+
 public:
     static constexpr char kName[] = "RMCS Board Ultra";
     static constexpr uint16_t kOutput = 0x7000;
@@ -22,8 +22,8 @@ public:
     static constexpr uint8_t kEntries = (ProcessData::kSize + kEntrySize - 1) / kEntrySize;
 
     static constexpr uint8_t entry_bits(size_t entry) {
-        return static_cast<uint8_t>(
-            8 * std::min(kEntrySize, ProcessData::kSize - entry * kEntrySize));
+        const auto offset = entry * kEntrySize;
+        return static_cast<uint8_t>(8 * std::min(kEntrySize, ProcessData::kSize - offset));
     }
 };
 

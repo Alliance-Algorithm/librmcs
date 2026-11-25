@@ -94,7 +94,10 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/.
 
 if(LIBRMCS_ENABLE_ETHERCAT)
     include(cmake/soem.cmake)
-    target_sources(${PROJECT_NAME} PRIVATE src/transport/ethercat/ethercat.cpp)
+    target_sources(${PROJECT_NAME} PRIVATE
+        src/transport/ethercat/ethercat.cpp
+        src/transport/ethercat/master.cpp
+    )
     target_link_libraries(${PROJECT_NAME} PRIVATE librmcs_soem)
 else()
     target_sources(${PROJECT_NAME} PRIVATE src/transport/ethercat/disabled.cpp)

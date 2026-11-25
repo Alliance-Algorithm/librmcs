@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "core/src/protocol/ethercat/process_data.hpp"
+#include "core/src/protocol/ethercat/process_data_channel.hpp"
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/immovable.hpp"
 #include "firmware/rmcs_board/app/src/session.hpp"

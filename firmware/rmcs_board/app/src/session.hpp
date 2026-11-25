@@ -103,7 +103,8 @@ private:
         }
 
         refreshed_ = timer::Timer::timestamp64_quarter_us();
-        const auto result = serializer_.write_session_control({acknowledgement, control.nonce});
+        const auto result =
+            serializer_.write_session_control({.type = acknowledgement, .nonce = control.nonce});
         core::utility::assert_always(
             result != core::protocol::Serializer::SerializeResult::kInvalidArgument);
     }

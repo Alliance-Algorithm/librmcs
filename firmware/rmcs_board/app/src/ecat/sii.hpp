@@ -9,6 +9,7 @@ extern "C" {
 #include <esc_coe.h>
 }
 
+#include "core/src/protocol/ethercat/process_data.hpp"
 #include "firmware/rmcs_board/app/src/ecat/dictionary.hpp"
 
 namespace librmcs::firmware::ecat {
@@ -19,6 +20,8 @@ public:
     using Image = std::array<uint16_t, kWordCount>;
 
     static consteval Image make_image() {
+        using core::protocol::ethercat::ProcessData;
+
         Sii sii;
         auto& config = sii.image_;
         config[0] = 0x0c80; // On-chip PDI; enhanced link detection is disabled.
@@ -36,12 +39,13 @@ public:
         config[0x1e] = MBX1_sma;
         config[0x1f] = MBX1_sml;
         config[0x20] = 4; // CoE
-        config[0x3e] = sizeof(Image) / 128 - 1;
+        config[0x3e] = (sizeof(Image) / 128) - 1;
         config[0x3f] = 1;
 
         constexpr size_t name_length = sizeof(Dictionary::kName) - 1;
+        constexpr size_t name_words = (name_length + 1) / 2;
         sii.append(10); // Strings
-        sii.append(1 + (name_length + 1) / 2);
+        sii.append(1 + name_words);
         sii.append(1 | (name_length << 8));
         for (size_t i = 0; i < name_length; i += 2) {
             sii.append(
@@ -74,21 +78,21 @@ public:
     }
 
 private:
-    void constexpr write_id(size_t offset, uint32_t id) {
+    constexpr void write_id(size_t offset, uint32_t id) {
         image_[offset] = static_cast<uint16_t>(id);
         image_[offset + 1] = static_cast<uint16_t>(id >> 16U);
     }
 
-    void constexpr append(uint16_t word) { image_[cursor_++] = word; }
+    constexpr void append(uint16_t word) { image_[cursor_++] = word; }
 
-    void constexpr sm(uint16_t address, uint16_t size, uint8_t control, uint8_t type) {
+    constexpr void sm(uint16_t address, uint16_t size, uint8_t control, uint8_t type) {
         append(address);
         append(size);
         append(control);
         append(static_cast<uint16_t>(1 | (type << 8)));
     }
 
-    void constexpr pdo(uint16_t category, uint16_t index, uint8_t sm_index, uint16_t object) {
+    constexpr void pdo(uint16_t category, uint16_t index, uint8_t sm_index, uint16_t object) {
         append(category);
         append(4 * (1 + Dictionary::kEntries));
         append(index);
