@@ -5,6 +5,7 @@
 
 extern "C" {
 #include <ecat_slv.h>
+#include <esc.h>
 }
 
 #include "core/src/protocol/ethercat/process_data.hpp"

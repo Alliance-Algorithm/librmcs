@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include <hpm_esc_drv.h>
+#include <hpm_esc_regs.h>
 #include <hpm_soc.h>
 
 extern "C" {
@@ -91,8 +92,8 @@ void Esc::write(uint16_t address, const void* data, uint16_t size) {
 }
 
 extern "C" {
-void ESC_read(uint16_t address, void* data, uint16_t size) { Esc::read(address, data, size); }
-void ESC_write(uint16_t address, void* data, uint16_t size) { Esc::write(address, data, size); }
+void ESC_read(uint16_t address, void* buf, uint16_t len) { Esc::read(address, buf, len); }
+void ESC_write(uint16_t address, void* buf, uint16_t len) { Esc::write(address, buf, len); }
 // Esc::start initializes the hardware before SOES starts.
 void ESC_init(const esc_cfg_t*) {}
 }
