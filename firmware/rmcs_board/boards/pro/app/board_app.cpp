@@ -14,32 +14,30 @@
 #include <hpm_spi_regs.h>
 #include <hpm_uart_regs.h>
 
+#include "firmware/rmcs_board/app/src/can/can.hpp"
+
+namespace librmcs::firmware::can {
+
+void Can::init_pins(MCAN_Type* ptr) {
+    if (ptr == HPM_MCAN0) {
+        HPM_IOC->PAD[IOC_PAD_PA17].FUNC_CTL = IOC_PA17_FUNC_CTL_MCAN0_RXD;
+        HPM_IOC->PAD[IOC_PAD_PA16].FUNC_CTL = IOC_PA16_FUNC_CTL_MCAN0_TXD;
+    } else if (ptr == HPM_MCAN1) {
+        HPM_IOC->PAD[IOC_PAD_PA20].FUNC_CTL = IOC_PA20_FUNC_CTL_MCAN1_RXD;
+        HPM_IOC->PAD[IOC_PAD_PA21].FUNC_CTL = IOC_PA21_FUNC_CTL_MCAN1_TXD;
+    } else if (ptr == HPM_MCAN2) {
+        HPM_IOC->PAD[IOC_PAD_PA25].FUNC_CTL = IOC_PA25_FUNC_CTL_MCAN2_RXD;
+        HPM_IOC->PAD[IOC_PAD_PA24].FUNC_CTL = IOC_PA24_FUNC_CTL_MCAN2_TXD;
+    } else if (ptr == HPM_MCAN3) {
+        HPM_IOC->PAD[IOC_PAD_PA30].FUNC_CTL = IOC_PA30_FUNC_CTL_MCAN3_RXD;
+        HPM_IOC->PAD[IOC_PAD_PA31].FUNC_CTL = IOC_PA31_FUNC_CTL_MCAN3_TXD;
+    }
+}
+
+} // namespace librmcs::firmware::can
+
 namespace librmcs::firmware::board {
 namespace {
-
-uint32_t init_can_clock(MCAN_Type* ptr) {
-    if (ptr == HPM_MCAN0) {
-        clock_add_to_group(clock_can0, 0);
-        clock_set_source_divider(clock_can0, clk_src_pll1_clk0, 10);
-        return clock_get_frequency(clock_can0);
-    }
-    if (ptr == HPM_MCAN1) {
-        clock_add_to_group(clock_can1, 0);
-        clock_set_source_divider(clock_can1, clk_src_pll1_clk0, 10);
-        return clock_get_frequency(clock_can1);
-    }
-    if (ptr == HPM_MCAN2) {
-        clock_add_to_group(clock_can2, 0);
-        clock_set_source_divider(clock_can2, clk_src_pll1_clk0, 10);
-        return clock_get_frequency(clock_can2);
-    }
-    if (ptr == HPM_MCAN3) {
-        clock_add_to_group(clock_can3, 0);
-        clock_set_source_divider(clock_can3, clk_src_pll1_clk0, 10);
-        return clock_get_frequency(clock_can3);
-    }
-    return 0;
-}
 
 inline uint32_t init_uart_clock(UART_Type* ptr) {
     if (ptr == HPM_UART0) {
@@ -82,23 +80,6 @@ inline uint32_t init_spi_clock(SPI_Type* ptr) {
 }
 
 } // namespace
-
-uint32_t init_can(MCAN_Type* ptr) {
-    if (ptr == HPM_MCAN0) {
-        HPM_IOC->PAD[IOC_PAD_PA17].FUNC_CTL = IOC_PA17_FUNC_CTL_MCAN0_RXD;
-        HPM_IOC->PAD[IOC_PAD_PA16].FUNC_CTL = IOC_PA16_FUNC_CTL_MCAN0_TXD;
-    } else if (ptr == HPM_MCAN1) {
-        HPM_IOC->PAD[IOC_PAD_PA20].FUNC_CTL = IOC_PA20_FUNC_CTL_MCAN1_RXD;
-        HPM_IOC->PAD[IOC_PAD_PA21].FUNC_CTL = IOC_PA21_FUNC_CTL_MCAN1_TXD;
-    } else if (ptr == HPM_MCAN2) {
-        HPM_IOC->PAD[IOC_PAD_PA25].FUNC_CTL = IOC_PA25_FUNC_CTL_MCAN2_RXD;
-        HPM_IOC->PAD[IOC_PAD_PA24].FUNC_CTL = IOC_PA24_FUNC_CTL_MCAN2_TXD;
-    } else if (ptr == HPM_MCAN3) {
-        HPM_IOC->PAD[IOC_PAD_PA30].FUNC_CTL = IOC_PA30_FUNC_CTL_MCAN3_RXD;
-        HPM_IOC->PAD[IOC_PAD_PA31].FUNC_CTL = IOC_PA31_FUNC_CTL_MCAN3_TXD;
-    }
-    return init_can_clock(ptr);
-}
 
 uint32_t init_uart(UART_Type* ptr) {
     constexpr uint32_t tx_pad = IOC_PAD_PAD_CTL_PE_SET(1) | // Pull enable
@@ -255,18 +236,6 @@ void gpio_bmi088_int_accel_isr() {
     }
     gpio_irq_handler(GPIO_DI_GPIOY);
 }
-
-SDK_DECLARE_EXT_ISR_M(BOARD_CAN0(IRQn_MCAN, ), can0_isr)
-void can0_isr() { can_irq_handler(0); }
-
-SDK_DECLARE_EXT_ISR_M(BOARD_CAN1(IRQn_MCAN, ), can1_isr)
-void can1_isr() { can_irq_handler(1); }
-
-SDK_DECLARE_EXT_ISR_M(BOARD_CAN2(IRQn_MCAN, ), can2_isr)
-void can2_isr() { can_irq_handler(2); }
-
-SDK_DECLARE_EXT_ISR_M(BOARD_CAN3(IRQn_MCAN, ), can3_isr)
-void can3_isr() { can_irq_handler(3); }
 
 SDK_DECLARE_EXT_ISR_M(BOARD_UART0(IRQn_UART, ), uart0_isr)
 void uart0_isr() { uart_irq_handler(0); }

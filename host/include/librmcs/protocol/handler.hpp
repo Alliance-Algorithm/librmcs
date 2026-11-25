@@ -21,6 +21,7 @@ public:
         ~PacketBuilder() noexcept;
 
         bool write_can(data::DataId field_id, const data::CanDataView& view) noexcept;
+        bool try_write_can(data::DataId field_id, const data::CanDataView& view) noexcept;
 
         bool write_uart(data::DataId field_id, const data::UartDataView& view) noexcept;
 
@@ -47,6 +48,10 @@ public:
         uint16_t usb_vid, int32_t usb_pid, std::string_view serial_filter,
         const board::AdvancedOptions& options, data::DataCallback& callback);
 
+    Handler(
+        const board::EthercatOptions& ethercat, const board::AdvancedOptions& options,
+        data::DataCallback& callback);
+
     Handler(const Handler&) = delete;
     Handler& operator=(const Handler&) = delete;
     Handler(Handler&& other) noexcept;
@@ -55,6 +60,7 @@ public:
     ~Handler() noexcept;
 
     PacketBuilder start_transmit() noexcept;
+    bool connected() const noexcept;
 
 private:
     class Impl;

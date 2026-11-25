@@ -9,8 +9,8 @@
 #include "firmware/rmcs_board/bootloader/src/usb/dfu.hpp"
 #include "firmware/rmcs_board/bootloader/src/usb/usb_descriptors.hpp"
 #include "firmware/rmcs_board/bootloader/src/utility/assert.hpp"
-#include "firmware/rmcs_board/bootloader/src/utility/boot_mailbox.hpp"
 #include "firmware/rmcs_board/bootloader/src/utility/jump.hpp"
+#include "firmware/rmcs_board/common/boot_mailbox.hpp"
 
 int main() {
     using namespace librmcs::firmware; // NOLINT(google-build-using-namespace)
@@ -26,8 +26,7 @@ int main() {
 #endif
         utility::jump_to_app();
 
-    // Reset-time clocks already run CPU0 at 360 MHz, so board_init() would only bump it to
-    // 480 MHz while adding avoidable startup latency on the direct-to-app path.
+    // The app initializes the board after handoff.
     board_init();
 
     watchdog::watchdog.init();
