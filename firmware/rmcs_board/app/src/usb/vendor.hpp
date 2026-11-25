@@ -8,7 +8,6 @@
 #include <class/vendor/vendor_device.h>
 #include <common/tusb_types.h>
 #include <device/usbd.h>
-#include <tusb.h>
 
 #include "core/include/librmcs/data/datas.hpp"
 #include "core/src/protocol/deserializer.hpp"

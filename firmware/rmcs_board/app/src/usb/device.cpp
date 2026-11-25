@@ -1,5 +1,6 @@
 #include "firmware/rmcs_board/app/src/usb/device.hpp"
 
+#include <common/tusb_types.h>
 #include <tusb.h>
 
 #include "board_app.hpp"

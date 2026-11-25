@@ -3,13 +3,13 @@
 #include <array>
 #include <cstdint>
 
+#include <hpm_common.h>
 #include <hpm_ppor_drv.h>
 #include <hpm_soc.h>
 
 #ifdef BOARD_BOOT_MAILBOX_PGPR
 # include <riscv/riscv_core.h>
 #else
-# include <hpm_common.h>
 # include <hpm_sysctl_drv.h>
 
 # include "core/src/utility/assert.hpp"
