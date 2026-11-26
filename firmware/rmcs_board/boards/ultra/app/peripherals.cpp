@@ -4,13 +4,16 @@
 
 #include <librmcs/data/datas.hpp>
 
+#include "firmware/rmcs_board/app/src/can/can.hpp"
+
 namespace librmcs::firmware {
 
-void Peripherals::init() {}
+void Peripherals::init() {
+    for (auto& can : can::can_array)
+        can.init();
+}
 
 void Peripherals::poll() {}
-
-bool Peripherals::write_can(data::DataId, const data::CanDataView&) { return false; }
 
 bool Peripherals::write_uart(data::DataId, const data::UartDataView&) { return false; }
 

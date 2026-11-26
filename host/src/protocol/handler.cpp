@@ -333,6 +333,12 @@ struct PacketBuilderImpl {
         return process_result(serializer_.write_can(field_id, view));
     }
 
+    [[nodiscard]] bool
+        try_write_can(data::DataId field_id, const data::CanDataView& view) noexcept {
+        return serializer_.write_can(field_id, view)
+            == core::protocol::Serializer::SerializeResult::kSuccess;
+    }
+
     [[nodiscard]] bool write_uart(data::DataId field_id, const data::UartDataView& view) noexcept {
         return process_result(serializer_.write_uart(field_id, view));
     }
@@ -404,6 +410,12 @@ Handler::PacketBuilder::~PacketBuilder() noexcept {
 bool Handler::PacketBuilder::write_can(
     data::DataId field_id, const data::CanDataView& view) noexcept {
     return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))->write_can(field_id, view);
+}
+
+bool Handler::PacketBuilder::try_write_can(
+    data::DataId field_id, const data::CanDataView& view) noexcept {
+    return std::launder(reinterpret_cast<PacketBuilderImpl*>(storage_))
+        ->try_write_can(field_id, view);
 }
 
 bool Handler::PacketBuilder::write_uart(
