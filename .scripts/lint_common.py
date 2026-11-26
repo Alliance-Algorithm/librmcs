@@ -1,5 +1,6 @@
 """Shared utilities for lint scripts."""
 
+import json
 import yaml
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,10 +15,14 @@ class LintTarget:
     name: str
     project_dir: Path
     folders: List[Path]
+    build_dirs: Tuple[str, ...] = ("build",)
 
     @property
-    def compile_database(self) -> Path:
-        return self.project_dir / "build" / "compile_commands.json"
+    def compile_databases(self) -> List[Path]:
+        return [
+            self.project_dir / build_dir / "compile_commands.json"
+            for build_dir in self.build_dirs
+        ]
 
 
 def repo_root() -> Path:
@@ -53,6 +58,15 @@ def collect_source_files(
     return sorted(files)
 
 
+def load_compile_database(database: Path) -> Dict[Path, Path]:
+    """Map every translation unit to the build directory passed to clang-tidy."""
+
+    entries: Dict[Path, Path] = {}
+    for entry in json.loads(database.read_text()):
+        entries.setdefault(Path(entry["file"]).resolve(), database.parent)
+    return entries
+
+
 def load_targets(root: Path) -> Tuple[List[str], Dict[str, LintTarget]]:
     config_path = root / ".scripts" / "lint-targets.yml"
     data = yaml.safe_load(config_path.read_text())
@@ -62,9 +76,11 @@ def load_targets(root: Path) -> Tuple[List[str], Dict[str, LintTarget]]:
     for name, section in data.items():
         project_dir = root / Path(section["cmake"]).parent
         folders = [root / f for f in section["folders"]]
+        build_dirs = tuple(section.get("build_dirs", ["build"]))
         targets[name] = LintTarget(
             name=name,
             project_dir=project_dir,
             folders=folders,
+            build_dirs=build_dirs,
         )
     return exclude_dirs, targets

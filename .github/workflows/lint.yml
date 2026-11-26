@@ -33,11 +33,29 @@ jobs:
       - name: Build host
         run: cmake --build host/build
 
+      # Compile the optional EtherCAT sources so clang-tidy checks them with
+      # their real include paths. Nothing is flashed here.
+      - name: Configure host with EtherCAT
+        run: cmake --preset linux-debug -S host -B host/build-ecat -DLIBRMCS_ENABLE_ETHERCAT=ON
+
+      - name: Build host with EtherCAT
+        run: cmake --build host/build-ecat
+
       - name: Configure firmware/rmcs_board
         run: cmake --preset debug -S firmware/rmcs_board
 
       - name: Build firmware/rmcs_board
         run: cmake --build firmware/rmcs_board/build
+
+      - name: Configure firmware/rmcs_board with EtherCAT
+        run: >
+          cmake --preset debug -S firmware/rmcs_board -B firmware/rmcs_board/build-ecat
+          -DBOARD=ultra
+          -DLIBRMCS_ENABLE_ETHERCAT=ON
+          -DLIBRMCS_ULTRA_ECAT_WIRING_CONFIRMED=ON
+
+      - name: Build firmware/rmcs_board with EtherCAT
+        run: cmake --build firmware/rmcs_board/build-ecat
 
       - name: Configure firmware/c_board
         run: cmake --preset debug -S firmware/c_board

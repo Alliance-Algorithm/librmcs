@@ -12,7 +12,7 @@
 #include "core/src/utility/immovable.hpp"
 #include "firmware/rmcs_board/app/src/led/led.hpp"
 
-namespace librmcs::firmware::usb {
+namespace librmcs::firmware::utility {
 
 class InterruptSafeBuffer final
     : public core::protocol::SerializeBuffer
@@ -133,4 +133,4 @@ private:
     Batch batches_[kBatchCount];
 };
 
-} // namespace librmcs::firmware::usb
+} // namespace librmcs::firmware::utility

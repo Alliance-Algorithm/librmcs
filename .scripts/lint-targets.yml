@@ -4,6 +4,9 @@ exclude:
 
 host:
   cmake: host/CMakeLists.txt
+  build_dirs:
+    - build
+    - build-ecat
   folders:
     - core/src
     - core/include
@@ -12,6 +15,9 @@ host:
 
 rmcs_board:
   cmake: firmware/rmcs_board/CMakeLists.txt
+  build_dirs:
+    - build
+    - build-ecat
   folders:
     - core/src
     - core/include

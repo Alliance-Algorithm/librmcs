@@ -19,8 +19,8 @@
 #include "core/src/utility/assert.hpp"
 #include "core/src/utility/immovable.hpp"
 #include "firmware/rmcs_board/app/src/gpio/analog_gpio_pin.hpp"
+#include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/timer/timer.hpp"
-#include "firmware/rmcs_board/app/src/usb/helper.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
 namespace librmcs::firmware::gpio {
@@ -307,7 +307,7 @@ private:
         const std::optional<uint32_t> timestamp_to_publish =
             state.capture_timestamp ? std::optional<uint32_t>{timestamp_quarter_us} : std::nullopt;
 
-        auto& serializer = usb::get_serializer();
+        auto& serializer = Peripherals::uplink_serializer();
         core::utility::assert_debug(
             serializer.write_gpio_digital_value(
                 channel_index, {.high = high, .timestamp_quarter_us = timestamp_to_publish})

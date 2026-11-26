@@ -3,19 +3,17 @@
 #include <common/tusb_types.h>
 #include <tusb.h>
 
-#include "board_app.hpp"
 #include "core/src/utility/assert.hpp"
 #include "firmware/rmcs_board/app/src/usb/usb_descriptors.hpp"
 #include "firmware/rmcs_board/common/boot_mailbox.hpp"
 
 namespace librmcs::firmware::usb {
 
-void Device::init() {
-    usb_descriptors.init();
-    board::init_user_button_and_switch_pins();
+void Device::init(tusb_speed_t speed, bool vendor_enabled) {
+    usb_descriptors.init().set_vendor_enabled(vendor_enabled);
     const tusb_rhport_init_t init_config{
         .role = TUSB_ROLE_DEVICE,
-        .speed = board::kUserHsFsSwitchPin.is_active() ? TUSB_SPEED_HIGH : TUSB_SPEED_FULL,
+        .speed = speed,
     };
     core::utility::assert_always(tusb_rhport_init(0, &init_config));
 }

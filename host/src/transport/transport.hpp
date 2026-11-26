@@ -12,6 +12,8 @@
 
 namespace librmcs::host::transport {
 
+enum class TransmitKind : std::uint8_t { kData, kSessionControl };
+
 /**
  * @brief Buffer interface for transport operations.
  *
@@ -81,10 +83,12 @@ public:
      * The returned buffer is owned by the caller and must be passed back to
      * this transport via either transmit() or release_transmit_buffer().
      *
+     * @param kind Lets the transport reserve capacity for session control.
      * @return A buffer with exactly kProtocolBufferSize bytes of writable memory, or nullptr
      *         if buffer acquisition fails (e.g., resource exhaustion)
      */
-    virtual std::unique_ptr<TransportBuffer> acquire_transmit_buffer() noexcept = 0;
+    virtual std::unique_ptr<TransportBuffer>
+        acquire_transmit_buffer(TransmitKind kind) noexcept = 0;
 
     /**
      * @brief Transmits data from the provided buffer.
@@ -137,6 +141,10 @@ public:
      *   shared with other threads.
      */
     virtual void receive(std::function<void(std::span<const std::byte>)> callback) = 0;
+
+    // A failed link is terminal for transports without an in-place recovery policy.
+    virtual bool connected() const noexcept { return true; }
+    virtual void stop() noexcept {}
 };
 
 namespace usb {

@@ -14,11 +14,11 @@
 #include "core/src/protocol/serializer.hpp"
 #include "core/src/utility/assert.hpp"
 #include "firmware/rmcs_board/app/src/gpio/gpio_pin.hpp"
+#include "firmware/rmcs_board/app/src/peripherals.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/accel.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/base.hpp"
 #include "firmware/rmcs_board/app/src/spi/spi.hpp"
 #include "firmware/rmcs_board/app/src/timer/timer.hpp"
-#include "firmware/rmcs_board/app/src/usb/vendor.hpp"
 #include "firmware/rmcs_board/app/src/utility/interrupt_lock.hpp"
 #include "firmware/rmcs_board/app/src/utility/lazy.hpp"
 
@@ -91,7 +91,7 @@ private:
         if (size && has_active_probe_launch_timestamp) [[likely]] {
             const uint16_t raw_temperature = parse_raw_temperature(spi_.rx_buffer, size);
             handle_uplink(
-                usb::vendor->serializer(), raw_temperature,
+                Peripherals::uplink_serializer(), raw_temperature,
                 active_probe_launch_timestamp_quarter_us);
         }
         spi_.unlock();
