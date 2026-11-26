@@ -5,12 +5,13 @@
 #include <cstdint>
 
 extern "C" {
-#include <esc.h>
 #include <esc_coe.h>
+#include <options.h>
 }
 
 #include "core/src/protocol/ethercat/process_data.hpp"
 #include "firmware/rmcs_board/app/src/ecat/dictionary.hpp"
+#include "firmware/rmcs_board/app/src/ecat/ecat_options.h"
 
 namespace librmcs::firmware::ecat {
 

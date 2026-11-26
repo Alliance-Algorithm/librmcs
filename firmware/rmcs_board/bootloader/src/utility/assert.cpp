@@ -2,8 +2,12 @@
 
 #include <source_location>
 
+// hpm_interrupt.h uses the SoC definitions provided by hpm_soc.h.
+// clang-format off
 #include <hpm_csr_regs.h>
-#include <hpm_soc.h>
+#include <hpm_soc.h> // IWYU pragma: keep
+#include <hpm_interrupt.h>
+// clang-format on
 
 namespace librmcs::core::utility {
 

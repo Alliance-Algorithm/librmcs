@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Sequence, Set, Tuple
 from lint_common import (
     LintTarget,
     collect_source_files,
+    load_compile_database,
     load_targets,
     repo_root,
 )
@@ -159,10 +160,8 @@ def collect_clangd_extra_args(project_dir: Path, root: Path) -> List[str]:
     return extra_args
 
 
-def clang_tidy_args(
-    compile_database: Path, project_dir: Path, root: Path, fix: bool
-) -> List[str]:
-    args = ["-p", str(compile_database.parent)]
+def clang_tidy_args(build_dir: Path, project_dir: Path, root: Path, fix: bool) -> List[str]:
+    args = ["-p", str(build_dir)]
     if fix:
         args.append("--fix")
     else:
@@ -173,16 +172,72 @@ def clang_tidy_args(
 
 
 def run_clang_tidy(
-    target: LintTarget, files: Sequence[Path], fix: bool, root: Path
+    build_dir: Path, project_dir: Path, files: Sequence[Path], fix: bool, root: Path
 ) -> int:
-    args = clang_tidy_args(
-        compile_database=target.compile_database,
-        project_dir=target.project_dir,
-        root=root,
-        fix=fix,
-    )
+    args = clang_tidy_args(build_dir, project_dir, root, fix)
     result = subprocess.run(["clang-tidy", *args, *[str(p) for p in files]])
     return result.returncode
+
+
+def assign_files(
+    target: LintTarget, files: Sequence[Path]
+) -> Tuple[Dict[Path, List[Path]], List[Path]]:
+    """Group files by the build directory that covers them.
+
+    A file may be built by more than one configuration, and the optional
+    defines change which branches are compiled, so each configuration is
+    checked separately. clang-tidy guesses the compile command of files that
+    are not listed in the compilation database, and the guess lacks the include
+    paths of the optional configurations. Headers therefore reuse the
+    configuration of the translation units that share their directory, and the
+    remaining headers use the primary configuration.
+    """
+
+    candidates = set(files)
+    databases = [database for database in target.compile_databases if database.is_file()]
+    entries: Dict[Path, List[Path]] = {}
+    directory_counts: Dict[Path, Dict[Path, int]] = {}
+    for database in databases:
+        build_dir = database.parent
+        for file in load_compile_database(database):
+            entries.setdefault(build_dir, []).append(file)
+            counts = directory_counts.setdefault(build_dir, {})
+            counts[file.parent] = counts.get(file.parent, 0) + 1
+
+    assigned: Dict[Path, List[Path]] = {}
+    covered: set = set()
+    for build_dir, build_files in entries.items():
+        for file in build_files:
+            if file not in candidates:
+                continue
+            assigned.setdefault(build_dir, []).append(file)
+            covered.add(file)
+
+    # Headers have no compile command of their own, so reuse the configuration
+    # that compiles the most translation units in the same directory.
+    for file in sorted(candidates - covered):
+        best: Optional[Tuple[int, Path]] = None
+        for build_dir, counts in directory_counts.items():
+            count = counts.get(file.parent, 0)
+            if count and (best is None or count > best[0]):
+                best = (count, build_dir)
+        if best is None:
+            continue
+        assigned.setdefault(best[1], []).append(file)
+        covered.add(file)
+
+    # Public headers live in directories without their own translation unit;
+    # check them with the primary configuration.
+    if databases and databases[0].parent in entries:
+        primary = databases[0].parent
+        for file in sorted(candidates - covered):
+            if file.suffix not in {".h", ".hpp"}:
+                continue
+            assigned.setdefault(primary, []).append(file)
+            covered.add(file)
+
+    skipped = sorted(candidates - covered)
+    return assigned, skipped
 
 
 def get_enabled_checks(root: Path) -> Optional[Set[str]]:
@@ -246,20 +301,35 @@ def main() -> int:
             continue
         any_files = True
 
-        if not target.compile_database.is_file():
+        databases = [database for database in target.compile_databases if database.is_file()]
+        if not databases:
             sys.stderr.write(
-                f"Warning: missing {target.compile_database} (skipping {name}).\n"
+                f"Warning: missing {', '.join(str(database) for database in target.compile_databases)}"
+                f" (skipping {name}).\n"
             )
             continue
 
         any_db = True
+        assigned, skipped = assign_files(target, files)
+        checked = sum(len(group) for group in assigned.values())
         print(
-            f"clang-tidy: {name}: checking {len(files)} files...",
+            f"clang-tidy: {name}: checking {checked} files...",
             flush=True,
         )
-        rc = run_clang_tidy(target, files, fix=args.fix, root=root)
-        if rc != 0:
-            overall_rc = rc
+        if skipped:
+            print(
+                f"clang-tidy: {name}: {len(skipped)} files are not built by the configured "
+                f"databases; skipping.",
+                flush=True,
+            )
+        for build_dir, group in sorted(assigned.items()):
+            print(
+                f"clang-tidy: {name}: {len(group)} files from {build_dir}",
+                flush=True,
+            )
+            rc = run_clang_tidy(build_dir, target.project_dir, group, fix=args.fix, root=root)
+            if rc != 0:
+                overall_rc = rc
 
     if not any_files:
         sys.stderr.write("Error: no matching source files found.\n")

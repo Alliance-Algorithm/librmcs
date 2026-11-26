@@ -4,4 +4,5 @@
 __pycache__/
 
 build/
+build-*/
 compile_commands.json
