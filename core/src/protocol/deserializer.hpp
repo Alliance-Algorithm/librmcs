@@ -52,6 +52,8 @@ public:
 
     virtual void temperature_deserialized_callback(const data::ImuTemperatureDataView& data) = 0;
 
+    virtual void icm42688_deserialized_callback(const data::ImuIcm42688DataView&) {}
+
     virtual void session_control_deserialized_callback(const data::SessionControlView& data) = 0;
 
     virtual void error_callback() = 0;

@@ -134,6 +134,8 @@ struct ImuHeader : utility::Bitfield<1> {
         kAccelerometer = 0,
         kGyroscope = 1,
         kTemperature = 2,
+        kIcm42688 = 3,
+        kIcm42688Hxy = 4,
     };
     using PayloadType = utility::BitfieldMember<4, 4, PayloadEnum>;
 };
@@ -155,6 +157,17 @@ struct ImuGyroscopePayload : utility::Bitfield<10> {
 struct ImuTemperaturePayload : utility::Bitfield<6> {
     using Temperature = utility::BitfieldMember<0, 16, uint16_t>;
     using TimestampQuarterUs = utility::BitfieldMember<16, 32, uint32_t>;
+};
+
+struct ImuIcm42688Payload : utility::Bitfield<18> {
+    using AccelX = utility::BitfieldMember<0, 16, int16_t>;
+    using AccelY = utility::BitfieldMember<16, 16, int16_t>;
+    using AccelZ = utility::BitfieldMember<32, 16, int16_t>;
+    using GyroX = utility::BitfieldMember<48, 16, int16_t>;
+    using GyroY = utility::BitfieldMember<64, 16, int16_t>;
+    using GyroZ = utility::BitfieldMember<80, 16, int16_t>;
+    using Temperature = utility::BitfieldMember<96, 16, int16_t>;
+    using TimestampQuarterUs = utility::BitfieldMember<112, 32, uint32_t>;
 };
 
 } // namespace librmcs::core::protocol

@@ -11,12 +11,18 @@
 #include <hpm_iomux.h>
 #include <hpm_mcan_regs.h>
 #include <hpm_soc.h>
+#include <hpm_soc_ip_feature.h>
 #include <hpm_soc_irq.h>
 #include <hpm_spi_regs.h>
+#include <hpm_uart_drv.h>
+#include <hpm_uart_regs.h>
 
 #include "core/src/utility/assert.hpp"
 #include "firmware/rmcs_board/app/src/can/can.hpp"
+#include "firmware/rmcs_board/app/src/spi/icm42688/icm42688.hpp"
 #include "firmware/rmcs_board/app/src/spi/spi.hpp"
+#include "firmware/rmcs_board/app/src/uart/uart.hpp"
+#include "rs485.hpp"
 
 namespace librmcs::firmware::can {
 
@@ -69,8 +75,10 @@ uint32_t librmcs::firmware::spi::Spi::init_hardware(SPI_Type* ptr) {
     return clock_get_frequency(clock_spi3);
 }
 
-SDK_DECLARE_EXT_ISR_M(IRQn_GPIO0_D, bmi088_dataready_isr)
-void bmi088_dataready_isr() {
+SDK_DECLARE_EXT_ISR_M(IRQn_GPIO0_D, imu_dataready_isr)
+void imu_dataready_isr() {
+    if (auto* icm = librmcs::firmware::spi::icm42688::sensor.try_get())
+        icm->irq_handler();
     if (librmcs::firmware::board::kBmi088GyroIntPin.check_clear_interrupt_flag())
         librmcs::firmware::board::bmi088_gyro_dataready_irq_handler();
     if (librmcs::firmware::board::kBmi088AccelIntPin.check_clear_interrupt_flag())
@@ -80,19 +88,21 @@ void bmi088_dataready_isr() {
 SDK_DECLARE_EXT_ISR_M(BOARD_SPI_BMI088(IRQn_SPI, ), spi_bmi088_isr)
 void spi_bmi088_isr() { librmcs::firmware::board::spi_bmi088_irq_handler(); }
 
-#include <hpm_clock_drv.h>
-#include <hpm_common.h>
-#include <hpm_interrupt.h>
-#include <hpm_ioc_regs.h>
-#include <hpm_iomux.h>
-#include <hpm_soc.h>
-#include <hpm_soc_ip_feature.h>
-#include <hpm_uart_drv.h>
-#include <hpm_uart_regs.h>
-
-#include "core/src/utility/assert.hpp"
-#include "firmware/rmcs_board/app/src/uart/uart.hpp"
-#include "rs485.hpp"
+uint32_t librmcs::firmware::spi::icm42688::Icm42688::init_hardware(SPI_Type* spi) {
+    core::utility::assert_always(spi == HPM_SPI2);
+    constexpr uint32_t drive = IOC_PAD_PAD_CTL_SR_MASK | IOC_PAD_PAD_CTL_SPD_SET(3);
+    HPM_IOC->PAD[IOC_PAD_PC26].PAD_CTL = drive;
+    HPM_IOC->PAD[IOC_PAD_PC28].PAD_CTL = drive;
+    HPM_IOC->PAD[IOC_PAD_PC29].PAD_CTL = drive;
+    HPM_IOC->PAD[IOC_PAD_PC26].FUNC_CTL =
+        IOC_PC26_FUNC_CTL_SPI2_SCLK | IOC_PAD_FUNC_CTL_LOOP_BACK_MASK;
+    HPM_IOC->PAD[IOC_PAD_PC28].FUNC_CTL = IOC_PC28_FUNC_CTL_SPI2_MISO;
+    HPM_IOC->PAD[IOC_PAD_PC29].FUNC_CTL = IOC_PC29_FUNC_CTL_SPI2_MOSI;
+    clock_add_to_group(clock_spi2, 0);
+    core::utility::assert_always(
+        clock_set_source_divider(clock_spi2, clk_src_osc24m, 1) == status_success);
+    return clock_get_frequency(clock_spi2);
+}
 
 namespace librmcs::firmware::uart {
 

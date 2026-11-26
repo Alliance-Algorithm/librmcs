@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -136,6 +137,17 @@ struct ImuTemperatureDataView {
     uint32_t timestamp_quarter_us;
 };
 
+enum class Icm42688Variant : uint8_t { kTdk, kHxy };
+
+struct ImuIcm42688DataView {
+    std::array<int16_t, 3> acceleration;     // Sensor-frame counts, +/-16 g.
+    std::array<int16_t, 3> angular_velocity; // Sensor-frame counts, +/-2000 deg/s.
+    // TDK: raw / 132.48 + 25 C; HXY: raw / 512 + 23 C.
+    int16_t raw_temperature;
+    uint32_t timestamp_quarter_us;
+    Icm42688Variant variant = Icm42688Variant::kTdk;
+};
+
 /**
  * @brief Interface for consuming deserialized uplink data.
  *
@@ -172,6 +184,7 @@ public:
     virtual void accelerometer_receive_callback(const ImuAccelerometerDataView& data) = 0;
     virtual void gyroscope_receive_callback(const ImuGyroscopeDataView& data) = 0;
     virtual void temperature_receive_callback(const ImuTemperatureDataView& data) = 0;
+    virtual void icm42688_receive_callback(const ImuIcm42688DataView&) {}
 };
 
 } // namespace librmcs::data

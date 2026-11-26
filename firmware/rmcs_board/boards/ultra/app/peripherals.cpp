@@ -8,6 +8,7 @@
 #include "firmware/rmcs_board/app/src/spi/bmi088/accel.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/gyro.hpp"
 #include "firmware/rmcs_board/app/src/spi/bmi088/temperature.hpp"
+#include "firmware/rmcs_board/app/src/spi/icm42688/icm42688.hpp"
 #include "rs485.hpp"
 
 namespace librmcs::firmware {
@@ -18,11 +19,13 @@ void Peripherals::init() {
     spi::bmi088::accelerometer.init();
     spi::bmi088::gyroscope.init();
     spi::bmi088::temperature.init();
+    spi::icm42688::sensor.init();
     for (auto& port : rs485::ports)
         port.init();
 }
 
 void Peripherals::poll() {
+    spi::icm42688::sensor->poll();
     for (auto& port : rs485::ports)
         port->try_transmit();
 }

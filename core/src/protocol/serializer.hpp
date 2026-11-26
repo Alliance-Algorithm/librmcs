@@ -347,6 +347,42 @@ public:
         return SerializeResult::kSuccess;
     }
 
+    SerializeResult write_imu_icm42688(const data::ImuIcm42688DataView& view) noexcept {
+        LIBRMCS_VERIFY_LIKELY(
+            view.variant == data::Icm42688Variant::kTdk
+                || view.variant == data::Icm42688Variant::kHxy,
+            SerializeResult::kInvalidArgument);
+        const std::size_t required = required_imu_size(FieldId::kImu, ImuPayload::kIcm42688);
+        LIBRMCS_VERIFY_LIKELY(required, SerializeResult::kInvalidArgument);
+
+        const auto dst = buffer_.allocate(required);
+        LIBRMCS_VERIFY_LIKELY(!dst.empty(), SerializeResult::kBadAlloc);
+        utility::assert_debug(dst.size() == required);
+        std::byte* cursor = dst.data();
+
+        write_field_header(cursor, FieldId::kImu);
+
+        auto header = ImuHeader::Ref(cursor);
+        cursor += sizeof(ImuHeader);
+        header.set<ImuHeader::PayloadType>(
+            view.variant == data::Icm42688Variant::kHxy ? ImuHeader::PayloadEnum::kIcm42688Hxy
+                                                        : ImuHeader::PayloadEnum::kIcm42688);
+
+        auto payload = ImuIcm42688Payload::Ref(cursor);
+        cursor += sizeof(ImuIcm42688Payload);
+        payload.set<ImuIcm42688Payload::AccelX>(view.acceleration[0]);
+        payload.set<ImuIcm42688Payload::AccelY>(view.acceleration[1]);
+        payload.set<ImuIcm42688Payload::AccelZ>(view.acceleration[2]);
+        payload.set<ImuIcm42688Payload::GyroX>(view.angular_velocity[0]);
+        payload.set<ImuIcm42688Payload::GyroY>(view.angular_velocity[1]);
+        payload.set<ImuIcm42688Payload::GyroZ>(view.angular_velocity[2]);
+        payload.set<ImuIcm42688Payload::Temperature>(view.raw_temperature);
+        payload.set<ImuIcm42688Payload::TimestampQuarterUs>(view.timestamp_quarter_us);
+
+        utility::assert_debug(cursor == dst.data() + dst.size());
+        return SerializeResult::kSuccess;
+    }
+
     SerializeResult write_session_control(const data::SessionControlView& view) noexcept {
         const std::size_t required = required_session_size();
 
@@ -475,7 +511,7 @@ private:
         return total;
     }
 
-    enum class ImuPayload : std::uint8_t { kAccelerometer = 0, kGyroscope = 1, kTemperature = 2 };
+    enum class ImuPayload : uint8_t { kAccelerometer, kGyroscope, kTemperature, kIcm42688 };
 
     static std::size_t required_imu_size(FieldId field_id, ImuPayload payload) noexcept {
         const std::size_t field_header_bytes = required_field_header_size(field_id);
@@ -485,6 +521,7 @@ private:
         case ImuPayload::kAccelerometer: payload_bytes = sizeof(ImuAccelerometerPayload); break;
         case ImuPayload::kGyroscope: payload_bytes = sizeof(ImuGyroscopePayload); break;
         case ImuPayload::kTemperature: payload_bytes = sizeof(ImuTemperaturePayload); break;
+        case ImuPayload::kIcm42688: payload_bytes = sizeof(ImuIcm42688Payload); break;
         default: return 0;
         }
 

@@ -19,7 +19,11 @@ namespace librmcs::firmware::board {
 #define BOARD_UART1(prefix, suffix)     prefix##0##suffix
 #define BOARD_UART2(prefix, suffix)     prefix##7##suffix
 
-#define BOARD_SPI_BMI088(prefix, suffix) prefix##3##suffix
+#define BOARD_SPI_BMI088(prefix, suffix)   prefix##3##suffix
+#define BOARD_SPI_ICM42688(prefix, suffix) prefix##2##suffix
+
+inline constexpr auto kIcm42688ChipSelectPin = make_gpio_pin<gpiom_soc_gpio0, 'C', 27, false>();
+inline constexpr auto kIcm42688IntPin = make_gpio_pin<gpiom_soc_gpio0, 'D', 11>();
 
 inline constexpr GpioPin kBmi088GyroIntPin = make_gpio_pin<gpiom_soc_gpio0, 'D', 7, false>();
 inline constexpr GpioPin kBmi088AccelIntPin = make_gpio_pin<gpiom_soc_gpio0, 'D', 6, false>();

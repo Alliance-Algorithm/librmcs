@@ -35,6 +35,7 @@ public:
             using ImuAccelerometer = data::ImuAccelerometerDataView;
             using ImuGyroscope = data::ImuGyroscopeDataView;
             using ImuTemperature = data::ImuTemperatureDataView;
+            using ImuIcm42688 = data::ImuIcm42688DataView;
         };
 
         virtual void can_receive_callback(const Spec::Can& can, const View::Can& data) {

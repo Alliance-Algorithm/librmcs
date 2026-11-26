@@ -160,6 +160,12 @@ public:
         callback_.temperature_receive_callback(data);
     }
 
+    void icm42688_deserialized_callback(const data::ImuIcm42688DataView& data) override {
+        if (!session_established())
+            return;
+        callback_.icm42688_receive_callback(data);
+    }
+
     void session_control_deserialized_callback(const data::SessionControlView& data) override {
         if (data.nonce != expected_session_nonce_)
             return;

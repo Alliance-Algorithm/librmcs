@@ -1,5 +1,6 @@
 #include "deserializer.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -309,6 +310,36 @@ coroutine::LifoTask<bool> Deserializer::process_imu_field(FieldId) {
         data_view.timestamp_quarter_us = payload.get<ImuTemperaturePayload::TimestampQuarterUs>();
         consume_peeked();
         callback_.temperature_deserialized_callback(data_view);
+        break;
+    }
+    case ImuHeader::PayloadEnum::kIcm42688:
+    case ImuHeader::PayloadEnum::kIcm42688Hxy: {
+        const auto* payload_bytes = co_await peek_bytes(sizeof(ImuIcm42688Payload));
+        if (!payload_bytes) [[unlikely]]
+            co_return false;
+        const auto payload = ImuIcm42688Payload::CRef{payload_bytes};
+        using Frame = ImuIcm42688Payload;
+        const std::array acceleration{
+            payload.get<Frame::AccelX>(),
+            payload.get<Frame::AccelY>(),
+            payload.get<Frame::AccelZ>(),
+        };
+        const std::array angular_velocity{
+            payload.get<Frame::GyroX>(),
+            payload.get<Frame::GyroY>(),
+            payload.get<Frame::GyroZ>(),
+        };
+        const data::ImuIcm42688DataView data_view{
+            .acceleration = acceleration,
+            .angular_velocity = angular_velocity,
+            .raw_temperature = payload.get<Frame::Temperature>(),
+            .timestamp_quarter_us = payload.get<Frame::TimestampQuarterUs>(),
+            .variant = payload_type == ImuHeader::PayloadEnum::kIcm42688Hxy
+                         ? data::Icm42688Variant::kHxy
+                         : data::Icm42688Variant::kTdk,
+        };
+        consume_peeked();
+        callback_.icm42688_deserialized_callback(data_view);
         break;
     }
     default: co_return false;
